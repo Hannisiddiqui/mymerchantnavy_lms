@@ -6,7 +6,19 @@
  * the real endpoint it will call, so switching over is one flag.
  */
 
-export const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL ?? "http://localhost:8000/api/v1";
+/**
+ * Where the backend is. NEXT_PUBLIC_API_URL is read when the site is BUILT, so if it was missing from the build the site
+ * would silently talk to localhost (the visitor's own computer). To make that impossible on the live site, a student site
+ * on lms.<domain> falls back to api.<domain>; only a local copy (localhost) falls back to the local backend.
+ */
+export function apiBaseUrl(): string {
+  const configured = process.env.NEXT_PUBLIC_API_URL;
+  if (configured) return configured;
+  if (typeof window !== "undefined" && window.location.hostname.startsWith("lms.")) {
+    return `${window.location.protocol}//api.${window.location.hostname.slice(4)}/api/v1`;
+  }
+  return "http://localhost:8000/api/v1";
+}
 export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK !== "false";
 
 const TOKEN_KEY = "mmn.token";
@@ -31,7 +43,7 @@ export class ApiError extends Error {
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = tokenStore.get();
   const isUpload = typeof FormData !== "undefined" && init.body instanceof FormData; // browser sets the multipart header itself
-  const res = await fetch(`${API_BASE_URL}${path}`, {
+  const res = await fetch(`${apiBaseUrl()}${path}`, {
     ...init,
     headers: {
       Accept: "application/json",
