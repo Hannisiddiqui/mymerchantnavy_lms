@@ -8,8 +8,8 @@ export const brand = {
   name: "My Merchant Navy",
   shortName: "MMN",
   tagline: "From Aspirant to Officer.",
-  /** Put the logo file at public/brand/logo.png. Until then a text logo is shown. */
-  logoSrc: "/brand/logo.png",
+  /** The app mark shown beside the name (also the browser-tab icon: src/app/icon.png, favicon.ico). */
+  logoSrc: "/brand/logo-mark.png",
   website: "https://mymerchantnavy.com",
   supportEmail: "support@mymerchantnavy.com",
 };
