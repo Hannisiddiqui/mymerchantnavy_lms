@@ -6,3 +6,6 @@ __pycache__/
 student-app/.env*
 !student-app/.env.example
 !student-app/.env.production.example
+
+# accidental local database file
+backend/mmp_lms
