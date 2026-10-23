@@ -79,7 +79,7 @@ sign out the oldest device when a student logs in on one more).
 The student app talks to this backend through `student-app/.env.local` (copy `student-app/.env.example`):
 
 ```
-NEXT_PUBLIC_USE_MOCK=false          # true = built-in sample data, no backend needed
+NEXT_PUBLIC_USE_MOCK=false          # "true" = built-in sample data, no backend needed (off unless set to exactly true)
 NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 ```
 

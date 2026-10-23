@@ -58,3 +58,10 @@ NEXT_PUBLIC_API_URL=https://api.mymerchantnavy.com/api/v1
 ```
 
 `https://lms.mymerchantnavy.com/admin` redirects to `https://api.mymerchantnavy.com/admin`.
+
+### The site can no longer call "localhost" by mistake
+The backend address is decided from the address the page is opened on, not only from the build setting: on `lms.<domain>` the
+site always uses `api.<domain>`, and a `localhost` value that slipped into a build is ignored on a live site. Demo data is
+off unless `NEXT_PUBLIC_USE_MOCK` is exactly `true`. Open `https://lms.mymerchantnavy.com/status` to see which server the site
+uses and whether it can reach it (ask a student to send a screenshot of that page if they report a problem).
+Still set `NEXT_PUBLIC_API_URL` and rebuild when the site gets a name that does not start with `lms.`.

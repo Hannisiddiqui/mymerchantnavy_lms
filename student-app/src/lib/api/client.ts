@@ -1,25 +1,17 @@
 /**
  * Low-level HTTP client for the Laravel API (backend/routes/api.php).
  *
- * While NEXT_PUBLIC_USE_MOCK is not "false", every function in lib/api
- * returns mock data instead of calling the server. Each function shows
- * the real endpoint it will call, so switching over is one flag.
+ * Demo data (no backend needed) is OPT-IN: only when NEXT_PUBLIC_USE_MOCK is exactly "true". A live site that is missing
+ * the setting therefore shows real data, never made-up demo data.
  */
+import { resolveApiBase } from "./base-url";
 
-/**
- * Where the backend is. NEXT_PUBLIC_API_URL is read when the site is BUILT, so if it was missing from the build the site
- * would silently talk to localhost (the visitor's own computer). To make that impossible on the live site, a student site
- * on lms.<domain> falls back to api.<domain>; only a local copy (localhost) falls back to the local backend.
- */
+/** Where the backend is. See base-url.ts: decided from the page's address, so a live site can never call "localhost". */
 export function apiBaseUrl(): string {
-  const configured = process.env.NEXT_PUBLIC_API_URL;
-  if (configured) return configured;
-  if (typeof window !== "undefined" && window.location.hostname.startsWith("lms.")) {
-    return `${window.location.protocol}//api.${window.location.hostname.slice(4)}/api/v1`;
-  }
-  return "http://localhost:8000/api/v1";
+  return resolveApiBase(process.env.NEXT_PUBLIC_API_URL, typeof window === "undefined" ? null : window.location);
 }
-export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK !== "false";
+
+export const USE_MOCK = process.env.NEXT_PUBLIC_USE_MOCK === "true";
 
 const TOKEN_KEY = "mmn.token";
 
@@ -43,15 +35,22 @@ export class ApiError extends Error {
 export async function request<T>(path: string, init: RequestInit = {}): Promise<T> {
   const token = tokenStore.get();
   const isUpload = typeof FormData !== "undefined" && init.body instanceof FormData; // browser sets the multipart header itself
-  const res = await fetch(`${apiBaseUrl()}${path}`, {
-    ...init,
-    headers: {
-      Accept: "application/json",
-      ...(isUpload ? {} : { "Content-Type": "application/json" }),
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...init.headers,
-    },
-  });
+  let res: Response;
+  try {
+    res = await fetch(`${apiBaseUrl()}${path}`, {
+      ...init,
+      headers: {
+        Accept: "application/json",
+        ...(isUpload ? {} : { "Content-Type": "application/json" }),
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...init.headers,
+      },
+    });
+  } catch (err) {
+    // No answer at all (offline, server down, blocked): say it in plain words instead of the browser's "Failed to fetch".
+    if (err instanceof Error && err.message.startsWith("This site does not know")) throw err;
+    throw new ApiError("We can't reach the server right now. Please check your internet connection and try again in a moment.", 0);
+  }
 
   // Token expired / device logged out → back to login (not for the login screens themselves).
   if (res.status === 401 && typeof window !== "undefined" && !path.startsWith("/auth/")) {
