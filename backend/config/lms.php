@@ -5,8 +5,13 @@
 */
 
 return [
-    // Devices a student can be logged in on at once. A new login signs out the oldest device.
-    'max_devices' => (int) env('LMS_MAX_DEVICES', 2),
+    // How students log in: 'email' (a one-time code is emailed; Brevo) or 'phone' (the SMS login, kept but switched off).
+    // The student app must use the same value (NEXT_PUBLIC_LOGIN_METHOD).
+    'login_method' => env('LMS_LOGIN_METHOD', 'email') === 'phone' ? 'phone' : 'email',
+
+    // Devices a student can be logged in on at once. 0 = no limit: a student is only logged out when they log out
+    // themselves. With a number (e.g. 2) a login on one more device signs out the oldest one.
+    'max_devices' => (int) env('LMS_MAX_DEVICES', 0),
 
     // Student app URL (used in emails and CORS).
     'student_app_url' => env('STUDENT_APP_URL', 'http://localhost:3000'),

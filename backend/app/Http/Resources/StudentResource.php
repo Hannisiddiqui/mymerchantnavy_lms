@@ -12,10 +12,11 @@ class StudentResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'phone' => $this->phone,
+            'phone' => $this->phone ?? '',
             'name' => $this->name ?? '',
             'nickname' => $this->nickname ?? '',
             'email' => $this->email ?? '',
+            'emailVerified' => $this->email_verified_at !== null,
             'targetExam' => $this->target_exam ?? '',
             'attemptYear' => $this->attempt_year ?? 0,
         ];

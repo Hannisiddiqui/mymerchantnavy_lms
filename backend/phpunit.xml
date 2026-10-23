@@ -27,6 +27,10 @@
         <env name="DB_DATABASE" value=":memory:"/>
         <env name="DB_URL" value=""/>
         <env name="MAIL_MAILER" value="array"/>
+        <env name="LMS_LOGIN_METHOD" value="email"/>
+        <env name="LMS_MAX_DEVICES" value="0"/>
+        <env name="OTP_EMAIL_DRIVER" value="mail"/>
+        <env name="OTP_FIXED_CODE" value=""/>
         <env name="QUEUE_CONNECTION" value="sync"/>
         <env name="SESSION_DRIVER" value="array"/>
         <env name="PULSE_ENABLED" value="false"/>

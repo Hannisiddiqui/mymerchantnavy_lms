@@ -45,8 +45,11 @@ export function attemptYears(from = new Date().getFullYear()): number[] {
   return [from, from + 1, from + 2, from + 3];
 }
 
-/** Maximum devices a student can be logged in on at once (enforced by the backend). */
-export const MAX_DEVICES = 2;
+/**
+ * How students log in: "email" (default: a one-time code is emailed) or "phone" (the SMS login, kept but switched off).
+ * Set NEXT_PUBLIC_LOGIN_METHOD; it must match LMS_LOGIN_METHOD on the server.
+ */
+export const LOGIN_METHOD: "email" | "phone" = process.env.NEXT_PUBLIC_LOGIN_METHOD === "phone" ? "phone" : "email";
 
-/** Seconds before the "Resend OTP" link becomes active. */
+/** Seconds before the "Resend code" link becomes active. */
 export const OTP_RESEND_SECONDS = 30;

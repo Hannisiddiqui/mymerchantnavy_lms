@@ -69,7 +69,12 @@ To preview without PostgreSQL, run the backend with `DB_CONNECTION=sqlite` set i
 | Any admin list/form | `app/Filament/Resources/<Name>Resource.php` |
 | Dashboard | `app/Filament/Widgets/` |
 
-With `OTP_DRIVER=log`, OTP codes are written to `backend/storage/logs/laravel.log` instead of being sent by SMS.
+**Login:** students log in with their **email address**; a 6-digit code is emailed (`LMS_LOGIN_METHOD=email`, the default).
+With `OTP_EMAIL_DRIVER=log`, codes are written to `backend/storage/logs/laravel.log` instead of being emailed.
+The mobile-number + SMS login is still in the code but switched off: set `LMS_LOGIN_METHOD=phone` in `backend/.env` and
+`NEXT_PUBLIC_LOGIN_METHOD=phone` in the student app to bring it back (the two must match).
+Students stay logged in until they log out themselves (`LMS_MAX_DEVICES=0` means no device limit; set a number such as `2` to
+sign out the oldest device when a student logs in on one more).
 
 The student app talks to this backend through `student-app/.env.local` (copy `student-app/.env.example`):
 
@@ -79,7 +84,8 @@ NEXT_PUBLIC_API_URL=http://localhost:8000/api/v1
 ```
 
 Restart `npm run dev` after changing it. In development `OTP_FIXED_CODE=123456` in `backend/.env` means every login code is `123456`.
-The student demo login is the seeded number `9876543210`.
+The student demo login is the seeded email `aarav@example.com`.
+Create a test student from the terminal with `php artisan lms:create-student someone@example.com --name="Someone" --all-courses`.
 
 ### Importing questions from PDF / Excel
 
@@ -110,8 +116,8 @@ The file is read into a **review list**; nothing is added to a test until you ti
 | `php artisan schedule:run` every minute (cron) | auto-submits tests whose time ran out, sends "live class starting soon" reminders |
 | `php artisan queue:work` + `QUEUE_CONNECTION=database` (or redis) | emails and PDF processing run in the background (locally it is `sync`, so no worker is needed) |
 | Python + `pip install pymupdf` (or `poppler-utils`) | renders uploaded PDFs to page images (students never receive the PDF file) and reads questions out of PDFs |
-| `OTP_DRIVER=twilio` + Twilio keys, remove `OTP_FIXED_CODE` | real SMS login |
-| `MAIL_*` settings | course-assigned / result / live-class emails |
+| `MAIL_*` settings (Brevo SMTP) + `OTP_EMAIL_DRIVER=mail`, remove `OTP_FIXED_CODE` | the emailed login code, and the course-assigned / result / live-class emails |
+| `OTP_DRIVER=twilio` + Twilio keys, `LMS_LOGIN_METHOD=phone` | only if you switch the SMS login back on |
 
 ### Where student API logic lives (`backend/app`)
 

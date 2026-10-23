@@ -3,7 +3,6 @@
 import { useState } from "react";
 import { CircleCheck, Monitor, Smartphone } from "lucide-react";
 import * as api from "@/lib/api";
-import { MAX_DEVICES } from "@/lib/config";
 import { useApi } from "@/lib/use-api";
 import { timeAgo } from "@/lib/utils";
 import { ProfileForm } from "@/components/profile/ProfileForm";
@@ -39,10 +38,11 @@ export default function ProfilePage() {
               </p>
             )}
             <ProfileForm
-              phone={me.phone}
-              initial={{ name: me.name, nickname: me.nickname, email: me.email, targetExam: me.targetExam, attemptYear: me.attemptYear }}
+              emailVerified={me.emailVerified}
+              initial={{ name: me.name, nickname: me.nickname, email: me.email, phone: me.phone, targetExam: me.targetExam, attemptYear: me.attemptYear }}
               submitLabel="Save changes"
               onSubmit={async (values) => {
+                setSaved(false);
                 await api.profile.updateMe(values);
                 setSaved(true);
               }}
@@ -54,7 +54,7 @@ export default function ProfilePage() {
           <CardHeader title="Logged-in devices" />
           <div className="p-5">
             <p className="mb-4 text-xs leading-relaxed text-slate-500">
-              You can stay logged in on up to {MAX_DEVICES} devices. Logging in on another device signs out the oldest one.
+              You stay logged in on each of these devices until you log out. If you no longer use a device, log it out here.
             </p>
             <ul className="space-y-3">
               {devices?.map((d) => (

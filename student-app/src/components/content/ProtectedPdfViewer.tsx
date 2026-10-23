@@ -69,7 +69,7 @@ export function ProtectedPdfViewer({ contentId, pageCount, onReachEnd }: { conte
     };
   }, [full]);
 
-  const watermark = me ? `${me.name} · ${me.phone}` : "";
+  const watermark = me ? `${me.name} · ${me.email || me.phone}` : "";
 
   return (
     <div
@@ -146,7 +146,7 @@ function ToolButton({ label, children, ...rest }: React.ButtonHTMLAttributes<HTM
   );
 }
 
-/** Diagonal repeated student name + phone. The server burns the same watermark into the real page images. */
+/** Diagonal repeated student name + login (email). The server burns the same watermark into the real page images. */
 function Watermark({ text }: { text: string }) {
   return (
     <div aria-hidden className="pointer-events-none absolute inset-0 grid grid-cols-2 place-items-center gap-y-24 overflow-hidden">

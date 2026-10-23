@@ -11,7 +11,10 @@ use App\Services\Otp\OtpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
-/** Mobile number + OTP login. */
+/**
+ * Email + one-time code login (the default). The mobile number + OTP login is still here, switched on with
+ * LMS_LOGIN_METHOD=phone.
+ */
 class AuthController extends Controller
 {
     public function __construct(private OtpService $otp, private DeviceSessionService $devices) {}
@@ -19,19 +22,25 @@ class AuthController extends Controller
     /** POST /api/v1/auth/otp/send */
     public function sendOtp(SendOtpRequest $request): JsonResponse
     {
-        $this->otp->send($request->validated('phone'));
+        $this->otp->send($request->validated(OtpService::column()));
 
-        return response()->json(['data' => null, 'message' => 'OTP sent']);
+        return response()->json(['data' => null, 'message' => OtpService::column() === 'email' ? 'Code emailed' : 'OTP sent']);
     }
 
-    /** POST /api/v1/auth/otp/verify — creates the student on first login. */
+    /** POST /api/v1/auth/otp/verify: creates the student on first login. The device stays logged in until they log out. */
     public function verifyOtp(VerifyOtpRequest $request): JsonResponse
     {
-        $phone = $request->validated('phone');
-        $this->otp->verify($phone, $request->validated('code'));
+        $column = OtpService::column();
+        $identifier = $request->validated($column);
+        $this->otp->verify($identifier, $request->validated('code'));
 
-        $user = User::firstOrCreate(['phone' => $phone]);
+        $user = $this->findOrCreate($column, $identifier);
         abort_unless($user->is_active, 403, 'Your account is disabled. Please contact support.');
+
+        // Receiving the code proves the address is theirs.
+        if ($column === 'email' && ! $user->email_verified_at) {
+            $user->forceFill(['email_verified_at' => now()])->save();
+        }
 
         $token = $this->devices->login($user, $request->validated('device_name') ?? 'Unknown device');
 
@@ -41,11 +50,21 @@ class AuthController extends Controller
         ]]);
     }
 
-    /** POST /api/v1/auth/logout — logs out this device only. */
+    /** POST /api/v1/auth/logout: logs out this device only. */
     public function logout(Request $request): JsonResponse
     {
         $request->user()->currentAccessToken()->delete();
 
         return response()->json(['data' => null]);
+    }
+
+    /** Emails are matched ignoring case (an admin may have typed "Riya@Example.com"). */
+    private function findOrCreate(string $column, string $identifier): User
+    {
+        if ($column === 'phone') {
+            return User::firstOrCreate(['phone' => $identifier]);
+        }
+
+        return User::whereRaw('lower(email) = ?', [$identifier])->first() ?? User::create(['email' => $identifier]);
     }
 }

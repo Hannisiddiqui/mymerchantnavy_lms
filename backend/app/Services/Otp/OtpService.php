@@ -7,41 +7,50 @@ use Illuminate\Support\Facades\Hash;
 use Illuminate\Validation\ValidationException;
 
 /**
- * Creates, sends and checks login codes.
+ * Creates, sends and checks login codes, for email (the default) or phone (LMS_LOGIN_METHOD=phone).
  * Codes are stored hashed, expire after `otp.ttl_minutes`, and lock after `otp.max_attempts` wrong tries.
  */
 class OtpService
 {
     public function __construct(private OtpSender $sender) {}
 
-    public function send(string $phone): void
+    /** The column a login code is tied to: 'email' or 'phone'. */
+    public static function column(): string
     {
-        $latest = OtpCode::where('phone', $phone)->latest('id')->first();
+        return config('lms.login_method') === 'phone' ? 'phone' : 'email';
+    }
+
+    /** @param string $to the email address (lower case) or the 10-digit mobile number */
+    public function send(string $to): void
+    {
+        $column = self::column();
+
+        $latest = OtpCode::where($column, $to)->latest('id')->first();
         $wait = config('otp.resend_after_seconds');
         if ($latest && $latest->created_at->gt(now()->subSeconds($wait))) {
-            throw ValidationException::withMessages(['phone' => "Please wait {$wait} seconds before requesting a new code."]);
+            throw ValidationException::withMessages([$column => "Please wait {$wait} seconds before requesting a new code."]);
         }
 
         $code = $this->generateCode();
 
-        // Only the newest code for a number is valid.
-        OtpCode::where('phone', $phone)->whereNull('used_at')->delete();
+        // Only the newest code for an address is valid.
+        OtpCode::where($column, $to)->whereNull('used_at')->delete();
         OtpCode::create([
-            'phone' => $phone,
+            $column => $to,
             'code_hash' => Hash::make($code),
             'expires_at' => now()->addMinutes(config('otp.ttl_minutes')),
         ]);
 
-        $this->sender->send($phone, strtr(config('otp.message'), [
+        $this->sender->send($to, strtr(config('otp.message'), [
             ':code' => $code,
             ':minutes' => config('otp.ttl_minutes'),
-        ]));
+        ]), $code);
     }
 
     /** @throws ValidationException when the code is wrong, expired or locked */
-    public function verify(string $phone, string $code): void
+    public function verify(string $to, string $code): void
     {
-        $otp = OtpCode::where('phone', $phone)->whereNull('used_at')->latest('id')->first();
+        $otp = OtpCode::where(self::column(), $to)->whereNull('used_at')->latest('id')->first();
 
         if (! $otp || $otp->expires_at->isPast()) {
             throw ValidationException::withMessages(['code' => 'This code has expired. Please request a new one.']);

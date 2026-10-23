@@ -23,7 +23,7 @@ class StudentsWaiting extends TableWidget
         return $table
             ->query(fn () => User::doesntHave('courses')->latest())
             ->columns([
-                TextColumn::make('phone')->weight('bold'),
+                TextColumn::make('email')->weight('bold')->placeholder('—'),
                 TextColumn::make('name')->placeholder('— profile not completed —'),
                 TextColumn::make('target_exam')->label('Target exam')->placeholder('—'),
                 TextColumn::make('created_at')->label('Registered')->since(),

@@ -10,7 +10,7 @@ class OtpCode extends Model
 {
     use Prunable;
 
-    protected $fillable = ['phone', 'code_hash', 'attempts', 'expires_at', 'used_at'];
+    protected $fillable = ['phone', 'email', 'code_hash', 'attempts', 'expires_at', 'used_at'];
 
     protected function casts(): array
     {

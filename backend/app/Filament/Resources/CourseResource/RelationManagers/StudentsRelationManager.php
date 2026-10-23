@@ -25,9 +25,9 @@ class StudentsRelationManager extends RelationManager
     {
         return $table
             ->columns([
-                TextColumn::make('phone')->searchable(),
+                TextColumn::make('email')->searchable(),
                 TextColumn::make('name')->searchable()->placeholder('— profile not completed —'),
-                TextColumn::make('email')->toggleable(),
+                TextColumn::make('phone')->label('Mobile')->toggleable()->placeholder('—'),
                 TextColumn::make('pivot.assigned_at')->label('Assigned on')->dateTime('d M Y, h:i A'),
             ])
             ->headerActions([
@@ -35,9 +35,9 @@ class StudentsRelationManager extends RelationManager
                     ->schema([
                         Select::make('students')->label('Students')->multiple()->required()->searchable()
                             ->getSearchResultsUsing(fn (string $search) => User::query()
-                                ->where(fn ($q) => $q->whereLike('phone', "%{$search}%")->orWhereLike('name', "%{$search}%"))
-                                ->limit(30)->get()->mapWithKeys(fn (User $u) => [$u->id => "{$u->phone} — ".($u->name ?: 'no name yet')]))
-                            ->helperText('Search by mobile number or name. The student gets a notification.'),
+                                ->where(fn ($q) => $q->whereLike('email', "%{$search}%")->orWhereLike('phone', "%{$search}%")->orWhereLike('name', "%{$search}%"))
+                                ->limit(30)->get()->mapWithKeys(fn (User $u) => [$u->id => "{$u->loginId()} — ".($u->name ?: 'no name yet')]))
+                            ->helperText('Search by email, mobile number or name. The student gets a notification.'),
                     ])
                     ->action(function (array $data) {
                         /** @var Course $course */

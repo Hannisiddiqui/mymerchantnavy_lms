@@ -9,6 +9,7 @@ const demoStudent: Student = {
   name: "Aarav Sharma",
   nickname: "Aarav",
   email: "aarav.sharma@example.com",
+  emailVerified: true,
   targetExam: "IMU-CET",
   attemptYear: 2027,
 };
@@ -17,12 +18,13 @@ export async function getMe(): Promise<Student> {
   if (USE_MOCK) {
     await mockDelay(150);
     const { student } = readState();
-    return student?.name ? student : { ...demoStudent, ...(student?.phone ? { phone: student.phone } : {}) };
+    return student?.name ? student : { ...demoStudent, ...(student?.phone ? { phone: student.phone } : {}), ...(student?.email ? { email: student.email } : {}) };
   }
   return request<Student>("/me");
 }
 
-export type ProfileInput = Pick<Student, "name" | "nickname" | "email" | "targetExam" | "attemptYear">;
+/** With email login the server ignores `email` (the verified login) and keeps `phone` as an optional extra. */
+export type ProfileInput = Pick<Student, "name" | "nickname" | "email" | "phone" | "targetExam" | "attemptYear">;
 
 export async function updateMe(input: ProfileInput): Promise<Student> {
   if (USE_MOCK) {

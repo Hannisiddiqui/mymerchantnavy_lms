@@ -29,7 +29,7 @@ class PdfPageController extends Controller
         $path = $pages->pagePath($item->contentable, $page);
         abort_unless($path, 404);
 
-        $png = $watermark->apply($path, trim("{$student->name} · {$student->phone}", ' ·'));
+        $png = $watermark->apply($path, trim("{$student->name} · {$student->loginId()}", ' ·'));
 
         return response($png, 200, [
             'Content-Type' => 'image/png',

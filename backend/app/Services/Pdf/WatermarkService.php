@@ -5,7 +5,7 @@ namespace App\Services\Pdf;
 use RuntimeException;
 
 /**
- * Burns the student's name and phone into a page image, repeated diagonally.
+ * Burns the student's name and login (email or phone) into a page image, repeated diagonally.
  * A screenshot or photo of the page therefore always carries who it came from.
  */
 class WatermarkService

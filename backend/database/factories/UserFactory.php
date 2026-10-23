@@ -26,13 +26,12 @@ class UserFactory extends Factory
         ];
     }
 
-    /** A student who has logged in but not filled the profile yet. */
+    /** A student who has logged in (so has an email) but not filled the profile yet. */
     public function withoutProfile(): static
     {
         return $this->state(fn () => [
             'name' => null,
             'nickname' => null,
-            'email' => null,
             'target_exam' => null,
             'attempt_year' => null,
             'profile_completed_at' => null,

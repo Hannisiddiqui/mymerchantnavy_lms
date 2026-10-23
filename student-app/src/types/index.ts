@@ -7,10 +7,13 @@
 
 export interface Student {
   id: number;
+  /** Optional: empty when the student logs in by email and has not added a number. */
   phone: string;
   name: string;
   nickname: string;
+  /** The login when students log in by email. Verified by the one-time code, so it cannot be changed. */
   email: string;
+  emailVerified: boolean;
   targetExam: string;
   attemptYear: number;
 }

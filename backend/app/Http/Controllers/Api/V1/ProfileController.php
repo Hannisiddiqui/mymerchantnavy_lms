@@ -28,11 +28,12 @@ class ProfileController extends Controller
         $user->update([
             'name' => $data['name'],
             'nickname' => $data['nickname'],
-            'email' => $data['email'],
             'target_exam' => $data['targetExam'],
             'attempt_year' => $data['attemptYear'],
             'profile_completed_at' => $user->profile_completed_at ?? now(),
-        ]);
+        ] + (config('lms.login_method') === 'phone'
+            ? ['email' => $data['email']]
+            : ['phone' => filled($data['phone'] ?? null) ? $data['phone'] : null]));
 
         return new StudentResource($user);
     }

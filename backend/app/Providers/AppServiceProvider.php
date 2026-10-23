@@ -14,8 +14,13 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        // SMS provider for OTP, chosen by OTP_DRIVER (config/otp.php).
-        $this->app->bind(OtpSender::class, fn ($app) => $app->make(config('otp.drivers')[config('otp.driver')]));
+        // How the login code is delivered (config/otp.php): the email driver when students log in by email,
+        // the SMS driver when they log in by phone.
+        $this->app->bind(OtpSender::class, function ($app) {
+            $driver = config('lms.login_method') === 'phone' ? config('otp.driver') : config('otp.email_driver');
+
+            return $app->make(config('otp.drivers')[$driver]);
+        });
     }
 
     public function boot(): void
@@ -23,8 +28,8 @@ class AppServiceProvider extends ServiceProvider
         // Logged-in API calls: generous (a student saves an answer on every click) but not unlimited. Per student.
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(300)->by($request->user()?->id ?: $request->ip()));
 
-        // OTP requests: limited per phone number + IP, so many students on one Wi-Fi aren't blocked together.
-        RateLimiter::for('otp', fn (Request $request) => Limit::perMinute(5)->by($request->input('phone').'|'.$request->ip()));
+        // Code requests: limited per email (or phone) + IP, so many students on one Wi-Fi aren't blocked together.
+        RateLimiter::for('otp', fn (Request $request) => Limit::perMinute(5)->by(mb_strtolower((string) ($request->input('email') ?: $request->input('phone'))).'|'.$request->ip()));
 
         // Short names stored in polymorphic `*_type` columns instead of PHP class names.
         Relation::enforceMorphMap([

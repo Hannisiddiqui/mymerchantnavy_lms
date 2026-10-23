@@ -32,7 +32,7 @@ class EnrollmentResource extends Resource
         return $table
             ->modifyQueryUsing(fn ($query) => $query->with(['user', 'course', 'assignedBy']))
             ->columns([
-                TextColumn::make('user.phone')->label('Mobile')->searchable(),
+                TextColumn::make('user.email')->label('Email')->searchable(),
                 TextColumn::make('user.name')->label('Student')->searchable()->placeholder('—'),
                 TextColumn::make('course.title')->label('Course')->sortable(),
                 TextColumn::make('assignedBy.name')->label('Assigned by')->placeholder('—'),

@@ -23,8 +23,8 @@ export default function OnboardingPage() {
         <Skeleton className="h-96" />
       ) : (
         <ProfileForm
-          phone={me.phone}
-          initial={{ name: "", nickname: "", email: "", targetExam: "", attemptYear: 0 }}
+          emailVerified={me.emailVerified}
+          initial={{ name: "", nickname: "", email: me.email, phone: me.phone, targetExam: "", attemptYear: 0 }}
           submitLabel="Save & go to dashboard"
           onSubmit={async (values) => {
             await api.profile.updateMe(values);

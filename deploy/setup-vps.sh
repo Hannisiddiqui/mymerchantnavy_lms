@@ -59,7 +59,7 @@ DB_PASS=$(grep '^DB_PASSWORD=' "$CREDS" | cut -d= -f2)
 
 # ---------- 3. backend ----------
 say "Backend settings"
-if [ "$TEST_MODE" = "1" ]; then APP_ENV_VAL=staging; OTP_LINES=$'OTP_DRIVER=log\nOTP_FIXED_CODE=123456'; else APP_ENV_VAL=production; OTP_LINES=$'OTP_DRIVER=twilio\nTWILIO_SID=\nTWILIO_AUTH_TOKEN=\nTWILIO_FROM='; fi
+if [ "$TEST_MODE" = "1" ]; then APP_ENV_VAL=staging; OTP_LINES=$'LMS_LOGIN_METHOD=email\nOTP_EMAIL_DRIVER=log\nOTP_DRIVER=log\nOTP_FIXED_CODE=123456'; else APP_ENV_VAL=production; OTP_LINES=$'LMS_LOGIN_METHOD=email\nOTP_EMAIL_DRIVER=mail\nOTP_DRIVER=twilio\nTWILIO_SID=\nTWILIO_AUTH_TOKEN=\nTWILIO_FROM='; fi
 
 if [ ! -f "$APP_DIR/backend/.env" ]; then
 cat > "$APP_DIR/backend/.env" <<ENV
@@ -89,7 +89,7 @@ $OTP_LINES
 MAIL_MAILER=log
 MAIL_FROM_ADDRESS="no-reply@$BASE_DOMAIN"
 MAIL_FROM_NAME="My Merchant Navy"
-LMS_MAX_DEVICES=2
+LMS_MAX_DEVICES=0
 LMS_PYTHON=/opt/lms-venv/bin/python
 GEMINI_API_KEY=
 GEMINI_MODEL=gemini-3.8-flash
@@ -113,7 +113,7 @@ php artisan config:cache && php artisan route:cache && php artisan view:cache &&
 # ---------- 4. student website ----------
 say "Student website (this takes a few minutes)"
 cd "$APP_DIR/student-app"
-printf 'NEXT_PUBLIC_USE_MOCK=false\nNEXT_PUBLIC_API_URL=https://%s/api/v1\n' "$API_HOST" > .env.production
+printf 'NEXT_PUBLIC_USE_MOCK=false\nNEXT_PUBLIC_LOGIN_METHOD=email\nNEXT_PUBLIC_API_URL=https://%s/api/v1\n' "$API_HOST" > .env.production
 npm ci --no-audit --no-fund
 npm run build
 chown -R www-data:www-data "$APP_DIR/student-app"

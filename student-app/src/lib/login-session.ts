@@ -1,8 +1,8 @@
-/** Remembers the phone number between the login and OTP screens (kept out of the URL). */
-const KEY = "mmn.loginPhone";
+/** Remembers the email (or phone number) between the login and code screens (kept out of the URL). */
+const KEY = "mmn.loginIdentity";
 
-export const loginPhone = {
+export const loginIdentity = {
   get: () => (typeof window === "undefined" ? null : window.sessionStorage.getItem(KEY)),
-  set: (phone: string) => window.sessionStorage.setItem(KEY, phone),
+  set: (identity: string) => window.sessionStorage.setItem(KEY, identity),
   clear: () => window.sessionStorage.removeItem(KEY),
 };

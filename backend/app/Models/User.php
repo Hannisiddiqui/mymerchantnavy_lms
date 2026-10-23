@@ -11,7 +11,8 @@ use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
 /**
- * A STUDENT. Logs in with phone + OTP; each login creates a Sanctum token (one per device).
+ * A STUDENT. Logs in with email + a one-time code (or phone + OTP when LMS_LOGIN_METHOD=phone); each login creates a
+ * Sanctum token (one per device).
  */
 class User extends Authenticatable
 {
@@ -23,6 +24,7 @@ class User extends Authenticatable
         'name',
         'nickname',
         'email',
+        'email_verified_at',
         'target_exam',
         'attempt_year',
         'profile_completed_at',
@@ -37,6 +39,7 @@ class User extends Authenticatable
     {
         return [
             'attempt_year' => 'integer',
+            'email_verified_at' => 'datetime',
             'profile_completed_at' => 'datetime',
             'is_active' => 'boolean',
         ];
@@ -57,6 +60,12 @@ class User extends Authenticatable
     public function attempts(): HasMany
     {
         return $this->hasMany(TestAttempt::class);
+    }
+
+    /** What identifies the student on screen: their login (email, or phone when logging in by SMS). */
+    public function loginId(): string
+    {
+        return (string) (config('lms.login_method') === 'phone' ? ($this->phone ?: $this->email) : ($this->email ?: $this->phone));
     }
 
     public function needsProfile(): bool

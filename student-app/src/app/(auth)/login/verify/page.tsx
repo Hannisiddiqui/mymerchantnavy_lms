@@ -5,8 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import * as api from "@/lib/api";
-import { OTP_RESEND_SECONDS } from "@/lib/config";
-import { loginPhone } from "@/lib/login-session";
+import { LOGIN_METHOD, OTP_RESEND_SECONDS } from "@/lib/config";
+import { loginIdentity } from "@/lib/login-session";
 import { Button } from "@/components/ui/Button";
 import { cn } from "@/lib/utils";
 
@@ -14,7 +14,8 @@ const LENGTH = 6;
 
 export default function VerifyOtpPage() {
   const router = useRouter();
-  const [phone, setPhone] = useState<string | null>(null);
+  const byEmail = LOGIN_METHOD === "email";
+  const [identity, setIdentity] = useState<string | null>(null);
   const [digits, setDigits] = useState<string[]>(Array(LENGTH).fill(""));
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
@@ -22,9 +23,9 @@ export default function VerifyOtpPage() {
   const inputs = useRef<(HTMLInputElement | null)[]>([]);
 
   useEffect(() => {
-    const p = loginPhone.get();
-    if (!p) router.replace("/login");
-    else setPhone(p);
+    const stored = loginIdentity.get();
+    if (!stored) router.replace("/login");
+    else setIdentity(stored);
   }, [router]);
 
   useEffect(() => {
@@ -53,11 +54,11 @@ export default function VerifyOtpPage() {
 
   async function verify(e?: React.FormEvent) {
     e?.preventDefault();
-    if (!phone || code.length !== LENGTH) return;
+    if (!identity || code.length !== LENGTH) return;
     setLoading(true);
     try {
-      const { needsProfile } = await api.auth.verifyOtp(phone, code);
-      loginPhone.clear();
+      const { needsProfile } = await api.auth.verifyOtp(identity, code);
+      loginIdentity.clear();
       router.replace(needsProfile ? "/onboarding" : "/my-courses");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid code");
@@ -66,8 +67,8 @@ export default function VerifyOtpPage() {
   }
 
   async function resend() {
-    if (!phone) return;
-    await api.auth.sendOtp(phone);
+    if (!identity) return;
+    await api.auth.sendOtp(identity);
     setResendIn(OTP_RESEND_SECONDS);
     setDigits(Array(LENGTH).fill(""));
     inputs.current[0]?.focus();
@@ -76,14 +77,15 @@ export default function VerifyOtpPage() {
   return (
     <div>
       <Link href="/login" className="mb-8 inline-flex items-center gap-1.5 text-sm font-semibold text-slate-500 hover:text-brand-600">
-        <ArrowLeft className="size-4" /> Change number
+        <ArrowLeft className="size-4" /> {byEmail ? "Change email" : "Change number"}
       </Link>
       <div className="mb-6 grid size-12 place-items-center rounded-2xl bg-brand-50 text-brand-600">
         <ShieldCheck className="size-6" />
       </div>
-      <h2 className="text-2xl text-navy-900 sm:text-3xl">Enter OTP</h2>
+      <h2 className="text-2xl text-navy-900 sm:text-3xl">{byEmail ? "Check your email" : "Enter OTP"}</h2>
       <p className="mt-2 text-slate-500">
-        We sent a 6-digit code to <span className="font-semibold text-navy-900">+91 {phone}</span>
+        We sent a 6-digit code to <span className="break-all font-semibold text-navy-900">{byEmail ? identity : `+91 ${identity}`}</span>
+        {byEmail && <span className="mt-1 block text-xs">It can take a minute to arrive. Check your spam folder if you do not see it.</span>}
       </p>
 
       <form onSubmit={verify} className="mt-8">
@@ -121,7 +123,7 @@ export default function VerifyOtpPage() {
           <span>Resend in {resendIn}s</span>
         ) : (
           <button onClick={resend} className="font-semibold text-brand-600 hover:underline">
-            Resend OTP
+            Resend code
           </button>
         )}
       </p>

@@ -36,7 +36,7 @@ class DatabaseSeeder extends Seeder
             ['9876543210', 'Aarav Sharma', 'Aarav', 'aarav@example.com'],
             ['9123456780', 'Riya Patel', 'Riya', 'riya@example.com'],
         ])->map(fn ($s) => User::factory()->create(['phone' => $s[0], 'name' => $s[1], 'nickname' => $s[2], 'email' => $s[3]]));
-        User::factory()->withoutProfile()->create(['phone' => '9000011111']); // registered, waiting for a course
+        User::factory()->withoutProfile()->create(['phone' => '9000011111', 'email' => 'newstudent@example.com']); // registered, waiting for a course
 
         // ---- A small question bank ----
         $bank = collect([

@@ -8,8 +8,11 @@
 */
 
 return [
-    // twilio | log (log = writes the code to storage/logs, for local development)
+    // Used when students log in by PHONE: twilio | log (log = writes the code to storage/logs, for local development)
     'driver' => env('OTP_DRIVER', 'log'),
+
+    // Used when students log in by EMAIL: mail (sent with the MAIL_* settings, e.g. Brevo) | log (local development)
+    'email_driver' => env('OTP_EMAIL_DRIVER', 'mail'),
 
     // DEVELOPMENT ONLY: when set, every OTP is this code (e.g. 123456). Ignored when APP_ENV=production.
     'fixed_code' => env('OTP_FIXED_CODE'),
@@ -23,6 +26,7 @@ return [
 
     'drivers' => [
         'log' => App\Services\Otp\LogSender::class,
+        'mail' => App\Services\Otp\MailSender::class,
         'twilio' => App\Services\Otp\TwilioSender::class,
         // 'msg91' => App\Services\Otp\Msg91Sender::class,
         // 'fast2sms' => App\Services\Otp\Fast2SmsSender::class,
