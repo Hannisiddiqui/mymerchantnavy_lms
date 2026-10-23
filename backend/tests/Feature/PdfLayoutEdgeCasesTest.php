@@ -42,4 +42,19 @@ class PdfLayoutEdgeCasesTest extends TestCase
         $this->assertStringNotContainsString('2x+5', $q['body']);
         $this->assertSame(4, $q['correct']);
     }
+
+    public function test_question_header_on_one_line_with_numbered_steps_reads_each_question_once(): void
+    {
+        // "Question 1 <section> Easy · Concept" on one line; "1. Write the sum." inside the explanation is not a question.
+        $result = app(PdfRuleParser::class)->parse(base_path('tests/Fixtures/inline-header.pdf'));
+        $questions = collect($result->questions)->keyBy('number');
+
+        $this->assertSame([1, 2, 3], $questions->keys()->all());
+        $this->assertSame(3, $questions[1]['correct']);
+        $this->assertSame('easy', $questions[1]['difficulty']);
+        $this->assertSame('concept', $questions[1]['kind']);
+        $this->assertSame(['1', '2', '3', '9'], [$questions[1]['option_1'], $questions[1]['option_2'], $questions[1]['option_3'], $questions[1]['option_4']]);
+        $this->assertStringContainsString('Step by step', $questions[1]['explanation']);
+        $this->assertStringContainsString('2. Add them.', $questions[1]['explanation']);
+    }
 }

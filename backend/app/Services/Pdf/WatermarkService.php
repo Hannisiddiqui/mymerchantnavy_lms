@@ -49,6 +49,8 @@ class WatermarkService
             'C:\\Windows\\Fonts\\arial.ttf',
             '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
             '/usr/share/fonts/dejavu/DejaVuSans.ttf',
+            '/usr/share/fonts/google-droid/DroidSans.ttf', // Hostinger shared hosting
+            '/usr/share/fonts/liberation/LiberationSans-Regular.ttf',
             '/Library/Fonts/Arial.ttf',
         ]);
 

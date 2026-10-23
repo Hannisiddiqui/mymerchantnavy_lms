@@ -37,6 +37,8 @@ class StudentsRelationManager extends RelationManager
                             ->getSearchResultsUsing(fn (string $search) => User::query()
                                 ->where(fn ($q) => $q->whereLike('email', "%{$search}%")->orWhereLike('phone', "%{$search}%")->orWhereLike('name', "%{$search}%"))
                                 ->limit(30)->get()->mapWithKeys(fn (User $u) => [$u->id => "{$u->loginId()} — ".($u->name ?: 'no name yet')]))
+                            ->getOptionLabelsUsing(fn (array $values) => User::query()->whereIn('id', $values)->get()
+                                ->mapWithKeys(fn (User $u) => [$u->id => "{$u->loginId()} — ".($u->name ?: 'no name yet')])->all())
                             ->helperText('Search by email, mobile number or name. The student gets a notification.'),
                     ])
                     ->action(function (array $data) {

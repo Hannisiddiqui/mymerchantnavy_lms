@@ -60,4 +60,17 @@ class AssignCourseAndBackTest extends TestCase
         $this->assertStringContainsString('Done — back to course', html_entity_decode($html));
         $this->assertMatchesRegularExpression('#<a\b[^>]*href="[^"]*/courses/'.$course->id.'/curriculum"#', $html);
     }
+
+    public function test_assign_students_from_the_course_page_accepts_picked_students(): void
+    {
+        $this->admin();
+        $course = Course::create(['title' => 'Course A', 'slug' => 'a']);
+        $student = User::factory()->create();
+
+        Livewire::test(\App\Filament\Resources\CourseResource\RelationManagers\StudentsRelationManager::class, ['ownerRecord' => $course, 'pageClass' => \App\Filament\Resources\CourseResource\Pages\EditCourse::class])
+            ->callTableAction('assign', data: ['students' => [$student->id]])
+            ->assertHasNoTableActionErrors();
+
+        $this->assertTrue($course->students()->whereKey($student->id)->exists());
+    }
 }

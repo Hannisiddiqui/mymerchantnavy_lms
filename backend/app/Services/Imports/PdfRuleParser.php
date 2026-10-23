@@ -28,6 +28,7 @@ class PdfRuleParser implements QuestionParser
     private const LABELS = [
         'given' => true, 'rule' => true, 'formula' => true, 'working' => true, 'result' => true, 'check' => true,
         'why the others are wrong' => true, 'why the others fail' => true, 'concept behind the question' => true,
+        'what the question is asking' => true, 'step by step' => true, 'why the other options are wrong' => true,
         'explanation' => true, 'solution' => true, 'hint' => true, 'reasoning' => true, 'step' => true,
         'how to see what this asks' => false, 'revise in the chapter document' => false,
     ];
@@ -92,7 +93,7 @@ class PdfRuleParser implements QuestionParser
             foreach ($page['lines'] as $line) {
                 $text = trim($line['text']);
                 // A question that starts at the very top of a page ("Question 6", "Q7 · …") is not a running header
-                $startsQuestion = preg_match('/^(Question\s+\d+$|Q\s*\d+\s*[·•|.:)])/iu', $text);
+                $startsQuestion = preg_match('/^(Question\s+\d+(?:$|[\s\x{a0}]*[·•⋅|]|[\s\x{a0}]+\S)|Q\s*\d+\s*[·•|.:)])/iu', $text);
                 // Neither are its option and answer lines. "(a) 4 (b) 8" repeats on many pages, so it would otherwise
                 // look like a running header when a question sits right at the top or bottom of a page.
                 $belongsToQuestion = $startsQuestion || preg_match('/^(\(?[A-Da-d][).:]\s|Answer\s*[:\-]|Ans\s*[:\-])/u', $text);
@@ -125,6 +126,8 @@ class PdfRuleParser implements QuestionParser
         $qStyle = count(array_filter($lines, fn ($l) => preg_match('/^Q\s*\d+\s*[\.\):]\s/u', $l['text']))) >= 3;
         // "Question 6" on a line of its own, then an id line such as "VEC-T1-C-006 ⋅ Topic 1 ⋅ Easy ⋅ Concept"
         $wordStyle = ! $qStyle && count(array_filter($lines, fn ($l) => preg_match('/^Question\s+\d+$/iu', trim($l['text'])))) >= 3;
+        // "Question 1 · 1.1 The order of operations · Easy · Concept" with everything on one line
+        $inlineStyle = ! $qStyle && ! $wordStyle && count(array_filter($lines, fn ($l) => preg_match('/^Question\s+\d+[\s\x{a0}]+\S/iu', trim($l['text'])))) >= 3;
         $blocks = [];
         $current = null;
         $part = null;
@@ -154,6 +157,13 @@ class PdfRuleParser implements QuestionParser
                 $last = (int) $m[1];
                 continue;
             }
+            if ($inlineStyle && preg_match('/^Question\s+(\d+)[\s\x{a0}]+(\S.*)$/iu', $text, $m)) {
+                $this->closeBlock($blocks, $current);
+                $current = $this->newBlock((int) $m[1], $part, $line, $this->meta($m[2]));
+                $current['stemSeen'] = true;
+                $last = (int) $m[1];
+                continue;
+            }
             if ($wordStyle && $current && $current['expectMeta']) {
                 $current['expectMeta'] = false;
                 if (preg_match('/^[A-Z][A-Z0-9]*(?:-[A-Z0-9]+)+\s*[⋅·•]\s*\S/u', $text)) {
@@ -174,7 +184,7 @@ class PdfRuleParser implements QuestionParser
 
             $stem = $qStyle
                 ? (preg_match('/^Q\s*(\d+)\s*[\.\):]\s*(.*)$/u', $text, $m) ? [(int) $m[1], $m[2]] : null)
-                : (preg_match('/^(\d{1,3})\s*[\.\)]\s+(\S.*)$/u', $text, $m) && (int) $m[1] === $last + 1 ? [(int) $m[1], $m[2]] : null);
+                : (! $inlineStyle && preg_match('/^(\d{1,3})\s*[\.\)]\s+(\S.*)$/u', $text, $m) && (int) $m[1] === $last + 1 ? [(int) $m[1], $m[2]] : null);
 
             if ($stem) {
                 if ($current && $current['number'] === $stem[0] && ! $current['stemSeen']) {
@@ -223,6 +233,8 @@ class PdfRuleParser implements QuestionParser
                 $meta['part'] = ucfirst(strtolower($m[1])).' '.$m[2];
             } elseif (preg_match('/^(easy|medium|hard)$/i', $piece, $m)) {
                 $meta['level'] = strtoupper($m[1][0]);
+            } elseif (preg_match('/\s(easy|medium|hard)$/i', $piece, $m)) {
+                $meta['level'] = strtoupper($m[1][0]); // "1.1 The order of operations: BODMAS Easy"
             } elseif (preg_match('/^Level\s*([EMH])\b/i', $piece, $m)) {
                 $meta['level'] = strtoupper($m[1]);
             } elseif (preg_match('/^(concept|calculation|application|recall|reasoning)/i', $piece, $m)) {
@@ -335,7 +347,7 @@ class PdfRuleParser implements QuestionParser
     /** @return array{0:string,1:string}|null [label as written, rest of the line] */
     private function label(string $text): ?array
     {
-        if (preg_match('/^([A-Za-z][A-Za-z\' ]{1,40}?)\s*[:.]\s*(.*)$/su', $text, $m) && array_key_exists(mb_strtolower(trim($m[1])), self::LABELS)) {
+        if (preg_match('/^([A-Za-z][A-Za-z\' ]{1,40}?)\s*(?:[:.]\s*|$)(.*)$/su', $text, $m) && array_key_exists(mb_strtolower(trim($m[1])), self::LABELS)) {
             return [trim($m[1]), trim($m[2])];
         }
 
