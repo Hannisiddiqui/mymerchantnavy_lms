@@ -67,5 +67,6 @@ wp_redirect(mmn_lms_login_url($user_id)); exit;
 - Order matters little: if a payment arrives before the registration message, the account is created then.
 - A product id with no linked course is reported as an error (the plugin writes it to the WordPress error log), and nobody is created or charged anything in the LMS.
 - The student's first LMS visit still shows the short profile form (target exam, attempt year) once.
+- **Security rule:** WordPress does not check that an email belongs to whoever typed it, so the sign-in link only works for LMS accounts whose owner has never logged in with the emailed code. A student who has already used the code login (and signs in again later from WordPress) is sent to the normal email-code login, with their course already added. Logging in with the code also ends any session that was started from a WordPress link before.
 - Switch the link off by emptying `LMS_WP_SECRET` in the LMS `.env`.
 - Messages to the LMS: `POST /api/v1/integrations/wordpress/{student|enroll}`, headers `X-MMN-Timestamp` (unix seconds) and `X-MMN-Signature` (hex HMAC-SHA256 of `timestamp + "." + raw body`). The sign-in token is `base64url({"e":email,"x":expiry,"j":random}) + "." + hex HMAC-SHA256(payload)`; the student site opens `/sso#t=<token>`.

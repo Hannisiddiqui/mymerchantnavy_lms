@@ -39,6 +39,8 @@ class AuthController extends Controller
 
         // Receiving the code proves the address is theirs.
         if ($column === 'email' && ! $user->email_verified_at) {
+            // Sessions made before the owner proved the address (e.g. from the WordPress sign-in link) are not trusted.
+            $user->tokens()->delete();
             $user->forceFill(['email_verified_at' => now()])->save();
         }
 

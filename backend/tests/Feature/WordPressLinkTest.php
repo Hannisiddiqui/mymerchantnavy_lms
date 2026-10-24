@@ -114,4 +114,30 @@ class WordPressLinkTest extends TestCase
 
         $this->postJson('/api/v1/auth/sso', ['token' => app(WordPressLink::class)->makeToken('off@example.com')])->assertStatus(403);
     }
+
+    public function test_the_link_never_signs_in_an_account_whose_owner_has_verified_the_email(): void
+    {
+        // WordPress does not verify emails: someone could register there with a victim's address and pay.
+        User::create(['email' => 'victim@example.com', 'name' => 'Victim', 'email_verified_at' => now()]);
+
+        $this->postJson('/api/v1/auth/sso', ['token' => app(WordPressLink::class)->makeToken('victim@example.com')])->assertStatus(401);
+    }
+
+    public function test_proving_the_email_ends_sessions_made_before_it(): void
+    {
+        \Illuminate\Support\Facades\Mail::fake();
+        // a session made from the WordPress link (the address was never proved)
+        $linkToken = $this->postJson('/api/v1/auth/sso', ['token' => app(WordPressLink::class)->makeToken('owner@example.com')])->json('data.token');
+        $this->withToken($linkToken)->getJson('/api/v1/me')->assertOk();
+        $this->app['auth']->forgetGuards();
+
+        // the real owner logs in with the emailed code
+        $this->postJson('/api/v1/auth/otp/send', ['email' => 'owner@example.com'])->assertOk();
+        $code = \Illuminate\Support\Facades\Mail::sent(\App\Mail\LoginCodeMail::class)->first()->code;
+        $this->postJson('/api/v1/auth/otp/verify', ['email' => 'owner@example.com', 'code' => $code])->assertOk();
+
+        $this->app['auth']->forgetGuards();
+        $this->withToken($linkToken)->getJson('/api/v1/me')->assertStatus(401);
+        $this->assertCount(1, User::where('email', 'owner@example.com')->firstOrFail()->tokens);
+    }
 }

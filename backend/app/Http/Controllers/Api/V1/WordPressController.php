@@ -46,6 +46,9 @@ class WordPressController extends Controller
 
         $user = $this->link->student($email);
         abort_unless($user->is_active, 403, 'Your account is disabled. Please contact support.');
+        // WordPress does not check that an email belongs to the person who typed it. So the link only signs in accounts
+        // whose owner has never proved the address here; once someone has logged in with the emailed code, only the code works.
+        abort_if($user->email_verified_at, 401, 'For your security, please log in with the code we email you.');
 
         return response()->json(['data' => [
             'token' => $devices->login($user, $request->input('device_name') ?? 'Unknown device'),

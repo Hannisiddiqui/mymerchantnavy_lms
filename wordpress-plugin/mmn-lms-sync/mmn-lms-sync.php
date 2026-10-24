@@ -46,7 +46,7 @@ function mmn_lms_send($path, array $payload)
     $body      = wp_json_encode($payload);
     $timestamp = (string) time();
     $response  = wp_remote_post(rtrim(mmn_lms_setting('api_url'), '/') . '/integrations/wordpress/' . $path, [
-        'timeout' => 20,
+        'timeout' => 10,
         'headers' => [
             'Content-Type'      => 'application/json',
             'Accept'            => 'application/json',
