@@ -20,7 +20,7 @@ class WordPressController extends Controller
     public function student(Request $request): JsonResponse
     {
         $data = $request->validate($this->studentRules());
-        $user = $this->link->student($data['email'], $data['name'] ?? null, $data['phone'] ?? null, $data['wp_user_id'] ?? null);
+        $user = $this->link->student($data['email'], $data['name'] ?? null, $data['phone'] ?? null, $data['wp_user_id'] ?? null, (bool) ($data['email_verified'] ?? false));
 
         return response()->json(['data' => ['id' => $user->id, 'created' => $user->wasRecentlyCreated]]);
     }
@@ -31,7 +31,7 @@ class WordPressController extends Controller
         $data = $request->validate($this->studentRules() + ['product_id' => ['required', 'string', 'max:191'], 'order_id' => ['nullable', 'string', 'max:191']]);
 
         abort_if(! $this->link->coursesFor($data['product_id']), 422, "No course is linked to WordPress product {$data['product_id']}. Set it on the course in the admin panel.");
-        $user = $this->link->student($data['email'], $data['name'] ?? null, $data['phone'] ?? null, $data['wp_user_id'] ?? null);
+        $user = $this->link->student($data['email'], $data['name'] ?? null, $data['phone'] ?? null, $data['wp_user_id'] ?? null, (bool) ($data['email_verified'] ?? false));
 
         return response()->json(['data' => ['id' => $user->id, 'newCourses' => $this->link->enroll($user, $data['product_id'])]]);
     }
@@ -41,14 +41,14 @@ class WordPressController extends Controller
     {
         abort_unless($this->link->enabled(), 503, 'The WordPress link is not set up.');
         $token = (string) $request->validate(['token' => ['required', 'string', 'max:1000']])['token'];
-        $email = $this->link->emailFromToken($token);
-        abort_unless($email, 401, 'This sign-in link has expired. Please log in with your email.');
+        $claims = $this->link->claimsFromToken($token);
+        abort_unless($claims, 401, 'This sign-in link has expired. Please log in with your email.');
 
-        $user = $this->link->student($email);
+        $user = $this->link->student($claims['email'], verified: $claims['verified']);
         abort_unless($user->is_active, 403, 'Your account is disabled. Please contact support.');
-        // WordPress does not check that an email belongs to the person who typed it. So the link only signs in accounts
-        // whose owner has never proved the address here; once someone has logged in with the emailed code, only the code works.
-        abort_if($user->email_verified_at, 401, 'For your security, please log in with the code we email you.');
+        // A link from a WordPress account whose email was NOT verified there (an old or other kind of registration) must
+        // never open an account whose owner has proved the address; only the emailed code does that.
+        abort_if($user->email_verified_at && ! $claims['verified'], 401, 'For your security, please log in with the code we email you.');
 
         return response()->json(['data' => [
             'token' => $devices->login($user, $request->input('device_name') ?? 'Unknown device'),
@@ -63,6 +63,7 @@ class WordPressController extends Controller
             'name' => ['nullable', 'string', 'max:120'],
             'phone' => ['nullable', 'string', 'max:30'],
             'wp_user_id' => ['nullable', 'integer'],
+            'email_verified' => ['nullable', 'boolean'],
         ];
     }
 }

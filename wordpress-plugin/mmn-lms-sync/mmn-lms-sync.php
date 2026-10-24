@@ -115,6 +115,8 @@ function mmn_lms_student_payload(WP_User $user)
         'name'       => $name,
         'phone'      => (string) $phone,
         'wp_user_id' => $user->ID,
+        // true only for accounts made through [mmn_register], where the student typed back an emailed code
+        'email_verified' => (bool) get_user_meta($user->ID, 'mmn_email_verified', true),
     ];
 }
 
@@ -170,6 +172,7 @@ function mmn_lms_login_url($user)
         'e' => strtolower($email),
         'x' => time() + 120,
         'j' => bin2hex(random_bytes(8)),
+        'v' => $wp_user ? (bool) get_user_meta($wp_user->ID, 'mmn_email_verified', true) : false,
     ])), '+/', '-_'), '=');
 
     return rtrim(mmn_lms_setting('app_url'), '/') . '/sso#t=' . $payload . '.' . hash_hmac('sha256', $payload, mmn_lms_setting('secret'));

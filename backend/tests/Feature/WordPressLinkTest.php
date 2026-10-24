@@ -123,6 +123,26 @@ class WordPressLinkTest extends TestCase
         $this->postJson('/api/v1/auth/sso', ['token' => app(WordPressLink::class)->makeToken('victim@example.com')])->assertStatus(401);
     }
 
+    public function test_a_link_from_a_wordpress_account_with_a_verified_email_signs_in(): void
+    {
+        User::create(['email' => 'real@example.com', 'name' => 'Real', 'email_verified_at' => now()]);
+
+        // WordPress emailed a code to this address and the student typed it back
+        $this->postJson('/api/v1/auth/sso', ['token' => app(WordPressLink::class)->makeToken('real@example.com', verified: true)])->assertOk();
+    }
+
+    public function test_wordpress_telling_us_the_email_is_verified_marks_the_student_verified(): void
+    {
+        $this->signed('student', ['email' => 'v@example.com', 'email_verified' => true])->assertOk();
+        $this->signed('student', ['email' => 'u@example.com', 'email_verified' => false])->assertOk();
+
+        $this->assertNotNull(User::where('email', 'v@example.com')->value('email_verified_at'));
+        $this->assertNull(User::where('email', 'u@example.com')->value('email_verified_at'));
+        // and an unverified message never takes verification away
+        $this->signed('student', ['email' => 'v@example.com'])->assertOk();
+        $this->assertNotNull(User::where('email', 'v@example.com')->value('email_verified_at'));
+    }
+
     public function test_proving_the_email_ends_sessions_made_before_it(): void
     {
         \Illuminate\Support\Facades\Mail::fake();

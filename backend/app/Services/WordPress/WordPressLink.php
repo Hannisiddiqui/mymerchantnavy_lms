@@ -42,7 +42,7 @@ class WordPressLink
     // ------------------------------------------------------------ students and courses
 
     /** The student with this email; created (without any course) when new. Name and phone only fill empty fields. */
-    public function student(string $email, ?string $name = null, ?string $phone = null, ?int $wpUserId = null): User
+    public function student(string $email, ?string $name = null, ?string $phone = null, ?int $wpUserId = null, bool $verified = false): User
     {
         $email = mb_strtolower(trim($email));
         $user = User::whereRaw('lower(email) = ?', [$email])->first() ?? new User(['email' => $email]);
@@ -50,6 +50,8 @@ class WordPressLink
         $user->name = $user->name ?: ($name ? mb_substr(trim($name), 0, 120) : null);
         $user->phone = $user->phone ?: $this->phone($phone);
         $user->wordpress_user_id = $user->wordpress_user_id ?: $wpUserId;
+        // WordPress emailed a code to this address and the student typed it back: the address is proven.
+        $user->email_verified_at = $user->email_verified_at ?: ($verified ? now() : null);
         $user->save();
 
         return $user;
@@ -87,17 +89,17 @@ class WordPressLink
 
     // ------------------------------------------------------------ one-time sign-in token
 
-    /** Token as WordPress builds it: base64url(json{e,x,j}) . "." . hex hmac. */
-    public function makeToken(string $email, ?int $expires = null): string
+    /** Token as WordPress builds it: base64url(json{e,x,j,v}) . "." . hex hmac. v = WordPress has verified this email. */
+    public function makeToken(string $email, ?int $expires = null, bool $verified = false): string
     {
-        $json = json_encode(['e' => mb_strtolower($email), 'x' => $expires ?? time() + 120, 'j' => bin2hex(random_bytes(8))]);
+        $json = json_encode(['e' => mb_strtolower($email), 'x' => $expires ?? time() + 120, 'j' => bin2hex(random_bytes(8)), 'v' => $verified]);
         $payload = rtrim(strtr(base64_encode($json), '+/', '-_'), '=');
 
         return $payload.'.'.$this->mac($payload);
     }
 
-    /** The email the token was made for, or null when it is forged, expired or already used. */
-    public function emailFromToken(string $token): ?string
+    /** @return array{email: string, verified: bool}|null null when the token is forged, expired or already used */
+    public function claimsFromToken(string $token): ?array
     {
         [$payload, $sig] = array_pad(explode('.', $token, 2), 2, '');
         if ($payload === '' || ! hash_equals($this->mac($payload), strtolower($sig))) {
@@ -113,6 +115,8 @@ class WordPressLink
             return null;
         }
 
-        return filter_var($data['e'], FILTER_VALIDATE_EMAIL) ?: null;
+        $email = filter_var($data['e'], FILTER_VALIDATE_EMAIL);
+
+        return $email ? ['email' => $email, 'verified' => ($data['v'] ?? false) === true] : null;
     }
 }
