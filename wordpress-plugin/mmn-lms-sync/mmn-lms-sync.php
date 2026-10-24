@@ -105,10 +105,14 @@ function mmn_lms_student_payload(WP_User $user)
     $phone = get_user_meta($user->ID, 'billing_phone', true);
     $phone = $phone ? $phone : get_user_meta($user->ID, 'phone', true);
     $name  = trim($user->first_name . ' ' . $user->last_name);
+    if ($name === '') {
+        $name = trim(get_user_meta($user->ID, 'billing_first_name', true) . ' ' . get_user_meta($user->ID, 'billing_last_name', true));
+    }
 
+    // No name yet (a bare registration) is sent empty: the LMS fills it in from the first payment or the student's profile.
     return [
         'email'      => $user->user_email,
-        'name'       => $name !== '' ? $name : $user->display_name,
+        'name'       => $name,
         'phone'      => (string) $phone,
         'wp_user_id' => $user->ID,
     ];
@@ -158,11 +162,12 @@ add_action('mmn_lms_payment_success', 'mmn_lms_payment_success', 10, 3);
 function mmn_lms_login_url($user)
 {
     $wp_user = mmn_lms_user($user);
-    if (! $wp_user || ! mmn_lms_ready()) {
+    $email   = $wp_user ? $wp_user->user_email : (is_string($user) && is_email($user) ? $user : '');
+    if ($email === '' || ! mmn_lms_ready()) {
         return rtrim(mmn_lms_setting('app_url'), '/') . '/login';
     }
     $payload = rtrim(strtr(base64_encode(wp_json_encode([
-        'e' => strtolower($wp_user->user_email),
+        'e' => strtolower($email),
         'x' => time() + 120,
         'j' => bin2hex(random_bytes(8)),
     ])), '+/', '-_'), '=');
@@ -208,6 +213,67 @@ function mmn_lms_button_shortcode($atts)
 }
 add_shortcode('mmn_lms_button', 'mmn_lms_button_shortcode');
 
+// ---------------------------------------------------------------------------------------------------- 4. WooCommerce (+ the Razorpay plugin for WooCommerce)
+
+/**
+ * A paid order gives the student every course whose "WordPress product ID" (in the LMS admin) equals the WooCommerce
+ * product id of a line in the order. Runs once per order; the LMS ignores repeats anyway.
+ */
+function mmn_lms_wc_order_paid($order_id)
+{
+    if (! function_exists('wc_get_order') || ! mmn_lms_ready()) {
+        return;
+    }
+    $order = wc_get_order($order_id);
+    if (! $order || $order->get_meta('_mmn_lms_sent')) {
+        return;
+    }
+    $order->update_meta_data('_mmn_lms_sent', time());
+    $order->save();
+
+    $user_id = $order->get_user_id();
+    $wp_user = $user_id ? get_user_by('id', $user_id) : false;
+    $student = $wp_user ? mmn_lms_student_payload($wp_user) : ['email' => $order->get_billing_email(), 'name' => '', 'phone' => '', 'wp_user_id' => 0];
+    // what the student typed at checkout fills anything the account does not have
+    $student['name']  = $student['name'] !== '' ? $student['name'] : trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name());
+    $student['phone'] = $student['phone'] !== '' ? $student['phone'] : $order->get_billing_phone();
+    if ($student['email'] === '') {
+        return;
+    }
+
+    foreach ($order->get_items() as $item) {
+        mmn_lms_send_with_retry('enroll', $student + [
+            'product_id' => (string) $item->get_product_id(),
+            'order_id'   => (string) $order->get_id(),
+        ]);
+    }
+}
+add_action('woocommerce_payment_complete', 'mmn_lms_wc_order_paid');
+add_action('woocommerce_order_status_processing', 'mmn_lms_wc_order_paid');
+add_action('woocommerce_order_status_completed', 'mmn_lms_wc_order_paid');
+
+/** After paying, send the student straight into the LMS, signed in (switch off under Settings > LMS link). */
+function mmn_lms_wc_redirect_after_payment()
+{
+    if (get_option('mmn_lms_auto_redirect', 'yes') !== 'yes' || ! function_exists('is_wc_endpoint_url') || ! is_wc_endpoint_url('order-received') || ! mmn_lms_ready()) {
+        return;
+    }
+    $order = wc_get_order((int) get_query_var('order-received'));
+    $key   = isset($_GET['key']) ? wc_clean(wp_unslash($_GET['key'])) : '';
+    if (! $order || ! hash_equals($order->get_order_key(), $key) || ! $order->is_paid()) {
+        return; // not paid yet (or not their order): the normal thank-you page is shown
+    }
+    mmn_lms_wc_order_paid($order->get_id()); // make sure the course is given before they arrive
+    wp_redirect(mmn_lms_login_url($order->get_user_id() ? get_user_by('id', $order->get_user_id()) : $order->get_billing_email()));
+    exit;
+}
+add_action('template_redirect', 'mmn_lms_wc_redirect_after_payment', 5);
+
+/** "Go to my course" on the My account page. */
+add_action('woocommerce_account_dashboard', function () {
+    echo '<p>' . mmn_lms_button_shortcode(['text' => 'Go to my course']) . '</p>';
+});
+
 // ---------------------------------------------------------------------------------------------------- admin screen
 
 add_action('admin_menu', function () {
@@ -215,7 +281,7 @@ add_action('admin_menu', function () {
 });
 
 add_action('admin_init', function () {
-    foreach (['api_url', 'app_url', 'secret'] as $key) {
+    foreach (['api_url', 'app_url', 'secret', 'auto_redirect'] as $key) {
         register_setting('mmn_lms', 'mmn_lms_' . $key, ['sanitize_callback' => 'sanitize_text_field']);
     }
 });
@@ -247,6 +313,10 @@ function mmn_lms_settings_page()
                 <tr><th>LMS student site</th><td><input class="regular-text" name="mmn_lms_app_url" value="<?php echo esc_attr(get_option('mmn_lms_app_url', 'https://lms.mymerchantnavy.com')); ?>"></td></tr>
                 <tr><th>Shared secret</th><td><input class="regular-text" type="password" name="mmn_lms_secret" value="<?php echo esc_attr(get_option('mmn_lms_secret')); ?>" autocomplete="off">
                     <p class="description">The same value as LMS_WP_SECRET on the LMS server. Better: put it in wp-config.php as MMN_LMS_SECRET.</p></td></tr>
+                <tr><th>After payment</th><td><select name="mmn_lms_auto_redirect">
+                    <option value="yes" <?php selected(get_option('mmn_lms_auto_redirect', 'yes'), 'yes'); ?>>Send the student straight into the LMS, signed in</option>
+                    <option value="no" <?php selected(get_option('mmn_lms_auto_redirect', 'yes'), 'no'); ?>>Show the normal thank-you page (with the [mmn_lms_button])</option>
+                </select><p class="description">Applies to WooCommerce orders.</p></td></tr>
             </table>
             <?php submit_button(); ?>
         </form>
