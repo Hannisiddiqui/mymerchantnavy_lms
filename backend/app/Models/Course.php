@@ -8,7 +8,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Course extends Model
 {
-    protected $fillable = ['title', 'slug', 'description', 'thumbnail_path', 'is_active'];
+    protected $fillable = ['title', 'slug', 'wordpress_product_id', 'description', 'thumbnail_path', 'is_active'];
 
     protected function casts(): array
     {

@@ -39,6 +39,17 @@ export async function verifyOtp(identifier: string, code: string): Promise<{ nee
   return { needsProfile: data.needsProfile };
 }
 
+/** The "go to my course" link from the WordPress site: a one-time token signs the student in without a code. */
+export async function ssoLogin(token: string): Promise<{ needsProfile: boolean }> {
+  if (USE_MOCK) throw new Error("Sign-in links need the real backend.");
+  const data = await request<{ token: string; needsProfile: boolean }>("/auth/sso", {
+    method: "POST",
+    body: JSON.stringify({ token, device_name: navigator.userAgent }),
+  });
+  tokenStore.set(data.token);
+  return { needsProfile: data.needsProfile };
+}
+
 export async function logout(): Promise<void> {
   if (!USE_MOCK) await request("/auth/logout", { method: "POST" }).catch(() => undefined);
   tokenStore.clear();

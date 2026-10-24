@@ -8,6 +8,8 @@ use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PdfPageController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\TestController;
+use App\Http\Controllers\Api\V1\WordPressController;
+use App\Http\Middleware\VerifyWordPressSignature;
 use Illuminate\Support\Facades\Route;
 
 /*
@@ -22,6 +24,14 @@ Route::prefix('v1')->group(function () {
     Route::middleware('throttle:otp')->group(function () {
         Route::post('auth/otp/send', [AuthController::class, 'sendOtp']);
         Route::post('auth/otp/verify', [AuthController::class, 'verifyOtp']);
+    });
+
+    // ---- WordPress link (docs/WORDPRESS.md): signed messages from the shop, and the one-time sign-in link ----
+    Route::post('auth/sso', [WordPressController::class, 'sso'])->middleware('throttle:otp');
+    Route::prefix('integrations/wordpress')->middleware([VerifyWordPressSignature::class, 'throttle:120,1'])->group(function () {
+        Route::post('student', [WordPressController::class, 'student']);
+        Route::post('enroll', [WordPressController::class, 'enroll']);
+        Route::post('import', [WordPressController::class, 'import']);
     });
 
     // ---- Protected PDF page images: signed, expiring link (an <img> tag can't send the login token) ----

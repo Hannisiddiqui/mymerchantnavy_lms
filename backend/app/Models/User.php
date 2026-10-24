@@ -20,6 +20,7 @@ class User extends Authenticatable
     use HasApiTokens, HasFactory, Notifiable;
 
     protected $fillable = [
+        'wordpress_user_id',
         'phone',
         'name',
         'nickname',

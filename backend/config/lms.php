@@ -34,6 +34,13 @@ return [
     // How long a page-image link stays valid (minutes). Links are signed and tied to one student.
     'pdf_link_minutes' => 15,
 
+    // Link with the WordPress site (mymerchantnavy.com). Both sites hold the same long random secret; every message
+    // between them is signed with it. Empty = the link is switched off.
+    'wordpress' => [
+        'secret' => env('LMS_WP_SECRET'),
+        'sso_minutes' => 5,   // how long a "go to my course" sign-in link works (and only once)
+    ],
+
     // Assignment upload limit (KB).
     'assignment_max_kb' => 20480,
 ];

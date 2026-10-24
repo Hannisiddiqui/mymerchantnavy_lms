@@ -35,6 +35,8 @@ class CourseResource extends Resource
             TextInput::make('title')->required()->maxLength(150)->live(onBlur: true)
                 ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
             TextInput::make('slug')->required()->unique(ignoreRecord: true)->helperText('Used in the course link.'),
+            TextInput::make('wordpress_product_id')->label('WordPress product ID')->maxLength(191)
+                ->helperText('The id the WordPress shop sends when this course is bought. Several ids can be separated by commas. Leave empty if it is not sold there.'),
             Textarea::make('description')->rows(3)->columnSpanFull(),
             FileUpload::make('thumbnail_path')->label('Thumbnail')->image()->disk('public')->directory('course-thumbnails'),
             Toggle::make('is_active')->label('Active')->default(true)->helperText('Inactive courses are hidden from students.'),
