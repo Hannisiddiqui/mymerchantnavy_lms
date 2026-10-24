@@ -132,6 +132,60 @@ function mmn_lms_on_register($user_id)
 }
 add_action('user_register', 'mmn_lms_on_register', 20);
 
+/** Sends a "student" message without slowing the page down (WP-Cron runs it a few seconds later). */
+function mmn_lms_queue_student(array $payload)
+{
+    if (! empty($payload['wp_user_id'])) {
+        update_user_meta((int) $payload['wp_user_id'], 'mmn_lms_synced_at', time());
+    }
+    if (defined('DISABLE_WP_CRON') && DISABLE_WP_CRON) {
+        mmn_lms_send_with_retry('student', $payload);
+
+        return;
+    }
+    wp_schedule_single_event(time() + 5, 'mmn_lms_retry', ['student', $payload, 0]);
+}
+
+/** A normal login also registers the student in the LMS (at most once a day), so they can be signed in over there. */
+function mmn_lms_on_login($user_login, $user)
+{
+    if (! mmn_lms_ready() || ! ($user instanceof WP_User)) {
+        return;
+    }
+    if (time() - (int) get_user_meta($user->ID, 'mmn_lms_synced_at', true) < DAY_IN_SECONDS) {
+        return;
+    }
+    mmn_lms_queue_student(mmn_lms_student_payload($user));
+}
+add_action('wp_login', 'mmn_lms_on_login', 20, 2);
+
+/**
+ * For any other form or feature on the site (event sign-up, counselling request, webinar...):
+ *
+ *     do_action('mmn_lms_sync_user', $user_id_or_email, ['name' => 'Riya Shah', 'phone' => '9876543210']);
+ *
+ * registers that person in the LMS (no course). The second argument is optional.
+ */
+function mmn_lms_sync_user($who, $extra = [])
+{
+    if (! mmn_lms_ready()) {
+        return;
+    }
+    $wp_user = mmn_lms_user($who);
+    $payload = $wp_user
+        ? mmn_lms_student_payload($wp_user)
+        : ['email' => is_string($who) ? $who : '', 'name' => '', 'phone' => '', 'wp_user_id' => 0, 'email_verified' => false];
+    foreach (['name', 'phone'] as $field) {
+        if (! empty($extra[$field])) {
+            $payload[$field] = sanitize_text_field($extra[$field]);
+        }
+    }
+    if (is_email($payload['email'])) {
+        mmn_lms_queue_student($payload);
+    }
+}
+add_action('mmn_lms_sync_user', 'mmn_lms_sync_user', 10, 2);
+
 // ---------------------------------------------------------------------------------------------------- 2. payment
 
 /**

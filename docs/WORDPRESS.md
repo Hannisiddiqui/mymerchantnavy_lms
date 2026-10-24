@@ -63,6 +63,16 @@ do_action('mmn_lms_payment_success', $user_id, $product_id, $razorpay_order_id);
 wp_redirect(mmn_lms_login_url($user_id)); exit;
 ```
 
+## 5. Normal login, other forms and free sign-ups
+
+- **Normal login:** when someone logs in to WordPress the normal way (not through the registration form), they are also registered in the LMS (at most once a day, in the background). Their name from WordPress is used, so **no profile form** is shown on their first LMS visit. Their email counts as *not verified* (only `[mmn_register]` verifies it), so the LMS keeps its safety rule for them.
+- **Any other form or feature** (event sign-up, counselling request, webinar...): call this wherever the person is known; no course is given:
+  ```php
+  do_action('mmn_lms_sync_user', $user_id_or_email, ['name' => 'Riya Shah', 'phone' => '9876543210']);
+  ```
+  For form plugins, put that line in their "after submit" hook (Contact Form 7 `wpcf7_mail_sent`, WPForms `wpforms_process_complete`, Gravity Forms `gform_after_submission`, Fluent Forms `fluentform/submission_inserted`) and read the email, name and phone from the submitted fields.
+- **Free sign-ups** (a free webinar, demo course, free test series): on the "Courses for sale" list use price `0`, for example `free-demo | Free Demo Course | 0`, link that id to a course in the LMS admin, and put `[mmn_buy product="free-demo" text="Register free"]` on the page. A logged-in student gets the course at once with no payment (a not-logged-in visitor is sent to register first). Razorpay keys are not needed for free items.
+
 ## Things to know
 
 - Order matters little: if a payment arrives before the registration message, the account is created then.

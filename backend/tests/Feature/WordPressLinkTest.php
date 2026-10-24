@@ -160,4 +160,18 @@ class WordPressLinkTest extends TestCase
         $this->withToken($linkToken)->getJson('/api/v1/me')->assertStatus(401);
         $this->assertCount(1, User::where('email', 'owner@example.com')->firstOrFail()->tokens);
     }
+
+    public function test_a_student_who_gave_their_name_on_wordpress_skips_the_profile_form(): void
+    {
+        $this->signed('student', ['email' => 'named@example.com', 'name' => 'Riya Shah', 'email_verified' => true])->assertOk();
+        $this->signed('student', ['email' => 'bare@example.com'])->assertOk();
+
+        $named = $this->postJson('/api/v1/auth/sso', ['token' => app(WordPressLink::class)->makeToken('named@example.com', verified: true)])->assertOk();
+        $this->assertFalse($named->json('data.needsProfile'));
+        $this->assertSame('Riya', User::where('email', 'named@example.com')->value('nickname'));
+
+        // no name given: the short form is still shown once
+        $bare = $this->postJson('/api/v1/auth/sso', ['token' => app(WordPressLink::class)->makeToken('bare@example.com')])->assertOk();
+        $this->assertTrue($bare->json('data.needsProfile'));
+    }
 }

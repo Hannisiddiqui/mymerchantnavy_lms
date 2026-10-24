@@ -52,6 +52,12 @@ class WordPressLink
         $user->wordpress_user_id = $user->wordpress_user_id ?: $wpUserId;
         // WordPress emailed a code to this address and the student typed it back: the address is proven.
         $user->email_verified_at = $user->email_verified_at ?: ($verified ? now() : null);
+        // A student who came from WordPress already gave their name there: no profile form on their first visit.
+        // (Target exam and attempt year stay empty; they can add them under My Profile.)
+        if (! $user->profile_completed_at && filled($user->name)) {
+            $user->nickname = $user->nickname ?: explode(' ', trim($user->name))[0];
+            $user->profile_completed_at = now();
+        }
         $user->save();
 
         return $user;

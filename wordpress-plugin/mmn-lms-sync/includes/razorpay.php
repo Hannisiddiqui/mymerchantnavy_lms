@@ -19,7 +19,7 @@ function mmn_lms_products()
     $products = [];
     foreach (preg_split('/\r\n|\r|\n/', mmn_lms_setting('products')) as $line) {
         $part = array_map('trim', explode('|', $line));
-        if (count($part) >= 3 && $part[0] !== '' && is_numeric($part[2]) && (float) $part[2] > 0) {
+        if (count($part) >= 3 && $part[0] !== '' && is_numeric($part[2]) && (float) $part[2] >= 0) {
             $products[$part[0]] = ['id' => $part[0], 'title' => $part[1], 'price' => (float) $part[2]];
         }
     }
@@ -30,6 +30,16 @@ function mmn_lms_products()
 function mmn_lms_razorpay_ready()
 {
     return mmn_lms_setting('rzp_key_id') !== '' && mmn_lms_setting('rzp_key_secret') !== '' && mmn_lms_products();
+}
+
+/** Where the student goes after paying (or after a free sign-up). */
+function mmn_lms_after_payment_url(WP_User $user)
+{
+    if (get_option('mmn_lms_auto_redirect', 'yes') === 'yes') {
+        return mmn_lms_login_url($user);
+    }
+
+    return mmn_lms_setting('thanks_url') !== '' ? mmn_lms_setting('thanks_url') : home_url('/');
 }
 
 /** Every payment attempt is kept as a private "LMS order" (visible in the admin menu). */
@@ -83,7 +93,8 @@ function mmn_lms_buy_shortcode($atts)
 {
     $atts     = shortcode_atts(['product' => '', 'text' => 'Buy now'], $atts);
     $products = mmn_lms_products();
-    if (! isset($products[$atts['product']]) || ! mmn_lms_razorpay_ready()) {
+    $free = isset($products[$atts['product']]) && $products[$atts['product']]['price'] == 0; // price 0 = free sign-up, no Razorpay
+    if (! isset($products[$atts['product']]) || (! $free && ! mmn_lms_razorpay_ready())) {
         return current_user_can('manage_options') ? '<p><em>[mmn_buy]: finish Settings > LMS link (Razorpay keys and this product).</em></p>' : '';
     }
     $style = 'display:inline-block;padding:12px 22px;background:#1d4ed8;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;border:0;cursor:pointer;font-size:16px';
@@ -96,9 +107,11 @@ function mmn_lms_buy_shortcode($atts)
     }
 
     add_action('wp_footer', 'mmn_lms_buy_script');
-    wp_enqueue_script('razorpay-checkout', 'https://checkout.razorpay.com/v1/checkout.js', [], null, true);
+    if (! $free) {
+        wp_enqueue_script('razorpay-checkout', 'https://checkout.razorpay.com/v1/checkout.js', [], null, true);
+    }
 
-    return '<button type="button" class="mmn-buy" style="' . esc_attr($style) . '" data-product="' . esc_attr($atts['product']) . '">' . esc_html($atts['text']) . '</button>';
+    return '<button type="button" class="mmn-buy' . ($free ? ' mmn-free' : '') . '" style="' . esc_attr($style) . '" data-product="' . esc_attr($atts['product']) . '">' . esc_html($atts['text']) . '</button>';
 }
 add_shortcode('mmn_buy', 'mmn_lms_buy_shortcode');
 
@@ -127,6 +140,13 @@ function mmn_lms_buy_script()
             function reset() { b.dataset.busy = ''; b.textContent = label; }
             b.dataset.busy = '1';
             b.textContent = 'Please wait…';
+            if (b.classList.contains('mmn-free')) {
+                post({ action: 'mmn_free_enroll', nonce: cfg.nonce, product: b.dataset.product }).then(function (d) {
+                    if (!d.success) { throw new Error(d.data || 'Could not sign you up.'); }
+                    window.location.href = d.data.redirect;
+                }).catch(function (err) { alert(err.message); reset(); });
+                return;
+            }
             post({ action: 'mmn_rzp_create', nonce: cfg.nonce, product: b.dataset.product }).then(function (d) {
                 if (!d.success) { throw new Error(d.data || 'Could not start the payment.'); }
                 var o = d.data;
@@ -207,11 +227,27 @@ add_action('wp_ajax_mmn_rzp_verify', function () {
     }
     mmn_lms_order_paid($order->ID, $payment_id);
 
-    $user     = wp_get_current_user();
-    $redirect = get_option('mmn_lms_auto_redirect', 'yes') === 'yes'
-        ? mmn_lms_login_url($user)
-        : (mmn_lms_setting('thanks_url') !== '' ? mmn_lms_setting('thanks_url') : home_url('/'));
-    wp_send_json_success(['redirect' => $redirect]);
+    wp_send_json_success(['redirect' => mmn_lms_after_payment_url(wp_get_current_user())]);
+});
+
+/** A free sign-up (price 0 in the settings): the course is given at once, nothing to pay. */
+add_action('wp_ajax_mmn_free_enroll', function () {
+    check_ajax_referer('mmn_rzp', 'nonce');
+    $products = mmn_lms_products();
+    $product  = sanitize_text_field(wp_unslash(isset($_POST['product']) ? $_POST['product'] : ''));
+    if (! isset($products[$product]) || $products[$product]['price'] != 0) {
+        wp_send_json_error('This sign-up is not available.');
+    }
+    $user    = wp_get_current_user();
+    $post_id = wp_insert_post([
+        'post_type'   => 'mmn_order',
+        'post_status' => 'private',
+        'post_title'  => $products[$product]['title'] . ' (free) - ' . $user->user_email,
+        'post_author' => $user->ID,
+        'meta_input'  => ['product' => $product, 'amount' => 0, 'status' => 'created'],
+    ]);
+    mmn_lms_order_paid($post_id, 'free');
+    wp_send_json_success(['redirect' => mmn_lms_after_payment_url($user)]);
 });
 
 // ---------------------------------------------------------------------------------------------------- webhook (when the student closes the page after paying)
