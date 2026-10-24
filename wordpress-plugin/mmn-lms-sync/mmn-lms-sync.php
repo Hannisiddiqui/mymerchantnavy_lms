@@ -213,67 +213,6 @@ function mmn_lms_button_shortcode($atts)
 }
 add_shortcode('mmn_lms_button', 'mmn_lms_button_shortcode');
 
-// ---------------------------------------------------------------------------------------------------- 4. WooCommerce (+ the Razorpay plugin for WooCommerce)
-
-/**
- * A paid order gives the student every course whose "WordPress product ID" (in the LMS admin) equals the WooCommerce
- * product id of a line in the order. Runs once per order; the LMS ignores repeats anyway.
- */
-function mmn_lms_wc_order_paid($order_id)
-{
-    if (! function_exists('wc_get_order') || ! mmn_lms_ready()) {
-        return;
-    }
-    $order = wc_get_order($order_id);
-    if (! $order || $order->get_meta('_mmn_lms_sent')) {
-        return;
-    }
-    $order->update_meta_data('_mmn_lms_sent', time());
-    $order->save();
-
-    $user_id = $order->get_user_id();
-    $wp_user = $user_id ? get_user_by('id', $user_id) : false;
-    $student = $wp_user ? mmn_lms_student_payload($wp_user) : ['email' => $order->get_billing_email(), 'name' => '', 'phone' => '', 'wp_user_id' => 0];
-    // what the student typed at checkout fills anything the account does not have
-    $student['name']  = $student['name'] !== '' ? $student['name'] : trim($order->get_billing_first_name() . ' ' . $order->get_billing_last_name());
-    $student['phone'] = $student['phone'] !== '' ? $student['phone'] : $order->get_billing_phone();
-    if ($student['email'] === '') {
-        return;
-    }
-
-    foreach ($order->get_items() as $item) {
-        mmn_lms_send_with_retry('enroll', $student + [
-            'product_id' => (string) $item->get_product_id(),
-            'order_id'   => (string) $order->get_id(),
-        ]);
-    }
-}
-add_action('woocommerce_payment_complete', 'mmn_lms_wc_order_paid');
-add_action('woocommerce_order_status_processing', 'mmn_lms_wc_order_paid');
-add_action('woocommerce_order_status_completed', 'mmn_lms_wc_order_paid');
-
-/** After paying, send the student straight into the LMS, signed in (switch off under Settings > LMS link). */
-function mmn_lms_wc_redirect_after_payment()
-{
-    if (get_option('mmn_lms_auto_redirect', 'yes') !== 'yes' || ! function_exists('is_wc_endpoint_url') || ! is_wc_endpoint_url('order-received') || ! mmn_lms_ready()) {
-        return;
-    }
-    $order = wc_get_order((int) get_query_var('order-received'));
-    $key   = isset($_GET['key']) ? wc_clean(wp_unslash($_GET['key'])) : '';
-    if (! $order || ! hash_equals($order->get_order_key(), $key) || ! $order->is_paid()) {
-        return; // not paid yet (or not their order): the normal thank-you page is shown
-    }
-    mmn_lms_wc_order_paid($order->get_id()); // make sure the course is given before they arrive
-    wp_redirect(mmn_lms_login_url($order->get_user_id() ? get_user_by('id', $order->get_user_id()) : $order->get_billing_email()));
-    exit;
-}
-add_action('template_redirect', 'mmn_lms_wc_redirect_after_payment', 5);
-
-/** "Go to my course" on the My account page. */
-add_action('woocommerce_account_dashboard', function () {
-    echo '<p>' . mmn_lms_button_shortcode(['text' => 'Go to my course']) . '</p>';
-});
-
 // ---------------------------------------------------------------------------------------------------- admin screen
 
 add_action('admin_menu', function () {
@@ -281,8 +220,8 @@ add_action('admin_menu', function () {
 });
 
 add_action('admin_init', function () {
-    foreach (['api_url', 'app_url', 'secret', 'auto_redirect'] as $key) {
-        register_setting('mmn_lms', 'mmn_lms_' . $key, ['sanitize_callback' => 'sanitize_text_field']);
+    foreach (['api_url', 'app_url', 'secret', 'auto_redirect', 'rzp_key_id', 'rzp_key_secret', 'rzp_webhook_secret', 'register_url', 'thanks_url', 'products'] as $key) {
+        register_setting('mmn_lms', 'mmn_lms_' . $key, ['sanitize_callback' => $key === 'products' ? 'sanitize_textarea_field' : 'sanitize_text_field']);
     }
 });
 
@@ -316,7 +255,20 @@ function mmn_lms_settings_page()
                 <tr><th>After payment</th><td><select name="mmn_lms_auto_redirect">
                     <option value="yes" <?php selected(get_option('mmn_lms_auto_redirect', 'yes'), 'yes'); ?>>Send the student straight into the LMS, signed in</option>
                     <option value="no" <?php selected(get_option('mmn_lms_auto_redirect', 'yes'), 'no'); ?>>Show the normal thank-you page (with the [mmn_lms_button])</option>
-                </select><p class="description">Applies to WooCommerce orders.</p></td></tr>
+                </select><p class="description">Used by the [mmn_buy] checkout.</p></td></tr>
+            </table>
+            <h2>Razorpay checkout</h2>
+            <table class="form-table">
+                <tr><th>Key ID</th><td><input class="regular-text" name="mmn_lms_rzp_key_id" value="<?php echo esc_attr(get_option('mmn_lms_rzp_key_id')); ?>" autocomplete="off"></td></tr>
+                <tr><th>Key Secret</th><td><input class="regular-text" type="password" name="mmn_lms_rzp_key_secret" value="<?php echo esc_attr(get_option('mmn_lms_rzp_key_secret')); ?>" autocomplete="off"></td></tr>
+                <tr><th>Webhook secret</th><td><input class="regular-text" type="password" name="mmn_lms_rzp_webhook_secret" value="<?php echo esc_attr(get_option('mmn_lms_rzp_webhook_secret')); ?>" autocomplete="off">
+                    <p class="description">Webhook address to give Razorpay: <code><?php echo esc_html(rest_url('mmn-lms/v1/razorpay')); ?></code> (events: payment.captured, order.paid).</p></td></tr>
+                <tr><th>Registration page address</th><td><input class="regular-text" name="mmn_lms_register_url" value="<?php echo esc_attr(get_option('mmn_lms_register_url')); ?>" placeholder="https://mymerchantnavy.com/register/">
+                    <p class="description">The page with [mmn_register]. A student who is not logged in is sent here when they press Buy.</p></td></tr>
+                <tr><th>Thank-you page address</th><td><input class="regular-text" name="mmn_lms_thanks_url" value="<?php echo esc_attr(get_option('mmn_lms_thanks_url')); ?>">
+                    <p class="description">Only used when "After payment" is set to show the normal page.</p></td></tr>
+                <tr><th>Courses for sale</th><td><textarea class="large-text" rows="5" name="mmn_lms_products" placeholder="imu-cet-2027 | IMU-CET 2027 Complete Course | 4999"><?php echo esc_textarea(get_option('mmn_lms_products')); ?></textarea>
+                    <p class="description">One per line: <code>product id | course title | price in INR</code>. The product id is what you type on the course in the LMS admin ("WordPress product ID").</p></td></tr>
             </table>
             <?php submit_button(); ?>
         </form>
@@ -328,3 +280,6 @@ function mmn_lms_settings_page()
     </div>
     <?php
 }
+
+require_once __DIR__ . '/includes/forms.php';
+require_once __DIR__ . '/includes/razorpay.php';

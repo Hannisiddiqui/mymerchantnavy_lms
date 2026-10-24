@@ -39,39 +39,28 @@ Admin panel → **Courses** → open a course → **WordPress product ID**: the 
 
 Only students who register from now on are sent to the LMS (existing WordPress users are not imported). Every new registration is sent by itself.
 
-## 4. Shop on WordPress with WooCommerce (recommended)
+## 4. Registration form and Razorpay checkout (built into the plugin)
 
-WooCommerce gives registration, checkout, order emails and a reliable "payment complete" signal; the official **Razorpay for
-WooCommerce** plugin takes the payment. The LMS plugin already listens to it, nothing to code:
+No WooCommerce needed. The plugin gives you three shortcodes and a Razorpay checkout:
 
-1. Install and activate **WooCommerce** (Plugins > Add New). Run its setup wizard: country India, currency INR.
-2. Install and activate **Razorpay for WooCommerce** (by Razorpay). WooCommerce > Settings > Payments > Razorpay: paste the Key ID and Key Secret from the Razorpay dashboard (start with the Test keys), enable it.
-3. WooCommerce > Settings > **Accounts & Privacy**: tick "Allow customers to create an account on the My account page" and "...during checkout", and **untick "Allow customers to place orders without an account"**. A student is now always registered before paying.
-4. Create one **Product** per course (Products > Add New): type "Simple product", virtual (tick "Virtual"), price, publish. Its **ID** is the number in the address bar when editing (`post=123`) and shown on the Products list when you hover.
-5. In the LMS admin, open the matching course and type that number in **WordPress product ID**.
-6. Settings > **LMS link**: "After payment" = send the student straight into the LMS.
-7. Make a **test purchase** with Razorpay test keys. After paying you should land in the LMS, signed in, with the course.
-8. Switch Razorpay to the Live keys when everything works.
+1. **Razorpay keys.** Razorpay dashboard > Account & Settings > API Keys > generate (use the **Test** keys first). In WordPress: Settings > **LMS link** > Razorpay checkout: paste Key ID and Key Secret.
+2. **Courses for sale.** Same screen, "Courses for sale", one line per course: `product id | course title | price in INR`, for example
+   `imu-cet-2027 | IMU-CET 2027 Complete Course | 4999`. The product id is the same text you typed on the course in the LMS admin ("WordPress product ID"). The price is read from here by the server, never from the browser.
+3. **Registration page.** Create a page "Register" with the shortcode `[mmn_register]`; put its address in "Registration page address". Optionally a page "Login" with `[mmn_login]`.
+   The form asks name, email, mobile and password, creates the account, logs the student in and sends them back to the course page they came from.
+4. **Course page(s).** On each course's sales page put `[mmn_buy product="imu-cet-2027" text="Buy now"]`.
+   Not logged in: the button sends the student to the Register page, then back to the course page. Logged in: it opens Razorpay's payment popup.
+5. **Webhook** (so a payment is never lost if the student closes the page): Razorpay dashboard > Account & Settings > Webhooks > Add. URL: the address shown under "Webhook secret" on the LMS link screen (`https://mymerchantnavy.com/wp-json/mmn-lms/v1/razorpay`), a secret you invent (paste the same into WordPress), events **payment.captured** and **order.paid**.
+6. **After payment** (Settings > LMS link): "Send the student straight into the LMS, signed in" (recommended), or the normal thank-you page.
+7. **Test** with Razorpay test keys (test card/UPI from Razorpay's docs). You should land in the LMS signed in, with the course. Every attempt is listed under **LMS orders** in the WordPress menu (status created / paid / failed).
+8. Replace the Test keys and webhook with Live ones when it all works.
 
-What the plugin does by itself: registration (My account or checkout) creates the LMS account with no course; a paid order gives the
-course(s) of the products in it; the thank-you step redirects into the LMS signed in; My account shows a "Go to my course" button.
-
-## 4b. Only if you build your own checkout (not WooCommerce): two lines in your Razorpay code
-
-In the place where your code has **verified** a successful payment (after checking the Razorpay signature, never before):
+If you would rather use your own checkout code, call this after you have verified the Razorpay signature:
 
 ```php
-// tell the LMS: this student paid for this product
 do_action('mmn_lms_payment_success', $user_id, $product_id, $razorpay_order_id);
-
-// send the student to the LMS, signed in (instead of, or after, your own thank-you redirect)
-wp_redirect(mmn_lms_login_url($user_id));
-exit;
+wp_redirect(mmn_lms_login_url($user_id)); exit;
 ```
-
-`$user_id` is the WordPress user (id, `WP_User` or email). `$product_id` is the id you typed on the course in step 2.
-If you keep your own thank-you page, put the shortcode `[mmn_lms_button text="Go to my course"]` on it (and in "My account"):
-it signs the student in at the moment of the click.
 
 ## Things to know
 
