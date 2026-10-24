@@ -80,18 +80,6 @@ class WordPressLinkTest extends TestCase
         $this->signed('student', ['email' => 'a@example.com'], secret: 'x')->assertStatus(503);
     }
 
-    public function test_existing_wordpress_users_can_be_imported_in_one_go(): void
-    {
-        User::create(['email' => 'old@example.com', 'name' => 'Already Here']);
-
-        $this->signed('import', ['students' => [
-            ['email' => 'old@example.com', 'name' => 'Changed'], ['email' => 'new1@example.com', 'name' => 'New One'], ['email' => 'new2@example.com'],
-        ]])->assertOk()->assertJsonPath('data.received', 3)->assertJsonPath('data.created', 2);
-
-        $this->assertSame('Already Here', User::where('email', 'old@example.com')->value('name'));
-        $this->assertSame(3, User::count());
-    }
-
     public function test_the_sign_in_link_logs_the_student_in_once(): void
     {
         $link = app(WordPressLink::class);

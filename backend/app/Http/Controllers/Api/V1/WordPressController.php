@@ -10,7 +10,7 @@ use Illuminate\Http\Request;
 
 /**
  * The link with the WordPress site (mymerchantnavy.com), see docs/WORDPRESS.md.
- * The three /integrations/wordpress/* calls are signed server-to-server messages; /auth/sso signs a student in.
+ * The two /integrations/wordpress/* calls are signed server-to-server messages; /auth/sso signs a student in.
  */
 class WordPressController extends Controller
 {
@@ -34,25 +34,6 @@ class WordPressController extends Controller
         $user = $this->link->student($data['email'], $data['name'] ?? null, $data['phone'] ?? null, $data['wp_user_id'] ?? null);
 
         return response()->json(['data' => ['id' => $user->id, 'newCourses' => $this->link->enroll($user, $data['product_id'])]]);
-    }
-
-    /** POST /integrations/wordpress/import: up to 500 existing WordPress users at once (one-time import). */
-    public function import(Request $request): JsonResponse
-    {
-        $data = $request->validate([
-            'students' => ['required', 'array', 'max:500'],
-            'students.*.email' => ['required', 'email:rfc', 'max:191'],
-            'students.*.name' => ['nullable', 'string', 'max:120'],
-            'students.*.phone' => ['nullable', 'string', 'max:30'],
-            'students.*.wp_user_id' => ['nullable', 'integer'],
-        ]);
-
-        $created = 0;
-        foreach ($data['students'] as $s) {
-            $created += (int) $this->link->student($s['email'], $s['name'] ?? null, $s['phone'] ?? null, $s['wp_user_id'] ?? null)->wasRecentlyCreated;
-        }
-
-        return response()->json(['data' => ['received' => count($data['students']), 'created' => $created]]);
     }
 
     /** POST /auth/sso {token}: the "go to my course" link from WordPress. Same answer as the code login. */

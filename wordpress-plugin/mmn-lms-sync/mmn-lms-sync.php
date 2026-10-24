@@ -220,36 +220,6 @@ add_action('admin_init', function () {
     }
 });
 
-/** One-time import of every existing WordPress user into the LMS (no courses are given). */
-add_action('admin_post_mmn_lms_import', function () {
-    if (! current_user_can('manage_options')) {
-        wp_die('Not allowed');
-    }
-    check_admin_referer('mmn_lms_import');
-    if (function_exists('set_time_limit')) {
-        @set_time_limit(600);
-    }
-    $received = 0;
-    $created  = 0;
-    $error    = '';
-    for ($page = 1; ; $page++) {
-        $users = get_users(['number' => 200, 'paged' => $page, 'fields' => 'all']);
-        if (! $users) {
-            break;
-        }
-        $result = mmn_lms_send('import', ['students' => array_map('mmn_lms_student_payload', $users)]);
-        if (! $result[0]) {
-            $error = $result[1];
-            break;
-        }
-        $received += (int) $result[1]['received'];
-        $created  += (int) $result[1]['created'];
-    }
-    $message = $error ? 'Stopped: ' . $error : "Done. {$received} users sent, {$created} new accounts created in the LMS.";
-    wp_safe_redirect(add_query_arg(['page' => 'mmn-lms-sync', 'mmn_msg' => rawurlencode($message)], admin_url('options-general.php')));
-    exit;
-});
-
 add_action('admin_post_mmn_lms_test', function () {
     if (! current_user_can('manage_options')) {
         wp_die('Not allowed');
@@ -284,11 +254,6 @@ function mmn_lms_settings_page()
         <h2>Test the connection</h2>
         <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
             <input type="hidden" name="action" value="mmn_lms_test"><?php wp_nonce_field('mmn_lms_test'); submit_button('Send my own account to the LMS', 'secondary'); ?>
-        </form>
-        <h2>Import existing students (once)</h2>
-        <p>Creates an LMS account for every WordPress user. Nobody gets a course from this, and existing LMS accounts are not changed.</p>
-        <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>">
-            <input type="hidden" name="action" value="mmn_lms_import"><?php wp_nonce_field('mmn_lms_import'); submit_button('Send all WordPress users to the LMS', 'secondary'); ?>
         </form>
     </div>
     <?php

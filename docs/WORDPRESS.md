@@ -36,9 +36,8 @@ Admin panel → **Courses** → open a course → **WordPress product ID**: the 
 2. **Settings → LMS link**: API address `https://api.mymerchantnavy.com/api/v1`, student site `https://lms.mymerchantnavy.com`, and the shared secret from step 1.
    (Safer: put them in `wp-config.php` as `MMN_LMS_API_URL`, `MMN_LMS_APP_URL`, `MMN_LMS_SECRET`.)
 3. Press **Send my own account to the LMS**. "Connected" means the link works.
-4. Press **Send all WordPress users to the LMS** once, to bring over the students who already exist (no course is given).
 
-From now on every new WordPress registration is sent to the LMS by itself.
+Only students who register from now on are sent to the LMS (existing WordPress users are not imported). Every new registration is sent by itself.
 
 ## 4. Two lines in your Razorpay code
 
@@ -63,4 +62,4 @@ it signs the student in at the moment of the click.
 - A product id with no linked course is reported as an error (the plugin writes it to the WordPress error log), and nobody is created or charged anything in the LMS.
 - The student's first LMS visit still shows the short profile form (target exam, attempt year) once.
 - Switch the link off by emptying `LMS_WP_SECRET` in the LMS `.env`.
-- Messages to the LMS: `POST /api/v1/integrations/wordpress/{student|enroll|import}`, headers `X-MMN-Timestamp` (unix seconds) and `X-MMN-Signature` (hex HMAC-SHA256 of `timestamp + "." + raw body`). The sign-in token is `base64url({"e":email,"x":expiry,"j":random}) + "." + hex HMAC-SHA256(payload)`; the student site opens `/sso#t=<token>`.
+- Messages to the LMS: `POST /api/v1/integrations/wordpress/{student|enroll}`, headers `X-MMN-Timestamp` (unix seconds) and `X-MMN-Signature` (hex HMAC-SHA256 of `timestamp + "." + raw body`). The sign-in token is `base64url({"e":email,"x":expiry,"j":random}) + "." + hex HMAC-SHA256(payload)`; the student site opens `/sso#t=<token>`.
