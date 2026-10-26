@@ -60,22 +60,41 @@ class PdfLayoutEdgeCasesTest extends TestCase
 
     public function test_a_paper_with_numbered_questions_and_question_headers_is_read_completely(): void
     {
-        // Questions 1-2: "1. text" with numbered explanation steps ("1.", "2.", "3."); questions 3-5: "Question 3 Medium · Numerical".
+        // Questions 1-5: "1. text" with numbered explanation steps ("1.", "2.", "3."); questions 6-8: "Question 6 Medium · Numerical".
         $result = app(PdfRuleParser::class)->parse(base_path('tests/Fixtures/mixed-layout.pdf'));
         $questions = collect($result->questions)->keyBy('number');
 
-        $this->assertSame([1, 2, 3, 4, 5], $questions->keys()->all());
-        $this->assertSame([1, 3, 3, 3, 2], $questions->pluck('correct')->all());
+        $this->assertSame([1, 2, 3, 4, 5, 6, 7, 8], $questions->keys()->all());
+        $this->assertSame([1, 3, 2, 2, 2, 3, 3, 2], $questions->pluck('correct')->all());
         $this->assertSame('integers', $questions[1]['option_1']);
         $this->assertSame('easy', $questions[1]['difficulty']);   // from "(Easy · Concept)" on the answer line
         $this->assertSame('concept', $questions[1]['kind']);
-        $this->assertSame('medium', $questions[3]['difficulty']); // from the "Question 3 Medium · Numerical" header
-        $this->assertSame('calculation', $questions[3]['kind']);  // "Numerical" means a calculation question
+        $this->assertSame('medium', $questions[6]['difficulty']); // from the "Question 6 Medium · Numerical" header
+        $this->assertSame('calculation', $questions[6]['kind']);  // "Numerical" means a calculation question
         // every step and bullet on its own line, and a banner between questions is not glued to the explanation above it
         $this->assertStringContainsString('<strong>Explanation:</strong><br>1. -15 is negative.<br>2. It is an integer.', $questions[1]['explanation']);
         $this->assertStringNotContainsString('Part D', $questions[2]['explanation']);
         foreach ($questions as $number => $q) {
             $this->assertSame([], $q['warnings'], "Q{$number}");
         }
+    }
+
+    public function test_level_letters_an_introduction_page_and_repeated_headings_stay_out_of_the_questions(): void
+    {
+        // "... E · N", a "Part 2: Exam-level extension (Questions 2-3)" page with a table, a plain section title and a header with doubled letters.
+        $result = app(PdfRuleParser::class)->parse(base_path('tests/Fixtures/extension-layout.pdf'));
+        $questions = collect($result->questions)->keyBy('number');
+
+        $this->assertSame([1, 2, 3], $questions->keys()->all());
+        $this->assertSame([2, 2, 2], $questions->pluck('correct')->all());
+        $this->assertSame(['easy', 'medium', 'medium'], $questions->pluck('difficulty')->all());
+        $this->assertSame(['calculation', 'concept', 'concept'], $questions->pluck('kind')->all());
+        foreach ($questions as $number => $q) {
+            $plain = strip_tags($q['explanation']);
+            foreach (['Section Added', 'extension', 'Total', 'Adding', 'SSuummss'] as $junk) {
+                $this->assertStringNotContainsString($junk, $plain, "Q{$number} explanation must not contain: {$junk}");
+            }
+        }
+        $this->assertStringContainsString('Step by step:</strong><br>1. Add 2 and 3.<br>2. The sum is 5.', $questions[1]['explanation']);
     }
 }

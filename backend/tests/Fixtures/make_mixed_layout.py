@@ -1,5 +1,5 @@
-"""Builds mixed-layout.pdf: the layout of the Number System paper, where questions 1-2 are numbered lines
-("1. text") whose explanations contain numbered STEPS ("1. ...", "2. ..."), and questions 3-5 use
+"""Builds mixed-layout.pdf: the layout of the Number System paper, where questions 1-5 are numbered lines
+("1. text") whose explanations contain numbered STEPS ("1. ...", "2. ..."), and questions 6-8 use
 "Question 3 Medium · Numerical" headers. The reader once read only one of the two layouts.
 
   python make_mixed_layout.py            (needs: pip install pymupdf)
@@ -19,6 +19,9 @@ y = 90
 for n, (q, opts, ans, steps) in enumerate([
     ("The smallest family that holds -15 is", ("integers", "natural numbers", "whole numbers", "rational numbers"), "(a) integers (Easy · Concept)", ["-15 is negative.", "It is an integer."]),
     ("Which of these is NOT a whole number?", ("0", "17", "-4", "250"), "(c) -4 (Easy · Concept)", ["Whole numbers start at 0.", "-4 is negative.", "So -4 is not whole."]),
+    ("What is 1 + 1?", ("1", "2", "3", "4"), "(b) 2 (Easy · Numerical)", ["Add the two ones.", "The sum is 2."]),
+    ("What is 2 + 2?", ("3", "4", "5", "6"), "(b) 4 (Easy · Numerical)", ["Add the twos.", "The sum is 4."]),
+    ("What is 3 + 3?", ("5", "6", "7", "8"), "(b) 6 (Easy · Numerical)", ["Add the threes.", "The sum is 6."]),
 ], start=1):
     text(p, 50, y, f"{n}. {q}"); y += 14
     text(p, 68, y, f"(a) {opts[0]}   (b) {opts[1]}", 8.8); y += 12
@@ -35,7 +38,7 @@ for n, (q, opts, ans) in enumerate([
     ("What is 6 + 7?", ("11", "12", "13", "14"), "(c) 13"),
     ("What is 9 - 4?", ("3", "4", "5", "6"), "(c) 5"),
     ("What is 2 + 2?", ("3", "4", "5", "6"), "(b) 4"),
-], start=3):
+], start=6):
     p = doc.new_page()
     text(p, 50, 60, "Number System", 8.2)
     text(p, 48, 100, f"Question {n} Medium · Numerical", 8.8)

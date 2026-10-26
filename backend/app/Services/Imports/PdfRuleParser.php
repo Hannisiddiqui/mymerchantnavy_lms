@@ -133,6 +133,10 @@ class PdfRuleParser implements QuestionParser
         $part = null;
         $last = 0;
         $headerX = $inlineStyle ? min(array_map(fn ($l) => $l['x0'], array_filter($lines, fn ($l) => preg_match('/^Question\s+\d+[\s\x{a0}]+\S/iu', trim($l['text']))))) : 0;
+        // In a paper with "Question 61 ..." headers, "1. text" lines are questions only when at least five of them sit at the
+        // same margin as the headers; otherwise they are the numbered steps of the explanations.
+        $numberedAtMargin = $inlineStyle && count(array_filter($lines, fn ($l) => preg_match('/^\d{1,3}\s*[\.\)]\s+\S/u', trim($l['text'])) && $l['x0'] <= $headerX + 3)) >= 5;
+        $skipIntro = false;
         $stemX = null; // left edge of the question numbers in a "1. 2. 3." paper
         $keyLines = [];
 
@@ -143,6 +147,19 @@ class PdfRuleParser implements QuestionParser
                 $keyLines = array_slice($lines, $i + 1);
                 break;
             }
+            // "Part 4: Exam-level extension (Questions 56-100)" opens a page of introduction and a table: not part of any question.
+            if ((preg_match('/^Part\s+[A-Za-z0-9]+\s*:.*\bQuestions?\s+\d+\s*[-–]\s*\d+/iu', $text) || preg_match('/^Added questions\b/iu', $text)) && ($line['size'] ?? 0) >= 11) {
+                $skipIntro = true;
+                continue;
+            }
+            if ($skipIntro) {
+                if (preg_match('/^(Question\s+\d+|Q\s*\d+\s*[\.\):·])/iu', $text) || preg_match('/^\d{1,3}\s*[\.\)]\s+\S/u', $text)) {
+                    $skipIntro = false;
+                } else {
+                    continue;
+                }
+            }
+
             if (preg_match('/^(Part\s+\d+)\s*[–\-—:]/u', $text, $m)) {
                 $part = $m[1];
                 continue;
@@ -152,10 +169,15 @@ class PdfRuleParser implements QuestionParser
             }
             // Big bold headings and page banners ("Part D: Additional exam-level questions", "Type 3: Simplify and compare")
             // sit between questions: they are not part of the explanation above them.
-            if (preg_match('/^(Part\s+[A-Za-z0-9]+|Type\s+\d+|Section\s+[\d.]+)\s*:/u', $text) && ! empty($line['bold']) && ($line['size'] ?? 0) >= 11) {
+            if (preg_match('/^(Part\s+[A-Za-z0-9]+|Type\s+\d+|Section\s+[\d.]+)(\s*:|\s+\S)/u', $text) && ! empty($line['bold']) && ($line['size'] ?? 0) >= 11) {
                 continue;
             }
-
+            if (preg_match('/^\d+\.\d+\s+\S/u', $text) && ($line['size'] ?? 0) >= 12) {
+                continue; // a numbered section title such as "1.1 What interest is, and the simple interest formula"
+            }
+            if (preg_match('/^(\S)\1(\S)\2(\S)\3(\S)\4/u', $text)) {
+                continue; // a page header printed twice over, so every letter is doubled ("TTrriiaannggleess")
+            }
             if ($wordStyle && preg_match('/^Question\s+(\d+)$/iu', $text, $m)) {
                 $this->closeBlock($blocks, $current);
                 $current = $this->newBlock((int) $m[1], $part, $line, []);
@@ -194,7 +216,7 @@ class PdfRuleParser implements QuestionParser
                 : (preg_match('/^(\d{1,3})\s*[\.\)]\s+(\S.*)$/u', $text, $m) && (int) $m[1] === $last + 1
                     // the numbered steps of an explanation ("1. 64 = 2^6") are indented: a real question number sits at the margin
                     // (in a paper that also has "Question 61 ..." headers, the margin of those headers is the reference)
-                    && ($inlineStyle ? $line['x0'] <= $headerX + 4 : ($stemX === null || $line['x0'] <= $stemX + 4)) ? [(int) $m[1], $m[2]] : null);
+                    && ($inlineStyle ? ($numberedAtMargin && $line['x0'] <= $headerX + 3) : ($stemX === null || $line['x0'] <= $stemX + 4)) ? [(int) $m[1], $m[2]] : null);
 
             if ($stem) {
                 if ($current && $current['number'] === $stem[0] && ! $current['stemSeen']) {
@@ -258,6 +280,10 @@ class PdfRuleParser implements QuestionParser
                 $meta['level'] = strtoupper($m[1]);
             } elseif (preg_match('/^(concept|calculation|application|recall|reasoning|numerical)/i', $piece, $m)) {
                 $meta['kind'] = $this->kindName($m[1]);
+            } elseif (preg_match('/\s([EMH])$/', $piece, $m)) {
+                $meta['level'] = $m[1]; // "1.1 What interest is, and the formula E": the level letter ends the section title
+            } elseif (preg_match('/^([CN])$/', $piece, $m)) {
+                $meta['kind'] = $m[1] === 'C' ? 'concept' : 'calculation'; // "· C" concept, "· N" numerical
             }
         }
 
