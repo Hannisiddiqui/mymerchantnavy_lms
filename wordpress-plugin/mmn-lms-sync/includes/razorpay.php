@@ -122,7 +122,14 @@ function mmn_lms_buy_script()
         return;
     }
     $done = true;
-    $cfg  = wp_json_encode(['ajax' => admin_url('admin-ajax.php'), 'nonce' => wp_create_nonce('mmn_rzp')]);
+    $auto = isset($GLOBALS['mmn_lms_auto']) ? $GLOBALS['mmn_lms_auto'] : '';
+    $all  = mmn_lms_products();
+    $cfg  = wp_json_encode([
+        'ajax'     => admin_url('admin-ajax.php'),
+        'nonce'    => wp_create_nonce('mmn_rzp'),
+        'auto'     => $auto,
+        'autoFree' => $auto !== '' && isset($all[$auto]) && $all[$auto]['price'] == 0,
+    ]);
     ?>
     <script>
     (function () {
@@ -132,10 +139,8 @@ function mmn_lms_buy_script()
             Object.keys(data).forEach(function (k) { f.append(k, data[k]); });
             return fetch(cfg.ajax, { method: 'POST', body: f, credentials: 'same-origin' }).then(function (r) { return r.json(); });
         }
-        document.addEventListener('click', function (e) {
-            var b = e.target.closest ? e.target.closest('.mmn-buy') : null;
-            if (!b || b.dataset.busy) { return; }
-            e.preventDefault();
+        function start(b) {
+            if (b.dataset.busy) { return; }
             var label = b.textContent;
             function reset() { b.dataset.busy = ''; b.textContent = label; }
             b.dataset.busy = '1';
@@ -165,11 +170,63 @@ function mmn_lms_buy_script()
                     }
                 }).open();
             }).catch(function (err) { alert(err.message); reset(); });
+        }
+        document.addEventListener('click', function (e) {
+            var b = e.target.closest ? e.target.closest('.mmn-buy') : null;
+            if (!b) { return; }
+            e.preventDefault();
+            start(b);
         });
+        // A plain link "?mmn_buy=product-id": once the page (and Razorpay's script) has loaded, start that purchase.
+        if (cfg.auto) {
+            window.addEventListener('load', function () {
+                try { window.history.replaceState(null, '', window.location.pathname + window.location.search.replace(/([?&])mmn_buy=[^&]*&?/, '$1').replace(/[?&]$/, '')); } catch (e) {}
+                var el = document.createElement('button');
+                el.className = 'mmn-buy' + (cfg.autoFree ? ' mmn-free' : '');
+                el.dataset.product = cfg.auto;
+                el.textContent = 'Buy';
+                start(el);
+            });
+        }
     })();
     </script>
     <?php
 }
+
+/**
+ * A plain link on any page, e.g. a pricing card:  <a href="?mmn_buy=gp-rating-pass">Get the pass</a>
+ * Not logged in: the visitor is sent to the Register page and brought back to this page afterwards.
+ * Logged in: the payment popup opens by itself (a free product signs them up straight away).
+ */
+function mmn_lms_buy_link()
+{
+    if (empty($_GET['mmn_buy'])) {
+        return;
+    }
+    $product  = sanitize_text_field(wp_unslash($_GET['mmn_buy']));
+    $products = mmn_lms_products();
+    if (! isset($products[$product])) {
+        return;
+    }
+    $free = $products[$product]['price'] == 0;
+    if (! $free && ! mmn_lms_razorpay_ready()) {
+        return;
+    }
+    if (! is_user_logged_in()) {
+        $register = mmn_lms_setting('register_url') !== '' ? mmn_lms_setting('register_url') : wp_login_url();
+        $here     = (is_ssl() ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
+        wp_safe_redirect(add_query_arg('next', rawurlencode($here), $register));
+        exit;
+    }
+    $GLOBALS['mmn_lms_auto'] = $product;
+    add_action('wp_footer', 'mmn_lms_buy_script');
+    if (! $free) {
+        add_action('wp_enqueue_scripts', function () {
+            wp_enqueue_script('razorpay-checkout', 'https://checkout.razorpay.com/v1/checkout.js', [], null, true);
+        });
+    }
+}
+add_action('template_redirect', 'mmn_lms_buy_link');
 
 // ---------------------------------------------------------------------------------------------------- server side of the button
 
