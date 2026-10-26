@@ -40,7 +40,7 @@ class TestResource extends Resource
                 TextInput::make('title')->required()->maxLength(150)->columnSpanFull(),
                 Select::make('course_id')->label('Course')->relationship('course', 'title')->required()->searchable()->preload(),
                 Select::make('kind')->label('Type')->options(['practice' => 'Practice test (inside a chapter)', 'mock' => 'Mock test (between subjects)'])->required()->default('practice'),
-                TextInput::make('duration_minutes')->label('Duration (minutes)')->numeric()->required()->minValue(1)->default(60),
+                TextInput::make('duration_minutes')->label('Duration (minutes)')->numeric()->required()->minValue(1)->default(90),
                 Toggle::make('is_published')->label('Published')->inline(false)->helperText('Unpublished tests are hidden from students.'),
             ]),
             Section::make('Marking')->columns(2)->schema([

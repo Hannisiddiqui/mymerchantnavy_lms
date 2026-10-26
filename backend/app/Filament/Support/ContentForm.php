@@ -47,7 +47,7 @@ class ContentForm
             ],
             ContentType::LiveClass => [
                 DateTimePicker::make('starts_at')->label('Starts at')->required(),
-                TextInput::make('duration_minutes')->label('Duration (minutes)')->numeric()->default(60)->required(),
+                TextInput::make('duration_minutes')->label('Duration (minutes)')->numeric()->default(90)->required(),
                 Select::make('provider')->label('Streaming provider (optional)')->options(['agora' => 'Agora', 'youtube' => 'YouTube Live'])
                     ->helperText('Live streaming is connected in a later milestone. Students are reminded before the class starts.'),
             ],
