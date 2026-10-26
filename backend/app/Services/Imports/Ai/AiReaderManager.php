@@ -6,8 +6,8 @@ use RuntimeException;
 
 /**
  * Picks the AI service for reading PDFs.
- *   AI_PROVIDER=auto (default): the first provider that has a key: Gemini, then OpenAI, then Claude.
- *   AI_PROVIDER=gemini | openai | anthropic: force one.
+ *   AI_PROVIDER=auto (default): the first provider that has a key: Gemini (AI Studio), Vertex AI, OpenAI, then Claude.
+ *   AI_PROVIDER=gemini | vertex | openai | anthropic: force one.
  * Keys and model names live in backend/.env (see config/services.php).
  */
 class AiReaderManager
@@ -15,6 +15,7 @@ class AiReaderManager
     /** provider => driver class. Order = preference when AI_PROVIDER=auto (cheapest first). */
     private const DRIVERS = [
         'gemini' => GeminiReader::class,
+        'vertex' => VertexReader::class,
         'openai' => OpenAiReader::class,
         'anthropic' => AnthropicReader::class,
     ];
@@ -51,6 +52,6 @@ class AiReaderManager
 
     public static function missingKeyMessage(): string
     {
-        return 'The AI reader needs an API key. Add GEMINI_API_KEY (cheapest), OPENAI_API_KEY or ANTHROPIC_API_KEY to backend/.env.';
+        return 'The AI reader needs an API key. Add GEMINI_API_KEY (cheapest), VERTEX_API_KEY, OPENAI_API_KEY or ANTHROPIC_API_KEY to backend/.env.';
     }
 }

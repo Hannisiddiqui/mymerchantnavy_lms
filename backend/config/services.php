@@ -29,14 +29,18 @@ return [
     ],
 
     // ---- AI question reader (app/Services/Imports/AiPdfParser.php + Ai/) ----
-    // Set ONE key. AI_PROVIDER=auto uses the first that has a key: Gemini, OpenAI, Claude.
+    // Set ONE key. AI_PROVIDER=auto uses the first that has a key: Gemini, Vertex AI, OpenAI, Claude.
     'ai' => [
-        'provider' => env('AI_PROVIDER', 'auto'),     // auto | gemini | openai | anthropic
+        'provider' => env('AI_PROVIDER', 'auto'),     // auto | gemini | vertex | openai | anthropic
         'pages_per_request' => (int) env('AI_PAGES_PER_REQUEST', 4),
     ],
     'gemini' => [
         'key' => env('GEMINI_API_KEY'),                // https://aistudio.google.com/apikey
         'model' => env('GEMINI_MODEL', 'gemini-3.8-flash'), // gemini-3.5-flash-lite is cheaper
+    ],
+    'vertex' => [
+        'key' => env('VERTEX_API_KEY'),                // Google Cloud console > Vertex AI > API keys (see docs/AI-READER.md)
+        'model' => env('VERTEX_MODEL', 'gemini-2.5-flash'), // use a model that your project can call in Vertex AI
     ],
     'openai' => [
         'key' => env('OPENAI_API_KEY'),

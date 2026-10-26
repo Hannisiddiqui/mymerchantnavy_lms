@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Services\Imports\Ai\AiReaderManager;
 use App\Services\Imports\Ai\GeminiReader;
 use App\Services\Imports\Ai\OpenAiReader;
+use App\Services\Imports\Ai\VertexReader;
 use App\Services\Imports\AiPdfParser;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
@@ -53,6 +54,62 @@ class AiReadersTest extends TestCase
 
         $this->keys(gemini: 'g', provider: 'openai'); // forced to OpenAI but no OpenAI key
         $this->assertFalse($manager->configured());
+    }
+
+    // ------------------------------------------------------------------ Vertex AI
+
+    public function test_vertex_is_chosen_after_gemini_and_before_openai(): void
+    {
+        $manager = new AiReaderManager;
+        config(['services.vertex.key' => 'v']);
+
+        $this->keys(openai: 'o');
+        $this->assertSame('vertex', $manager->provider());
+        $this->assertInstanceOf(VertexReader::class, $manager->driver());
+
+        $this->keys(gemini: 'g');
+        $this->assertSame('gemini', $manager->provider());
+
+        $this->keys(gemini: 'g', provider: 'vertex');
+        $this->assertSame('vertex', $manager->provider());
+    }
+
+    public function test_vertex_request_has_the_pdf_the_schema_and_the_key_and_reply_is_read(): void
+    {
+        $this->keys();
+        config(['services.vertex.key' => 'vtx-key', 'services.vertex.model' => 'gemini-2.5-flash']);
+        Http::fake(['aiplatform.googleapis.com/*' => Http::response([
+            'candidates' => [['content' => ['parts' => [['thought' => true, 'text' => 'thinking'], ['text' => '{"questions":[]}']]], 'finishReason' => 'STOP']],
+        ])]);
+
+        $reply = app(VertexReader::class)->read(base64_encode('%PDF-fake'), 'Read it', self::SCHEMA);
+
+        $this->assertSame(['text' => '{"questions":[]}', 'truncated' => false], $reply);
+        Http::assertSent(function (Request $request) {
+            $body = $request->data();
+            $parts = $body['contents'][0]['parts'];
+            $items = $body['generationConfig']['responseSchema']['properties']['questions']['items'];
+
+            return str_starts_with($request->url(), 'https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?')
+                && str_contains($request->url(), 'key=vtx-key')
+                && $parts[0] === ['inlineData' => ['mimeType' => 'application/pdf', 'data' => base64_encode('%PDF-fake')]]
+                && $parts[1] === ['text' => 'Read it']
+                && $body['generationConfig']['responseMimeType'] === 'application/json'
+                && $body['generationConfig']['responseSchema']['type'] === 'OBJECT'
+                && ! array_key_exists('additionalProperties', $items)
+                && $items['properties']['difficulty'] === ['type' => 'STRING', 'enum' => ['easy'], 'nullable' => true];
+        });
+    }
+
+    public function test_vertex_reports_truncation_and_failures(): void
+    {
+        $vertex = new VertexReader;
+
+        $this->assertTrue($vertex->parse(['candidates' => [['content' => ['parts' => [['text' => '{"quest']]], 'finishReason' => 'MAX_TOKENS']]])['truncated']);
+
+        $this->expectException(\RuntimeException::class);
+        $this->expectExceptionMessage('SAFETY');
+        $vertex->parse(['promptFeedback' => ['blockReason' => 'SAFETY']]);
     }
 
     // ------------------------------------------------------------------ Gemini
