@@ -41,6 +41,7 @@ return [
     'vertex' => [
         'key' => env('VERTEX_API_KEY'),                // Google Cloud console > Vertex AI > API keys (see docs/AI-READER.md)
         'model' => env('VERTEX_MODEL', 'gemini-3.8-flash'), // a model your project can call in Vertex AI (gemini-3.5-flash-lite is cheaper)
+        'fallback_model' => env('VERTEX_FALLBACK_MODEL', 'gemini-3.5-flash'), // used for a part when the main model keeps answering 429 (empty = never)
     ],
     'openai' => [
         'key' => env('OPENAI_API_KEY'),

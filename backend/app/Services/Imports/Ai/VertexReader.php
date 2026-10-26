@@ -24,31 +24,45 @@ class VertexReader implements AiReader
 
     public function read(string $pdfBase64, string $prompt, array $schema): array
     {
-        $url = sprintf(self::ENDPOINT, config('services.vertex.model'));
-
-        // expect=false: above ~1 MB curl would otherwise send "Expect: 100-continue", and Google answers 417.
-        $response = Http::withOptions(['expect' => false])->timeout(600)
-            // Google answers 429 "resource exhausted" when a project is over its per-minute allowance: wait, then try again.
-            ->retry([5000, 15000, 45000, 90000], fn ($e) => $e instanceof ConnectionException || ($e instanceof RequestException && in_array($e->response->status(), [429, 500, 502, 503, 504], true)), throw: true)
-            ->withQueryParameters(['key' => config('services.vertex.key')])
-            ->post($url, [
-                'contents' => [[
-                    'role' => 'user',
-                    'parts' => [
-                        ['inlineData' => ['mimeType' => 'application/pdf', 'data' => $pdfBase64]],
-                        ['text' => $prompt],
-                    ],
-                ]],
-                'generationConfig' => [
-                    'responseMimeType' => 'application/json',
-                    'responseSchema' => $this->schema($schema),
-                    'maxOutputTokens' => 32768,
-                    // Gemini 3 models are tuned for their default temperature: forcing 0 makes them loop and ramble.
-                    'thinkingConfig' => ['thinkingLevel' => 'LOW'],
+        $body = [
+            'contents' => [[
+                'role' => 'user',
+                'parts' => [
+                    ['inlineData' => ['mimeType' => 'application/pdf', 'data' => $pdfBase64]],
+                    ['text' => $prompt],
                 ],
-            ]);
+            ]],
+            'generationConfig' => [
+                'responseMimeType' => 'application/json',
+                'responseSchema' => $this->schema($schema),
+                'maxOutputTokens' => 32768,
+                // Gemini 3 models are tuned for their default temperature: forcing 0 makes them loop and ramble.
+                'thinkingConfig' => ['thinkingLevel' => 'LOW'],
+            ],
+        ];
+        $main = (string) config('services.vertex.model');
+        $fallback = (string) config('services.vertex.fallback_model');
 
-        return $this->parse($response->json() ?? []);
+        try {
+            return $this->parse($this->call($main, $body, [5000, 15000, 45000])->json() ?? []);
+        } catch (RequestException $e) {
+            // The main model stayed "resource exhausted" (429): another model has its own allowance, so use it for this part.
+            if ($e->response->status() !== 429 || $fallback === '' || $fallback === $main) {
+                throw $e;
+            }
+
+            return $this->parse($this->call($fallback, $body, [5000, 20000])->json() ?? []);
+        }
+    }
+
+    private function call(string $model, array $body, array $waits)
+    {
+        // expect=false: above ~1 MB curl would otherwise send "Expect: 100-continue", and Google answers 417.
+        return Http::withOptions(['expect' => false])->timeout(600)
+            // 429 "resource exhausted" and temporary server errors: wait, then try again.
+            ->retry($waits, fn ($e) => $e instanceof ConnectionException || ($e instanceof RequestException && in_array($e->response->status(), [429, 500, 502, 503, 504], true)), throw: true)
+            ->withQueryParameters(['key' => config('services.vertex.key')])
+            ->post(sprintf(self::ENDPOINT, $model), $body);
     }
 
     /** Reads the reply: the text parts of the first candidate (thinking parts are skipped). */
