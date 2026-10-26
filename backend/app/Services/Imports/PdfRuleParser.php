@@ -357,7 +357,7 @@ class PdfRuleParser implements QuestionParser
 
             foreach ($line['segments'] as $segment) {
                 // a segment may hold several options: "(a) 27 (b) 81"
-                foreach (preg_split('/(?<=\s)(?=\([a-dA-D]\)\s)/u', $segment['rich'] ?? $segment['text']) as $n => $piece) {
+                foreach ($this->optionPieces($segment['rich'] ?? $segment['text']) as $n => $piece) {
                     if ($marker = $this->optionMarker($piece)) {
                         [$letter, $rest] = $marker;
                         $options[$letter] = [$rest];
@@ -384,6 +384,24 @@ class PdfRuleParser implements QuestionParser
         $draft['explanation'] = $this->explanation($sections);
 
         return $draft;
+    }
+
+    /**
+     * "(a) 27 (b) 81" gives two pieces. A marker that follows another marker straight away, as in "(b) (c) with the chef"
+     * (an error-spotting option that repeats the letter of the part it quotes), belongs to the text of the first one.
+     */
+    private function optionPieces(string $text): array
+    {
+        $pieces = [];
+        foreach (preg_split('/(?<=\s)(?=\([a-dA-D]\)\s)/u', $text) as $piece) {
+            if ($pieces && preg_match('/^\([a-dA-D]\)\s*$/u', end($pieces))) {
+                $pieces[array_key_last($pieces)] .= preg_replace('/^\([a-dA-D]\)\s*/u', '', $piece);
+            } else {
+                $pieces[] = $piece;
+            }
+        }
+
+        return $pieces;
     }
 
     /** ["a", "text"] when the text starts with "(a)" or "a)". */
