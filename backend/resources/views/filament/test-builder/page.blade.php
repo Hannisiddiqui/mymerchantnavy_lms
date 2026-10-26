@@ -41,6 +41,8 @@
                                 </div>
                             </div>
                             <div class="cb-row" style="flex:none;gap:.25rem">
+                                <x-filament::icon-button icon="heroicon-m-eye" color="gray" size="sm" label="Preview question" tooltip="Preview with the answer and explanation"
+                                    wire:click="mountAction('previewQuestion', { id: {{ $question->id }} })" />
                                 <x-filament::icon-button icon="heroicon-m-pencil-square" color="gray" size="sm" label="Edit question" tooltip="Edit"
                                     wire:click="mountAction('editQuestion', { id: {{ $question->id }} })" />
                                 <x-filament::icon-button icon="heroicon-m-arrows-right-left" color="gray" size="sm" label="Replace question" tooltip="Replace with another question"
@@ -108,6 +110,8 @@
                                         <span class="cb-muted">in {{ $question->tests_count }} {{ \Illuminate\Support\Str::plural('test', $question->tests_count) }} · #{{ $question->id }}</span>
                                     </div>
                                 </div>
+                                <x-filament::icon-button icon="heroicon-m-eye" color="gray" size="sm" label="Preview question" tooltip="Preview with the answer and explanation"
+                                    wire:click="mountAction('previewQuestion', { id: {{ $question->id }} })" />
                                 @if ($added)
                                     <x-filament::badge color="info" size="sm">In test</x-filament::badge>
                                 @else

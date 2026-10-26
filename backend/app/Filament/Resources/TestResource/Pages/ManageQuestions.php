@@ -162,6 +162,25 @@ class ManageQuestions extends Page
             });
     }
 
+    /** The eye button: the whole question as students see it, with the correct answer and the explanation. arguments: id */
+    public function previewQuestionAction(): Action
+    {
+        return Action::make('previewQuestion')->slideOver()->modalWidth('3xl')
+            ->modalHeading(fn (array $arguments) => 'Preview: question #'.($arguments['id'] ?? ''))
+            ->modalSubmitAction(false)->modalCancelActionLabel('Close')
+            ->modalContent(function (array $arguments) {
+                $question = Question::with('options')->findOrFail($arguments['id']);
+                $options = $question->options->values();
+
+                return view('filament.question-preview', [
+                    'body' => $question->body,
+                    'options' => $options->mapWithKeys(fn ($option, $i) => [$i + 1 => $option->body])->all(),
+                    'correct' => 1 + (int) $options->search(fn ($option) => $option->is_correct),
+                    'explanation' => $question->explanation,
+                ]);
+            });
+    }
+
     /** Swap a question for another one, keeping its place in the test. arguments: id */
     public function replaceQuestionAction(): Action
     {
