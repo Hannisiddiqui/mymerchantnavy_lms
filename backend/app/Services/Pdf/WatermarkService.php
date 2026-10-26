@@ -5,7 +5,7 @@ namespace App\Services\Pdf;
 use RuntimeException;
 
 /**
- * Burns the student's name and login (email or phone) into a page image, repeated diagonally.
+ * Burns the student's name and login (email or phone) into a page image: a few light diagonal marks.
  * A screenshot or photo of the page therefore always carries who it came from.
  */
 class WatermarkService
@@ -18,19 +18,18 @@ class WatermarkService
 
         $width = imagesx($image);
         $height = imagesy($image);
-        $size = max(14, (int) ($width / 38));
+        $size = max(12, (int) ($width / 50));
         $font = $this->font();
-        $color = imagecolorallocatealpha($image, 11, 30, 61, 105); // navy, ~18% opaque
-        $stepX = (int) ($width / 2.2);
-        $stepY = (int) ($height / 5);
+        $color = imagecolorallocatealpha($image, 11, 30, 61, 116); // navy, about 9% opaque: readable page, still visible on a screenshot
 
-        for ($y = (int) ($stepY / 2); $y < $height + $stepY; $y += $stepY) {
-            for ($x = -$stepX / 2; $x < $width; $x += $stepX) {
-                if ($font) {
-                    imagettftext($image, $size, 30, (int) $x, $y, $color, $font, $text);
-                } else {
-                    imagestring($image, 5, (int) $x, $y, $text, $color); // plain bitmap font fallback
-                }
+        // Four marks per page, staggered, so the text under them stays easy to read.
+        foreach ([[0.05, 0.28], [0.40, 0.50], [0.05, 0.72], [0.40, 0.94]] as [$fx, $fy]) {
+            $x = (int) ($width * $fx);
+            $y = (int) ($height * $fy);
+            if ($font) {
+                imagettftext($image, $size, 30, $x, $y, $color, $font, $text);
+            } else {
+                imagestring($image, 5, $x, $y, $text, $color); // plain bitmap font fallback
             }
         }
 
