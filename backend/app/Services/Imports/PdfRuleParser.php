@@ -216,7 +216,7 @@ class PdfRuleParser implements QuestionParser
                 : (preg_match($inlineStyle ? '/^(\d{1,3})\s*\.\s+(\S.*)$/u' : '/^(\d{1,3})\s*[\.\)]\s+(\S.*)$/u', $text, $m) && (int) $m[1] === $last + 1 // a wrapped line "19) ÷ 2" is not question 19
                     // the numbered steps of an explanation ("1. 64 = 2^6") are indented: a real question number sits at the margin
                     // (in a paper that also has "Question 61 ..." headers, the margin of those headers is the reference)
-                    && ($inlineStyle ? ($numberedAtMargin && $line['x0'] <= $headerX + 3) : ($stemX === null || $line['x0'] <= $stemX + 4)) ? [(int) $m[1], $m[2]] : null);
+                    && ($inlineStyle ? ($numberedAtMargin && $line['x0'] <= $headerX + 3 && $this->optionsFollow($lines, $i)) : ($stemX === null || $line['x0'] <= $stemX + 4)) ? [(int) $m[1], $m[2]] : null);
 
             if ($stem) {
                 if ($current && $current['number'] === $stem[0] && ! $current['stemSeen']) {
@@ -239,6 +239,22 @@ class PdfRuleParser implements QuestionParser
         $this->closeBlock($blocks, $current);
 
         return [$blocks, $keyLines];
+    }
+
+    /** True when option "(a)" comes within the next few lines before any explanation label: a question stem, not a numbered step. */
+    private function optionsFollow(array $lines, int $i): bool
+    {
+        for ($k = $i + 1; $k <= $i + 6 && isset($lines[$k]); $k++) {
+            $t = trim($lines[$k]['text']);
+            if (preg_match('/^\(?[aA][\)\.]\s/u', $t)) {
+                return true;
+            }
+            if (preg_match('/^(what the question is asking|step by step|explanation|why the other|concept behind|answer)/iu', $t) || preg_match('/^Question\s+\d+/iu', $t)) {
+                return false;
+            }
+        }
+
+        return false;
     }
 
     private function newBlock(int $number, ?string $part, array $line, array $meta): array
