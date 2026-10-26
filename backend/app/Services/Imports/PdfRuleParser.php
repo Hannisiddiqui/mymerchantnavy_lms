@@ -213,7 +213,7 @@ class PdfRuleParser implements QuestionParser
 
             $stem = $qStyle
                 ? (preg_match('/^Q\s*(\d+)\s*[\.\):]\s*(.*)$/u', $text, $m) ? [(int) $m[1], $m[2]] : null)
-                : (preg_match('/^(\d{1,3})\s*[\.\)]\s+(\S.*)$/u', $text, $m) && (int) $m[1] === $last + 1
+                : (preg_match($inlineStyle ? '/^(\d{1,3})\s*\.\s+(\S.*)$/u' : '/^(\d{1,3})\s*[\.\)]\s+(\S.*)$/u', $text, $m) && (int) $m[1] === $last + 1 // a wrapped line "19) ÷ 2" is not question 19
                     // the numbered steps of an explanation ("1. 64 = 2^6") are indented: a real question number sits at the margin
                     // (in a paper that also has "Question 61 ..." headers, the margin of those headers is the reference)
                     && ($inlineStyle ? ($numberedAtMargin && $line['x0'] <= $headerX + 3) : ($stemX === null || $line['x0'] <= $stemX + 4)) ? [(int) $m[1], $m[2]] : null);

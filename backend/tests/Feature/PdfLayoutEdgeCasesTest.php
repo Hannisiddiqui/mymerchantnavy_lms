@@ -97,4 +97,18 @@ class PdfLayoutEdgeCasesTest extends TestCase
         }
         $this->assertStringContainsString('Step by step:</strong><br>1. Add 2 and 3.<br>2. The sum is 5.', $questions[1]['explanation']);
     }
+
+    public function test_powers_in_two_column_options_are_kept_and_a_wrapped_line_is_not_the_next_question(): void
+    {
+        // Powers at about 83% of the text size ("x³ = 8x", "(x - 2)²") and a wrapped line "2) ÷ 2 (Section 1.1)." inside an explanation.
+        $result = app(PdfRuleParser::class)->parse(base_path('tests/Fixtures/exponent-options.pdf'));
+        $questions = collect($result->questions)->keyBy('number');
+
+        $this->assertSame([1, 2, 3], $questions->keys()->all());
+        $this->assertSame(['x² - 4 = 12', 'x + y = 9', 'x³ = 8x', '7x - 4 = 3x + 8'], [$questions[1]['option_1'], $questions[1]['option_2'], $questions[1]['option_3'], $questions[1]['option_4']]);
+        $this->assertSame('x² = 9', $questions[2]['option_3']);
+        $this->assertSame(['(x - 2)²', '(x + 2)(x - 2)', '(x + 2)²', 'x(x - 4)'], [$questions[3]['option_1'], $questions[3]['option_2'], $questions[3]['option_3'], $questions[3]['option_4']]);
+        $this->assertStringContainsString('2) ÷ 2 (Section 1.1).', strip_tags($questions[1]['explanation']));
+        $this->assertSame([4, 2, 2], $questions->pluck('correct')->all());
+    }
 }

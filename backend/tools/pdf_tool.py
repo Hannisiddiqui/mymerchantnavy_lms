@@ -196,7 +196,10 @@ def compose_math(chars, rules):
 
 def baseline(chs, main_size):
     """Vertical middle of the normal-sized characters (the line's baseline), used to spot powers and indices."""
-    mids = sorted((c["y0"] + c["y1"]) / 2 for c in chs if c["size"] >= 0.9 * main_size and c["c"].strip())
+    normal = [c for c in chs if c["size"] >= 0.9 * main_size and c["c"].strip()]
+    # Letters and digits sit on the baseline; symbols such as = and − float above it and would pull the estimate up.
+    letters = [c for c in normal if c["c"].isalnum()]
+    mids = sorted((c["y0"] + c["y1"]) / 2 for c in (letters or normal))
     return mids[len(mids) // 2] if mids else (chs[0]["y0"] + chs[0]["y1"]) / 2
 
 
@@ -247,7 +250,7 @@ def page_lines(page):
         segments.append(current)
         seg_out = []
         for seg in segments:
-            rich = build_text(seg, main, base).strip()
+            rich = build_text(seg, main, baseline(seg, main)).strip()  # each column has its own baseline
             if rich:
                 seg_out.append({"text": clean(rich), "rich": rich, "x0": round(min(c["x0"] for c in seg), 1), "x1": round(max(c["x1"] for c in seg), 1)})
         if seg_out:
