@@ -94,6 +94,8 @@ class AiReadersTest extends TestCase
                 && str_contains($request->url(), 'key=vtx-key')
                 && $parts[0] === ['inlineData' => ['mimeType' => 'application/pdf', 'data' => base64_encode('%PDF-fake')]]
                 && $parts[1] === ['text' => 'Read it']
+                && $request->header('Expect') === ['']
+                && ! array_key_exists('temperature', $body['generationConfig'])
                 && $body['generationConfig']['responseMimeType'] === 'application/json'
                 && $body['generationConfig']['responseSchema']['type'] === 'OBJECT'
                 && ! array_key_exists('additionalProperties', $items)
