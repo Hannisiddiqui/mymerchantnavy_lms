@@ -29,6 +29,7 @@ class PdfRuleParser implements QuestionParser
         'given' => true, 'rule' => true, 'formula' => true, 'working' => true, 'result' => true, 'check' => true,
         'why the other options fail' => true, 'why the others are wrong' => true, 'why the others fail' => true, 'concept behind the question' => true,
         'what the question is asking' => true, 'step by step' => true, 'why the other options are wrong' => true,
+        'why the tempting options fail' => true, 'what the guide says' => true,
         'explanation' => true, 'solution' => true, 'hint' => true, 'reasoning' => true, 'step' => true,
         'how to see what this asks' => false, 'revise in the chapter document' => false,
     ];
@@ -432,6 +433,11 @@ class PdfRuleParser implements QuestionParser
     /** @return array{0:string,1:string}|null [label as written, rest of the line] */
     private function label(string $text): ?array
     {
+        // "What the guide says (Section 1.1, The multi-sport games): “quote”": the reference in brackets stays with the quote
+        if (preg_match('/^What the guide says\s*(\([^)]*\))?\s*:\s*(.*)$/isu', $text, $g)) {
+            return ['What the guide says', trim(($g[1] !== '' ? $g[1].' ' : '').$g[2])];
+        }
+
         if (preg_match('/^([A-Za-z][A-Za-z\' ]{1,40}?)\s*(?:[:.]\s*|$)(.*)$/su', $text, $m) && array_key_exists(mb_strtolower(trim($m[1])), self::LABELS)) {
             return [trim($m[1]), trim($m[2])];
         }
