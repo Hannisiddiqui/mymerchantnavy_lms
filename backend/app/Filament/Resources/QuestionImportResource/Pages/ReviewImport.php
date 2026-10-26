@@ -157,8 +157,8 @@ class ReviewImport extends Page
                         Radio::make('kind')->label('Type')->inline()->required()->default('practice')
                             ->options(['practice' => 'Practice test', 'mock' => 'Mock test']),
                         TextInput::make('duration_minutes')->label('Duration (minutes)')->numeric()->required()->default(60)->minValue(1),
-                        TextInput::make('marks_correct')->label('Marks for a correct answer')->numeric()->required()->default(4),
-                        TextInput::make('marks_wrong')->label('Marks deducted for a wrong answer')->numeric()->required()->default(1),
+                        TextInput::make('marks_correct')->label('Marks for a correct answer')->numeric()->required()->default(2),
+                        TextInput::make('marks_wrong')->label('Marks deducted for a wrong answer')->numeric()->step(0.25)->required()->default(0.25),
                     ])
                     ->createOptionUsing(fn (array $data) => Test::create($data + ['is_published' => true])->getKey()),
             ])

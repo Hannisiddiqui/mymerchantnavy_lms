@@ -96,8 +96,8 @@ class ContentForm
             Group::make([
                 ...($askTitle ? [TextInput::make('new_title')->label(ucfirst($noun).' name')->required()->maxLength(150)->columnSpanFull()] : []),
                 TextInput::make('new_duration_minutes')->label('Duration (minutes)')->numeric()->required()->default(30)->minValue(1),
-                TextInput::make('new_marks_correct')->label('Marks for a correct answer')->numeric()->required()->default(4),
-                TextInput::make('new_marks_wrong')->label('Marks deducted for a wrong answer')->numeric()->required()->default(1),
+                TextInput::make('new_marks_correct')->label('Marks for a correct answer')->numeric()->required()->default(2),
+                TextInput::make('new_marks_wrong')->label('Marks deducted for a wrong answer')->numeric()->step(0.25)->required()->default(0.25),
             ])->columns(3)->visible($isNew),
         ];
     }

@@ -57,4 +57,25 @@ class PdfLayoutEdgeCasesTest extends TestCase
         $this->assertStringContainsString('Step by step', $questions[1]['explanation']);
         $this->assertStringContainsString('2. Add them.', $questions[1]['explanation']);
     }
+
+    public function test_a_paper_with_numbered_questions_and_question_headers_is_read_completely(): void
+    {
+        // Questions 1-2: "1. text" with numbered explanation steps ("1.", "2.", "3."); questions 3-5: "Question 3 Medium · Numerical".
+        $result = app(PdfRuleParser::class)->parse(base_path('tests/Fixtures/mixed-layout.pdf'));
+        $questions = collect($result->questions)->keyBy('number');
+
+        $this->assertSame([1, 2, 3, 4, 5], $questions->keys()->all());
+        $this->assertSame([1, 3, 3, 3, 2], $questions->pluck('correct')->all());
+        $this->assertSame('integers', $questions[1]['option_1']);
+        $this->assertSame('easy', $questions[1]['difficulty']);   // from "(Easy · Concept)" on the answer line
+        $this->assertSame('concept', $questions[1]['kind']);
+        $this->assertSame('medium', $questions[3]['difficulty']); // from the "Question 3 Medium · Numerical" header
+        $this->assertSame('calculation', $questions[3]['kind']);  // "Numerical" means a calculation question
+        // every step and bullet on its own line, and a banner between questions is not glued to the explanation above it
+        $this->assertStringContainsString('<strong>Explanation:</strong><br>1. -15 is negative.<br>2. It is an integer.', $questions[1]['explanation']);
+        $this->assertStringNotContainsString('Part D', $questions[2]['explanation']);
+        foreach ($questions as $number => $q) {
+            $this->assertSame([], $q['warnings'], "Q{$number}");
+        }
+    }
 }

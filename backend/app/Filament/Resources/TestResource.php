@@ -6,6 +6,9 @@ use App\Enums\TestKind;
 use App\Filament\Resources\TestResource\Pages;
 use App\Models\Test;
 use Filament\Actions\Action;
+use Filament\Actions\BulkActionGroup;
+use Filament\Actions\DeleteAction;
+use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
@@ -41,8 +44,8 @@ class TestResource extends Resource
                 Toggle::make('is_published')->label('Published')->inline(false)->helperText('Unpublished tests are hidden from students.'),
             ]),
             Section::make('Marking')->columns(2)->schema([
-                TextInput::make('marks_correct')->label('Marks for a correct answer')->numeric()->required()->default(4),
-                TextInput::make('marks_wrong')->label('Marks deducted for a wrong answer')->numeric()->required()->default(1)->helperText('Enter 0 for no negative marking.'),
+                TextInput::make('marks_correct')->label('Marks for a correct answer')->numeric()->required()->default(2),
+                TextInput::make('marks_wrong')->label('Marks deducted for a wrong answer')->numeric()->step(0.25)->required()->default(0.25)->helperText('Enter 0 for no negative marking.'),
             ]),
             Section::make('Extra instructions')->collapsed()->schema([
                 RichEditor::make('instructions')->hiddenLabel()
@@ -72,6 +75,12 @@ class TestResource extends Resource
                 Action::make('questions')->label('Manage questions')->icon('heroicon-o-queue-list')->color('success')
                     ->url(fn (Test $record) => static::getUrl('questions', ['record' => $record])),
                 EditAction::make()->label('Settings'),
+                DeleteAction::make()->modalDescription('The test, the attempts made on it and the questions that belong only to this test are deleted. Questions another test also uses are kept.'),
+            ])
+            ->toolbarActions([
+                BulkActionGroup::make([
+                    DeleteBulkAction::make()->modalDescription('The selected tests, their attempts and the questions that belong only to them are deleted. Questions another test also uses are kept.'),
+                ]),
             ])
             ->recordUrl(fn (Test $record) => static::getUrl('questions', ['record' => $record]));
     }

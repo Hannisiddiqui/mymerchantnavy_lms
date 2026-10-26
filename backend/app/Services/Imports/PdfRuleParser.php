@@ -27,7 +27,7 @@ class PdfRuleParser implements QuestionParser
      */
     private const LABELS = [
         'given' => true, 'rule' => true, 'formula' => true, 'working' => true, 'result' => true, 'check' => true,
-        'why the others are wrong' => true, 'why the others fail' => true, 'concept behind the question' => true,
+        'why the other options fail' => true, 'why the others are wrong' => true, 'why the others fail' => true, 'concept behind the question' => true,
         'what the question is asking' => true, 'step by step' => true, 'why the other options are wrong' => true,
         'explanation' => true, 'solution' => true, 'hint' => true, 'reasoning' => true, 'step' => true,
         'how to see what this asks' => false, 'revise in the chapter document' => false,
@@ -132,6 +132,8 @@ class PdfRuleParser implements QuestionParser
         $current = null;
         $part = null;
         $last = 0;
+        $headerX = $inlineStyle ? min(array_map(fn ($l) => $l['x0'], array_filter($lines, fn ($l) => preg_match('/^Question\s+\d+[\s\x{a0}]+\S/iu', trim($l['text']))))) : 0;
+        $stemX = null; // left edge of the question numbers in a "1. 2. 3." paper
         $keyLines = [];
 
         foreach ($lines as $i => $line) {
@@ -147,6 +149,11 @@ class PdfRuleParser implements QuestionParser
             }
             if (preg_match('/^[A-Z]\.\s+[A-Za-z ]+\bquestions?$/u', $text)) {
                 continue; // a heading such as "A. Concept questions"
+            }
+            // Big bold headings and page banners ("Part D: Additional exam-level questions", "Type 3: Simplify and compare")
+            // sit between questions: they are not part of the explanation above them.
+            if (preg_match('/^(Part\s+[A-Za-z0-9]+|Type\s+\d+|Section\s+[\d.]+)\s*:/u', $text) && ! empty($line['bold']) && ($line['size'] ?? 0) >= 11) {
+                continue;
             }
 
             if ($wordStyle && preg_match('/^Question\s+(\d+)$/iu', $text, $m)) {
@@ -184,7 +191,10 @@ class PdfRuleParser implements QuestionParser
 
             $stem = $qStyle
                 ? (preg_match('/^Q\s*(\d+)\s*[\.\):]\s*(.*)$/u', $text, $m) ? [(int) $m[1], $m[2]] : null)
-                : (! $inlineStyle && preg_match('/^(\d{1,3})\s*[\.\)]\s+(\S.*)$/u', $text, $m) && (int) $m[1] === $last + 1 ? [(int) $m[1], $m[2]] : null);
+                : (preg_match('/^(\d{1,3})\s*[\.\)]\s+(\S.*)$/u', $text, $m) && (int) $m[1] === $last + 1
+                    // the numbered steps of an explanation ("1. 64 = 2^6") are indented: a real question number sits at the margin
+                    // (in a paper that also has "Question 61 ..." headers, the margin of those headers is the reference)
+                    && ($inlineStyle ? $line['x0'] <= $headerX + 4 : ($stemX === null || $line['x0'] <= $stemX + 4)) ? [(int) $m[1], $m[2]] : null);
 
             if ($stem) {
                 if ($current && $current['number'] === $stem[0] && ! $current['stemSeen']) {
@@ -196,6 +206,7 @@ class PdfRuleParser implements QuestionParser
                 }
                 $current['lines'][] = ['text' => $stem[1], 'rich' => $stem[1], 'segments' => [['text' => $stem[1], 'rich' => $stem[1], 'x0' => $line['x0']]], 'math' => $line['math'] ?? [], 'page' => $line['page'], 'y1' => $line['y1']];
                 $last = $stem[0];
+                $stemX ??= $line['x0'];
                 continue;
             }
 
@@ -224,6 +235,14 @@ class PdfRuleParser implements QuestionParser
         $current = null;
     }
 
+    /** "Numerical" is the same kind of question as "Calculation". */
+    private function kindName(string $word): string
+    {
+        $word = strtolower($word);
+
+        return $word === 'numerical' ? 'calculation' : $word;
+    }
+
     /** "Part 3 · Calculation · Level E · MCQ" */
     private function meta(string $text): array
     {
@@ -237,8 +256,8 @@ class PdfRuleParser implements QuestionParser
                 $meta['level'] = strtoupper($m[1][0]); // "1.1 The order of operations: BODMAS Easy"
             } elseif (preg_match('/^Level\s*([EMH])\b/i', $piece, $m)) {
                 $meta['level'] = strtoupper($m[1]);
-            } elseif (preg_match('/^(concept|calculation|application|recall|reasoning)/i', $piece, $m)) {
-                $meta['kind'] = strtolower($m[1]);
+            } elseif (preg_match('/^(concept|calculation|application|recall|reasoning|numerical)/i', $piece, $m)) {
+                $meta['kind'] = $this->kindName($m[1]);
             }
         }
 
@@ -267,6 +286,12 @@ class PdfRuleParser implements QuestionParser
             if ($mode !== 'explain' && preg_match('/^(?:correct\s+)?(?:answer|ans)\.?\s*[:\-–]\s*\(?([a-dA-D])\)?\s*(.*)$/iu', $text, $m)) {
                 $answerLetter = strtolower($m[1]);
                 $answerText = trim($m[2]);
+                // "Answer: (a) integers (Easy · Concept)": the tag in brackets is the difficulty and kind, not part of the answer
+                if (preg_match('/\s*\((easy|medium|hard)\s*[·•|⋅]\s*([A-Za-z]+)\)\s*$/iu', $answerText, $tag)) {
+                    $answerText = trim(substr($answerText, 0, -strlen($tag[0])));
+                    $block['level'] ??= strtoupper($tag[1][0]);
+                    $block['kind'] ??= $this->kindName($tag[2]);
+                }
                 $mode = 'explain';
                 continue;
             }
@@ -362,9 +387,21 @@ class PdfRuleParser implements QuestionParser
             if (! (self::LABELS[mb_strtolower($label)] ?? false)) {
                 continue;
             }
-            $text = trim(preg_replace('/\s*✓/u', '', implode(' ', $pieces)));
-            if ($text !== '') {
-                $html[] = '<p><strong>'.$this->html($label).':</strong> '.$this->html($text).'</p>';
+            // One line per numbered step or bullet; a line that only continues the one above (a wrapped line) joins it.
+            $lines = [];
+            foreach ($pieces as $piece) {
+                $piece = trim(preg_replace('/\s*✓/u', '', $piece));
+                if ($piece === '') {
+                    continue;
+                }
+                if (! $lines || preg_match('/^(\d+[\.\)]|[•▪■◆●-]|\([a-dA-D]\))\s/u', $piece)) {
+                    $lines[] = $piece;
+                } else {
+                    $lines[count($lines) - 1] .= ' '.$piece;
+                }
+            }
+            if ($lines) {
+                $html[] = '<p><strong>'.$this->html($label).':</strong>'.(count($lines) > 1 ? '<br>' : ' ').implode('<br>', array_map(fn ($line) => $this->html($line), $lines)).'</p>';
             }
         }
 

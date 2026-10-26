@@ -8,6 +8,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Course extends Model
 {
+    /** Deleting a course deletes its tests one by one, so each test also removes the questions only it used. */
+    protected static function booted(): void
+    {
+        static::deleting(fn (Course $course) => $course->tests()->get()->each->delete());
+    }
+
     protected $fillable = ['title', 'slug', 'wordpress_product_id', 'description', 'thumbnail_path', 'is_active'];
 
     protected function casts(): array

@@ -17,7 +17,7 @@ class EditTest extends EditRecord
         return [
             Action::make('questions')->label('Manage questions')->icon('heroicon-o-queue-list')->color('success')
                 ->url(fn () => static::getResource()::getUrl('questions', ['record' => $this->getRecord()])),
-            DeleteAction::make(),
+            DeleteAction::make()->modalDescription('The test, the attempts made on it and the questions that belong only to this test are deleted. Questions another test also uses are kept.'),
         ];
     }
 }
