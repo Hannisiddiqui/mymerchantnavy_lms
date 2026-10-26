@@ -4,6 +4,7 @@ namespace App\Services\Imports\Ai;
 
 use Illuminate\Http\Client\ConnectionException;
 use Illuminate\Http\Client\RequestException;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use RuntimeException;
 
@@ -15,6 +16,8 @@ use RuntimeException;
  */
 class VertexReader implements AiReader
 {
+    private const BUSY_KEY = 'vertex-main-model-busy';
+
     private const ENDPOINT = 'https://aiplatform.googleapis.com/v1/publishers/google/models/%s:generateContent';
 
     public function label(): string
@@ -42,16 +45,24 @@ class VertexReader implements AiReader
         ];
         $main = (string) config('services.vertex.model');
         $fallback = (string) config('services.vertex.fallback_model');
+        $canFallBack = $fallback !== '' && $fallback !== $main;
+
+        // The main model can refuse a project's requests for a long time ("resource exhausted", 429) while another model
+        // answers at once. After one refusal the other model is used for the next 10 minutes, so a long import does not
+        // wait for the busy model again on every part.
+        if ($canFallBack && Cache::has(self::BUSY_KEY)) {
+            return $this->parse($this->call($fallback, $body, [5000, 20000, 45000])->json() ?? []);
+        }
 
         try {
-            return $this->parse($this->call($main, $body, [5000, 15000, 45000])->json() ?? []);
+            return $this->parse($this->call($main, $body, $canFallBack ? [4000] : [5000, 15000, 45000])->json() ?? []);
         } catch (RequestException $e) {
-            // The main model stayed "resource exhausted" (429): another model has its own allowance, so use it for this part.
-            if ($e->response->status() !== 429 || $fallback === '' || $fallback === $main) {
+            if ($e->response->status() !== 429 || ! $canFallBack) {
                 throw $e;
             }
+            Cache::put(self::BUSY_KEY, true, now()->addMinutes(10));
 
-            return $this->parse($this->call($fallback, $body, [5000, 20000])->json() ?? []);
+            return $this->parse($this->call($fallback, $body, [5000, 20000, 45000])->json() ?? []);
         }
     }
 

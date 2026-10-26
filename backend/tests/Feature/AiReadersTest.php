@@ -107,6 +107,7 @@ class AiReadersTest extends TestCase
         $this->keys();
         config(['services.vertex.key' => 'k', 'services.vertex.model' => 'gemini-3.8-flash', 'services.vertex.fallback_model' => 'gemini-3.5-flash']);
         \Illuminate\Support\Sleep::fake();
+        \Illuminate\Support\Facades\Cache::flush();
         Http::fake([
             '*gemini-3.8-flash:generateContent*' => Http::response(['error' => ['code' => 429, 'message' => 'Resource exhausted']], 429),
             '*gemini-3.5-flash:generateContent*' => Http::response(['candidates' => [['content' => ['parts' => [['text' => '{"questions":[]}']]], 'finishReason' => 'STOP']]]),
@@ -115,7 +116,11 @@ class AiReadersTest extends TestCase
         $reply = app(VertexReader::class)->read(base64_encode('%PDF-fake'), 'Read it', self::SCHEMA);
 
         $this->assertSame('{"questions":[]}', $reply['text']);
-        Http::assertSentCount(5); // main model: 1 try + 3 waits; then the fallback once
+        Http::assertSentCount(3); // main model: 1 try + 1 retry; then the fallback once
+
+        // the main model is now known to be busy: the next part goes straight to the fallback
+        app(VertexReader::class)->read(base64_encode('%PDF-fake'), 'Read it', self::SCHEMA);
+        Http::assertSentCount(4);
     }
 
     public function test_vertex_reports_truncation_and_failures(): void
