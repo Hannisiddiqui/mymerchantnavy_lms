@@ -28,7 +28,8 @@ class VertexReader implements AiReader
 
         // expect=false: above ~1 MB curl would otherwise send "Expect: 100-continue", and Google answers 417.
         $response = Http::withOptions(['expect' => false])->timeout(600)
-            ->retry(3, 3000, fn ($e) => $e instanceof ConnectionException || ($e instanceof RequestException && in_array($e->response->status(), [429, 500, 502, 503, 504], true)), throw: true)
+            // Google answers 429 "resource exhausted" when a project is over its per-minute allowance: wait, then try again.
+            ->retry([5000, 15000, 45000, 90000], fn ($e) => $e instanceof ConnectionException || ($e instanceof RequestException && in_array($e->response->status(), [429, 500, 502, 503, 504], true)), throw: true)
             ->withQueryParameters(['key' => config('services.vertex.key')])
             ->post($url, [
                 'contents' => [[
