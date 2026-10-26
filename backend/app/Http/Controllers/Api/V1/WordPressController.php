@@ -33,7 +33,11 @@ class WordPressController extends Controller
         abort_if(! $this->link->coursesFor($data['product_id']), 422, "No course is linked to WordPress product {$data['product_id']}. Set it on the course in the admin panel.");
         $user = $this->link->student($data['email'], $data['name'] ?? null, $data['phone'] ?? null, $data['wp_user_id'] ?? null, (bool) ($data['email_verified'] ?? false));
 
-        return response()->json(['data' => ['id' => $user->id, 'newCourses' => $this->link->enroll($user, $data['product_id'])]]);
+        $newCourses = $this->link->enroll($user, $data['product_id']);
+        // every course this product gives (not only the new ones), so WordPress can send the student to it
+        $courses = array_map(fn ($c) => ['id' => $c->id, 'title' => $c->title], $this->link->coursesFor($data['product_id']));
+
+        return response()->json(['data' => ['id' => $user->id, 'newCourses' => $newCourses, 'courses' => $courses]]);
     }
 
     /** POST /auth/sso {token}: the "go to my course" link from WordPress. Same answer as the code login. */
@@ -53,6 +57,7 @@ class WordPressController extends Controller
         return response()->json(['data' => [
             'token' => $devices->login($user, $request->input('device_name') ?? 'Unknown device'),
             'needsProfile' => $user->needsProfile(),
+            'redirect' => $claims['go'],
         ]]);
     }
 

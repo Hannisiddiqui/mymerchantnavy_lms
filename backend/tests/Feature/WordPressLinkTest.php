@@ -63,6 +63,28 @@ class WordPressLinkTest extends TestCase
         $this->assertSame([$course->id], User::where('email', 'a@example.com')->firstOrFail()->courses()->pluck('courses.id')->all());
     }
 
+    public function test_payment_answer_lists_the_courses_so_wordpress_can_open_them(): void
+    {
+        Notification::fake();
+        $course = Course::create(['title' => 'IMU-CET', 'slug' => 'imu', 'wordpress_product_id' => 'imu']);
+
+        foreach ([1, 2] as $_) { // the second answer (a repeat) still names the course
+            $this->signed('enroll', ['email' => 'a@example.com', 'product_id' => 'imu'])
+                ->assertOk()->assertJsonPath('data.courses.0.id', $course->id);
+        }
+    }
+
+    public function test_the_sign_in_link_can_carry_the_page_to_open_but_only_a_plain_path(): void
+    {
+        $link = app(WordPressLink::class);
+
+        $this->postJson('/api/v1/auth/sso', ['token' => $link->makeToken('a@example.com', go: '/my-courses/7')])
+            ->assertOk()->assertJsonPath('data.redirect', '/my-courses/7');
+        foreach (['https://evil.example/x', '//evil.example', '/a//b', 'javascript:alert(1)', '/../x?y=1'] as $bad) {
+            $this->assertNull($link->claimsFromToken($link->makeToken('b@example.com', go: $bad))['go'], $bad);
+        }
+    }
+
     public function test_unknown_product_is_reported_and_no_student_is_made(): void
     {
         $this->signed('enroll', ['email' => 'a@example.com', 'product_id' => '404'])->assertStatus(422);

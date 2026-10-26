@@ -40,14 +40,14 @@ export async function verifyOtp(identifier: string, code: string): Promise<{ nee
 }
 
 /** The "go to my course" link from the WordPress site: a one-time token signs the student in without a code. */
-export async function ssoLogin(token: string): Promise<{ needsProfile: boolean }> {
+export async function ssoLogin(token: string): Promise<{ needsProfile: boolean; redirect: string | null }> {
   if (USE_MOCK) throw new Error("Sign-in links need the real backend.");
-  const data = await request<{ token: string; needsProfile: boolean }>("/auth/sso", {
+  const data = await request<{ token: string; needsProfile: boolean; redirect: string | null }>("/auth/sso", {
     method: "POST",
     body: JSON.stringify({ token, device_name: navigator.userAgent }),
   });
   tokenStore.set(data.token);
-  return { needsProfile: data.needsProfile };
+  return { needsProfile: data.needsProfile, redirect: data.redirect };
 }
 
 export async function logout(): Promise<void> {

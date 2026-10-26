@@ -1,10 +1,16 @@
 <?php
 /**
- * Razorpay checkout:  [mmn_buy product="imu-cet-2027" text="Buy now"]
+ * Buying, from any page.
  *
- * Flow: the button asks the server to create a Razorpay order (the price comes from Settings > LMS link, never from the
- * browser), Razorpay's popup takes the payment, the server verifies Razorpay's signature, gives the course in the LMS and
- * sends the student into it. A Razorpay webhook does the same if the student closes the page after paying.
+ * Any button or link can start a purchase:
+ *     <button class="mmn-buy" data-product="gp-rating-pass">Get online Pass</button>      (or [mmn_buy product="..." text="..."])
+ *     <a href="?mmn_buy=gp-rating-pass">Get online Pass</a>
+ * A visitor who is not logged in first sees the registration popup (details, emailed code); right after the code is accepted
+ * the Razorpay payment window opens. After a successful payment the student is sent into the LMS, signed in, on the course
+ * they bought. A button with data-mmn-register (and no product) opens the same popup for registration only.
+ *
+ * Server side: the price comes from Settings > LMS link, never from the browser; Razorpay's signature is verified; a Razorpay
+ * webhook does the same if the student closes the page after paying.
  */
 
 if (! defined('ABSPATH')) {
@@ -32,11 +38,13 @@ function mmn_lms_razorpay_ready()
     return mmn_lms_setting('rzp_key_id') !== '' && mmn_lms_setting('rzp_key_secret') !== '' && mmn_lms_products();
 }
 
-/** Where the student goes after paying (or after a free sign-up). */
-function mmn_lms_after_payment_url(WP_User $user)
+/** Where the student goes after paying (or after a free sign-up): into the LMS, on the course they bought. */
+function mmn_lms_after_payment_url(WP_User $user, $order_post_id = 0)
 {
     if (get_option('mmn_lms_auto_redirect', 'yes') === 'yes') {
-        return mmn_lms_login_url($user);
+        $path = $order_post_id ? (string) get_post_meta($order_post_id, 'lms_path', true) : '';
+
+        return mmn_lms_login_url($user, $path);
     }
 
     return mmn_lms_setting('thanks_url') !== '' ? mmn_lms_setting('thanks_url') : home_url('/');
@@ -76,7 +84,10 @@ function mmn_lms_order_by_razorpay_id($rzp_order_id)
     return $found ? $found[0] : null;
 }
 
-/** Marks the order paid and gives the course in the LMS. Safe to call twice (the LMS ignores repeats). */
+/**
+ * Marks the order paid and gives the course in the LMS. Safe to call twice (the LMS ignores repeats).
+ * The LMS answers with the course(s) the product gives; the student is later sent to that course.
+ */
 function mmn_lms_order_paid($post_id, $payment_id)
 {
     if (get_post_meta($post_id, 'status', true) === 'paid') {
@@ -84,149 +95,248 @@ function mmn_lms_order_paid($post_id, $payment_id)
     }
     update_post_meta($post_id, 'status', 'paid');
     update_post_meta($post_id, 'payment_id', sanitize_text_field($payment_id));
-    do_action('mmn_lms_payment_success', (int) get_post_field('post_author', $post_id), get_post_meta($post_id, 'product', true), 'mmn-' . $post_id);
+
+    $result = mmn_lms_payment_success((int) get_post_field('post_author', $post_id), get_post_meta($post_id, 'product', true), 'mmn-' . $post_id);
+    $path   = '/my-courses';
+    if ($result && $result[0] && ! empty($result[1]['courses']) && count($result[1]['courses']) === 1) {
+        $path = '/my-courses/' . (int) $result[1]['courses'][0]['id'];
+    }
+    update_post_meta($post_id, 'lms_path', $path);
 }
 
 // ---------------------------------------------------------------------------------------------------- the button
 
+/** [mmn_buy product="id" text="Buy now"]: the same as writing <button class="mmn-buy" data-product="id">. */
 function mmn_lms_buy_shortcode($atts)
 {
     $atts     = shortcode_atts(['product' => '', 'text' => 'Buy now'], $atts);
     $products = mmn_lms_products();
-    $free = isset($products[$atts['product']]) && $products[$atts['product']]['price'] == 0; // price 0 = free sign-up, no Razorpay
-    if (! isset($products[$atts['product']]) || (! $free && ! mmn_lms_razorpay_ready())) {
-        return current_user_can('manage_options') ? '<p><em>[mmn_buy]: finish Settings > LMS link (Razorpay keys and this product).</em></p>' : '';
+    if (! isset($products[$atts['product']]) || ! mmn_lms_ready()) {
+        return current_user_can('manage_options') ? '<p><em>[mmn_buy]: finish Settings > LMS link (the connection, and this product under Courses for sale).</em></p>' : '';
     }
     $style = 'display:inline-block;padding:12px 22px;background:#1d4ed8;color:#fff;border-radius:8px;text-decoration:none;font-weight:600;border:0;cursor:pointer;font-size:16px';
 
-    if (! is_user_logged_in()) {
-        $register = mmn_lms_setting('register_url') !== '' ? mmn_lms_setting('register_url') : wp_login_url();
-        $here     = (is_ssl() ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-
-        return '<a class="mmn-buy-login" style="' . esc_attr($style) . '" href="' . esc_url(add_query_arg('next', rawurlencode($here), $register)) . '">' . esc_html($atts['text']) . '</a>';
-    }
-
-    add_action('wp_footer', 'mmn_lms_buy_script');
-    if (! $free) {
-        wp_enqueue_script('razorpay-checkout', 'https://checkout.razorpay.com/v1/checkout.js', [], null, true);
-    }
-
-    return '<button type="button" class="mmn-buy' . ($free ? ' mmn-free' : '') . '" style="' . esc_attr($style) . '" data-product="' . esc_attr($atts['product']) . '">' . esc_html($atts['text']) . '</button>';
+    return '<button type="button" class="mmn-buy" style="' . esc_attr($style) . '" data-product="' . esc_attr($atts['product']) . '">' . esc_html($atts['text']) . '</button>';
 }
 add_shortcode('mmn_buy', 'mmn_lms_buy_shortcode');
 
-function mmn_lms_buy_script()
+/** The script that makes every ".mmn-buy" / "[data-mmn-register]" / "?mmn_buy=" work. Printed on every public page. */
+function mmn_lms_front_script()
 {
-    static $done = false;
-    if ($done) {
+    if (is_admin() || ! mmn_lms_ready()) {
         return;
     }
-    $done = true;
-    $auto = isset($GLOBALS['mmn_lms_auto']) ? $GLOBALS['mmn_lms_auto'] : '';
-    $all  = mmn_lms_products();
-    $cfg  = wp_json_encode([
+    $products = [];
+    foreach (mmn_lms_products() as $id => $p) {
+        if ($p['price'] == 0 || mmn_lms_razorpay_ready()) {
+            $products[$id] = ['title' => $p['title'], 'free' => $p['price'] == 0];
+        }
+    }
+    $cfg = wp_json_encode([
         'ajax'     => admin_url('admin-ajax.php'),
-        'nonce'    => wp_create_nonce('mmn_rzp'),
-        'auto'     => $auto,
-        'autoFree' => $auto !== '' && isset($all[$auto]) && $all[$auto]['price'] == 0,
+        'nonce'    => is_user_logged_in() ? wp_create_nonce('mmn_rzp') : '',
+        'loggedIn' => is_user_logged_in(),
+        'products' => (object) $products,
+        'loginUrl' => wp_login_url(),
+        'site'     => get_bloginfo('name'),
     ]);
     ?>
+    <style>
+    .mmn-ov{position:fixed;inset:0;background:rgba(17,24,39,.7);display:flex;align-items:center;justify-content:center;z-index:999999;padding:16px}
+    .mmn-box{background:#fff;width:100%;max-width:440px;border-radius:18px;padding:28px 24px;position:relative;box-shadow:0 20px 25px -5px rgba(0,0,0,.2);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;max-height:94vh;overflow:auto}
+    .mmn-box h3{font-size:20px;font-weight:800;color:#111827;margin:0 0 6px}.mmn-box p{font-size:13px;color:#6b7280;margin:0 0 16px}
+    .mmn-box label{display:block;font-size:12px;font-weight:600;color:#374151;margin:12px 0 4px}
+    .mmn-box input{width:100%;padding:11px 13px;border:1px solid #d1d5db;border-radius:8px;font-size:15px;box-sizing:border-box}
+    .mmn-box .mmn-go{width:100%;margin-top:16px;padding:12px;background:#1d4ed8;color:#fff;border:0;border-radius:8px;font-size:15px;font-weight:700;cursor:pointer}.mmn-box .mmn-go:disabled{opacity:.6;cursor:wait}
+    .mmn-box .mmn-x{position:absolute;top:14px;right:16px;background:none;border:0;font-size:24px;line-height:1;color:#9ca3af;cursor:pointer}
+    .mmn-box .mmn-err{background:#fef2f2;color:#b91c1c;padding:9px 12px;border-radius:8px;margin-top:12px;font-size:13px;display:none}
+    .mmn-box .mmn-lnk{background:none;border:0;color:#1d4ed8;text-decoration:underline;cursor:pointer;font-size:13px;padding:0;margin-top:12px}
+    .mmn-box .mmn-hp{position:absolute;left:-9999px}.mmn-box input.mmn-code{letter-spacing:.5em;text-align:center;font-size:22px}
+    .mmn-toast{position:fixed;top:16px;left:50%;transform:translateX(-50%);background:#111827;color:#fff;padding:10px 18px;border-radius:999px;font-size:14px;z-index:999999;display:none}
+    </style>
     <script>
     (function () {
         var cfg = <?php echo $cfg; // phpcs:ignore WordPress.Security.EscapeOutput ?>;
+
         function post(data) {
             var f = new FormData();
             Object.keys(data).forEach(function (k) { f.append(k, data[k]); });
             return fetch(cfg.ajax, { method: 'POST', body: f, credentials: 'same-origin' }).then(function (r) { return r.json(); });
         }
-        function start(b) {
-            if (b.dataset.busy) { return; }
+        function esc(s) { var d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+        var razorpay = null;
+        function loadRazorpay() {
+            if (window.Razorpay) { return Promise.resolve(); }
+            if (!razorpay) {
+                razorpay = new Promise(function (ok, no) {
+                    var s = document.createElement('script');
+                    s.src = 'https://checkout.razorpay.com/v1/checkout.js';
+                    s.onload = ok;
+                    s.onerror = function () { razorpay = null; no(new Error('Could not load the payment window. Please check your connection and try again.')); };
+                    document.head.appendChild(s);
+                });
+            }
+            return razorpay;
+        }
+
+        // ---- a small message at the top while the page works (for flows that do not start from a button)
+        var toastEl = null;
+        function toastUI() {
+            return {
+                say: function (t) {
+                    if (!toastEl) { toastEl = document.createElement('div'); toastEl.className = 'mmn-toast'; document.body.appendChild(toastEl); }
+                    toastEl.textContent = t; toastEl.style.display = 'block';
+                },
+                end: function () { if (toastEl) { toastEl.style.display = 'none'; } },
+                opened: function () { if (toastEl) { toastEl.style.display = 'none'; } }
+            };
+        }
+        function buttonUI(b) {
             var label = b.textContent;
-            function reset() { b.dataset.busy = ''; b.textContent = label; }
             b.dataset.busy = '1';
-            b.textContent = 'Please wait…';
-            if (b.classList.contains('mmn-free')) {
-                post({ action: 'mmn_free_enroll', nonce: cfg.nonce, product: b.dataset.product }).then(function (d) {
+            return {
+                say: function (t) { b.textContent = t; },
+                end: function () { b.dataset.busy = ''; b.textContent = label; },
+                opened: function () {}
+            };
+        }
+
+        // ---- the purchase: free sign-up, or Razorpay payment, then into the LMS
+        function purchase(product, ui) {
+            var info = cfg.products[product];
+            function fail(err) { alert(err.message || 'Something went wrong. Please try again.'); ui.end(); }
+            if (!info) { fail(new Error('This course cannot be bought right now.')); return; }
+            ui.say('Please wait…');
+            if (info.free) {
+                post({ action: 'mmn_free_enroll', nonce: cfg.nonce, product: product }).then(function (d) {
                     if (!d.success) { throw new Error(d.data || 'Could not sign you up.'); }
                     window.location.href = d.data.redirect;
-                }).catch(function (err) { alert(err.message); reset(); });
+                }).catch(fail);
                 return;
             }
-            post({ action: 'mmn_rzp_create', nonce: cfg.nonce, product: b.dataset.product }).then(function (d) {
+            loadRazorpay().then(function () {
+                return post({ action: 'mmn_rzp_create', nonce: cfg.nonce, product: product });
+            }).then(function (d) {
                 if (!d.success) { throw new Error(d.data || 'Could not start the payment.'); }
                 var o = d.data;
                 new Razorpay({
                     key: o.key, amount: o.amount, currency: 'INR', name: o.site, description: o.title, order_id: o.order_id,
                     prefill: o.prefill, theme: { color: '#1d4ed8' },
-                    modal: { ondismiss: reset },
+                    modal: { ondismiss: ui.end },
                     handler: function (r) {
-                        b.textContent = 'Confirming your payment…';
+                        ui.say('Confirming your payment…');
                         post({ action: 'mmn_rzp_verify', nonce: cfg.nonce, razorpay_order_id: r.razorpay_order_id, razorpay_payment_id: r.razorpay_payment_id, razorpay_signature: r.razorpay_signature })
                             .then(function (v) {
                                 if (v.success) { window.location.href = v.data.redirect; return; }
                                 alert(v.data || 'Your payment was received, but we could not confirm it yet. Please contact support; do not pay again.');
-                                reset();
+                                ui.end();
                             });
                     }
                 }).open();
-            }).catch(function (err) { alert(err.message); reset(); });
+                ui.opened();
+            }).catch(fail);
+        }
+
+        // ---- the registration popup (details, then the emailed code)
+        var ov = null;
+        function closePopup() { if (ov) { ov.remove(); ov = null; } }
+        function openRegistration(opts) {
+            closePopup();
+            ov = document.createElement('div');
+            ov.className = 'mmn-ov';
+            var title = opts.product && cfg.products[opts.product] ? cfg.products[opts.product].title : '';
+            var back = window.location.pathname + (opts.product ? '?mmn_buy=' + encodeURIComponent(opts.product) : window.location.search);
+            var login = cfg.loginUrl + (cfg.loginUrl.indexOf('?') < 0 ? '?' : '&') + 'redirect_to=' + encodeURIComponent(back);
+            ov.innerHTML =
+                '<div class="mmn-box"><button type="button" class="mmn-x" aria-label="Close">&times;</button>' +
+                '<div class="mmn-s1"><h3>Student registration</h3><p>' + (title ? 'Create your account for ' + esc(title) + ', then pay.' : 'Create your account.') + ' We email you a code to confirm your address.</p>' +
+                '<div class="mmn-hp"><input type="text" class="mmn-website" tabindex="-1" autocomplete="off"></div>' +
+                '<label>Full name</label><input type="text" class="mmn-name" autocomplete="name">' +
+                '<label>Email address</label><input type="email" class="mmn-email" autocomplete="email">' +
+                '<label>Mobile number</label><input type="tel" class="mmn-phone" autocomplete="tel">' +
+                '<label>Create a password (8+ characters)</label><input type="password" class="mmn-pass" autocomplete="new-password">' +
+                '<div class="mmn-err"></div><button type="button" class="mmn-go mmn-send">Send me a verification code</button>' +
+                '<p style="margin-top:14px">Already registered? <a href="' + esc(login) + '">Log in</a></p></div>' +
+                '<div class="mmn-s2" style="display:none"><h3>Check your email</h3><p class="mmn-sent"></p>' +
+                '<label>Verification code</label><input type="text" class="mmn-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code">' +
+                '<div class="mmn-err"></div><button type="button" class="mmn-go mmn-check">' + (opts.product ? 'Verify and continue to payment' : 'Verify and create my account') + '</button>' +
+                '<button type="button" class="mmn-lnk mmn-resend">Send the code again</button></div></div>';
+            document.body.appendChild(ov);
+            var q = function (s) { return ov.querySelector(s); };
+            var s1 = q('.mmn-s1'), s2 = q('.mmn-s2'), pid = '';
+            function showErr(step, msg) { var e = step.querySelector('.mmn-err'); e.textContent = msg; e.style.display = msg ? 'block' : 'none'; }
+            function busy(btn, on, text) {
+                btn.dataset.t = btn.dataset.t || btn.textContent;
+                btn.disabled = on;
+                btn.textContent = on ? text : btn.dataset.t;
+            }
+
+            q('.mmn-x').onclick = closePopup;
+            ov.addEventListener('mousedown', function (e) { if (e.target === ov) { closePopup(); } });
+
+            q('.mmn-send').onclick = function () {
+                var btn = this; showErr(s1, ''); busy(btn, true, 'Sending…');
+                post({ action: 'mmn_reg_start', name: q('.mmn-name').value, email: q('.mmn-email').value, phone: q('.mmn-phone').value, password: q('.mmn-pass').value, website: q('.mmn-website').value })
+                    .then(function (d) {
+                        busy(btn, false);
+                        if (!d.success) { showErr(s1, (d.data && d.data.message) || 'Something went wrong. Please try again.'); return; }
+                        pid = d.data.pid;
+                        q('.mmn-sent').innerHTML = 'We emailed a 6-digit code to <strong>' + esc(d.data.email) + '</strong>.';
+                        s1.style.display = 'none'; s2.style.display = 'block'; q('.mmn-code').focus();
+                    }).catch(function () { busy(btn, false); showErr(s1, 'Could not reach the server. Please try again.'); });
+            };
+            q('.mmn-check').onclick = function () {
+                var btn = this; showErr(s2, ''); busy(btn, true, 'Checking…');
+                post({ action: 'mmn_reg_verify', pid: pid, code: q('.mmn-code').value }).then(function (d) {
+                    if (!d.success) { busy(btn, false); showErr(s2, (d.data && d.data.message) || 'That code is not right.'); return; }
+                    // logged in now: ask for a fresh security token, then carry on
+                    return post({ action: 'mmn_nonce' }).then(function (n) {
+                        cfg.nonce = n.data; cfg.loggedIn = true;
+                        closePopup();
+                        opts.done();
+                    });
+                }).catch(function () { busy(btn, false); showErr(s2, 'Could not reach the server. Please try again.'); });
+            };
+            q('.mmn-resend').onclick = function () {
+                showErr(s2, '');
+                post({ action: 'mmn_reg_resend', pid: pid }).then(function (d) {
+                    showErr(s2, d.success ? d.data.message : ((d.data && d.data.message) || ''));
+                });
+            };
+        }
+
+        // ---- start a purchase / a registration from anywhere
+        function startBuy(product, ui) {
+            if (cfg.loggedIn) { purchase(product, ui); return; }
+            openRegistration({
+                product: product,
+                done: function () { purchase(product, toastUI()); }
+            });
         }
         document.addEventListener('click', function (e) {
-            var b = e.target.closest ? e.target.closest('.mmn-buy') : null;
-            if (!b) { return; }
+            var t = e.target.closest ? e.target.closest('.mmn-buy, [data-mmn-buy], [data-mmn-register]') : null;
+            if (!t) { return; }
             e.preventDefault();
-            start(b);
+            var product = t.dataset.product || t.dataset.mmnBuy || '';
+            if (product) {
+                if (t.dataset.busy) { return; }
+                startBuy(product, cfg.loggedIn ? buttonUI(t) : toastUI());
+            } else if (!cfg.loggedIn) {
+                openRegistration({ done: function () { window.location.href = t.dataset.next || window.location.href; } });
+            }
         });
-        // A plain link "?mmn_buy=product-id": once the page (and Razorpay's script) has loaded, start that purchase.
-        if (cfg.auto) {
-            window.addEventListener('load', function () {
-                try { window.history.replaceState(null, '', window.location.pathname + window.location.search.replace(/([?&])mmn_buy=[^&]*&?/, '$1').replace(/[?&]$/, '')); } catch (e) {}
-                var el = document.createElement('button');
-                el.className = 'mmn-buy' + (cfg.autoFree ? ' mmn-free' : '');
-                el.dataset.product = cfg.auto;
-                el.textContent = 'Buy';
-                start(el);
-            });
+        // a plain link "?mmn_buy=product-id" starts the same thing when the page opens
+        var m = /[?&]mmn_buy=([^&#]+)/.exec(window.location.search);
+        if (m) {
+            var wanted = decodeURIComponent(m[1]);
+            try { window.history.replaceState(null, '', window.location.pathname + window.location.search.replace(/([?&])mmn_buy=[^&]*&?/, '$1').replace(/[?&]$/, '') + window.location.hash); } catch (e) {}
+            if (cfg.products[wanted]) { window.addEventListener('load', function () { startBuy(wanted, toastUI()); }); }
         }
     })();
     </script>
     <?php
 }
-
-/**
- * A plain link on any page, e.g. a pricing card:  <a href="?mmn_buy=gp-rating-pass">Get the pass</a>
- * Not logged in: the visitor is sent to the Register page and brought back to this page afterwards.
- * Logged in: the payment popup opens by itself (a free product signs them up straight away).
- */
-function mmn_lms_buy_link()
-{
-    if (empty($_GET['mmn_buy'])) {
-        return;
-    }
-    $product  = sanitize_text_field(wp_unslash($_GET['mmn_buy']));
-    $products = mmn_lms_products();
-    if (! isset($products[$product])) {
-        return;
-    }
-    $free = $products[$product]['price'] == 0;
-    if (! $free && ! mmn_lms_razorpay_ready()) {
-        return;
-    }
-    if (! is_user_logged_in()) {
-        $register = mmn_lms_setting('register_url') !== '' ? mmn_lms_setting('register_url') : wp_login_url();
-        $here     = (is_ssl() ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . $_SERVER['REQUEST_URI'];
-        wp_safe_redirect(add_query_arg('next', rawurlencode($here), $register));
-        exit;
-    }
-    $GLOBALS['mmn_lms_auto'] = $product;
-    add_action('wp_footer', 'mmn_lms_buy_script');
-    if (! $free) {
-        add_action('wp_enqueue_scripts', function () {
-            wp_enqueue_script('razorpay-checkout', 'https://checkout.razorpay.com/v1/checkout.js', [], null, true);
-        });
-    }
-}
-add_action('template_redirect', 'mmn_lms_buy_link');
+add_action('wp_footer', 'mmn_lms_front_script', 20);
 
 // ---------------------------------------------------------------------------------------------------- server side of the button
 
@@ -283,8 +393,7 @@ add_action('wp_ajax_mmn_rzp_verify', function () {
         wp_send_json_error('We could not verify this payment. If money was deducted, please contact support; do not pay again.');
     }
     mmn_lms_order_paid($order->ID, $payment_id);
-
-    wp_send_json_success(['redirect' => mmn_lms_after_payment_url(wp_get_current_user())]);
+    wp_send_json_success(['redirect' => mmn_lms_after_payment_url(wp_get_current_user(), $order->ID)]);
 });
 
 /** A free sign-up (price 0 in the settings): the course is given at once, nothing to pay. */
@@ -304,7 +413,7 @@ add_action('wp_ajax_mmn_free_enroll', function () {
         'meta_input'  => ['product' => $product, 'amount' => 0, 'status' => 'created'],
     ]);
     mmn_lms_order_paid($post_id, 'free');
-    wp_send_json_success(['redirect' => mmn_lms_after_payment_url($user)]);
+    wp_send_json_success(['redirect' => mmn_lms_after_payment_url($user, $post_id)]);
 });
 
 // ---------------------------------------------------------------------------------------------------- webhook (when the student closes the page after paying)

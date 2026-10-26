@@ -214,8 +214,11 @@ add_action('mmn_lms_payment_success', 'mmn_lms_payment_success', 10, 3);
 
 // ---------------------------------------------------------------------------------------------------- 3. signing the student in to the LMS
 
-/** A one-time link that signs this student in to the LMS (valid for 2 minutes, works once). */
-function mmn_lms_login_url($user)
+/**
+ * A one-time link that signs this student in to the LMS (valid for 2 minutes, works once).
+ * $go: a page of the student site to open afterwards, e.g. "/my-courses/3" (the course they just bought).
+ */
+function mmn_lms_login_url($user, $go = '')
 {
     $wp_user = mmn_lms_user($user);
     $email   = $wp_user ? $wp_user->user_email : (is_string($user) && is_email($user) ? $user : '');
@@ -227,6 +230,7 @@ function mmn_lms_login_url($user)
         'x' => time() + 120,
         'j' => bin2hex(random_bytes(8)),
         'v' => $wp_user ? (bool) get_user_meta($wp_user->ID, 'mmn_email_verified', true) : false,
+        'g' => (is_string($go) && preg_match('#^/[A-Za-z0-9_/-]{0,100}$#', $go)) ? $go : null,
     ])), '+/', '-_'), '=');
 
     return rtrim(mmn_lms_setting('app_url'), '/') . '/sso#t=' . $payload . '.' . hash_hmac('sha256', $payload, mmn_lms_setting('secret'));

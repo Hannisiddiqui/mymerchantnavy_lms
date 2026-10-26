@@ -26,7 +26,11 @@ export default function SsoPage() {
     }
     api.auth
       .ssoLogin(token)
-      .then(({ needsProfile }) => router.replace(needsProfile ? "/onboarding" : "/my-courses"))
+      .then(({ needsProfile, redirect }) => {
+        // the page to open (e.g. the course just bought); only ever a path on this site
+        const target = redirect && /^\/[\w/-]*$/.test(redirect) && !redirect.includes("//") ? redirect : "/my-courses";
+        router.replace(needsProfile ? "/onboarding" : target);
+      })
       .catch((err) => setError(err instanceof Error ? err.message : "Could not sign you in."));
   }, [router]);
 

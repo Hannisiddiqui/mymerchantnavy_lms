@@ -96,15 +96,15 @@ class WordPressLink
     // ------------------------------------------------------------ one-time sign-in token
 
     /** Token as WordPress builds it: base64url(json{e,x,j,v}) . "." . hex hmac. v = WordPress has verified this email. */
-    public function makeToken(string $email, ?int $expires = null, bool $verified = false): string
+    public function makeToken(string $email, ?int $expires = null, bool $verified = false, ?string $go = null): string
     {
-        $json = json_encode(['e' => mb_strtolower($email), 'x' => $expires ?? time() + 120, 'j' => bin2hex(random_bytes(8)), 'v' => $verified]);
+        $json = json_encode(['e' => mb_strtolower($email), 'x' => $expires ?? time() + 120, 'j' => bin2hex(random_bytes(8)), 'v' => $verified, 'g' => $go]);
         $payload = rtrim(strtr(base64_encode($json), '+/', '-_'), '=');
 
         return $payload.'.'.$this->mac($payload);
     }
 
-    /** @return array{email: string, verified: bool}|null null when the token is forged, expired or already used */
+    /** @return array{email: string, verified: bool, go: ?string}|null null when the token is forged, expired or already used */
     public function claimsFromToken(string $token): ?array
     {
         [$payload, $sig] = array_pad(explode('.', $token, 2), 2, '');
@@ -123,6 +123,10 @@ class WordPressLink
 
         $email = filter_var($data['e'], FILTER_VALIDATE_EMAIL);
 
-        return $email ? ['email' => $email, 'verified' => ($data['v'] ?? false) === true] : null;
+        // where to send the student inside the student site: only a plain path such as /my-courses/3, never another site
+        $go = $data['g'] ?? null;
+        $go = is_string($go) && preg_match('#^/[A-Za-z0-9_/-]{0,100}$#', $go) && ! str_contains($go, '//') ? $go : null;
+
+        return $email ? ['email' => $email, 'verified' => ($data['v'] ?? false) === true, 'go' => $go] : null;
     }
 }
