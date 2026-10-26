@@ -26,8 +26,8 @@ class VertexReader implements AiReader
     {
         $url = sprintf(self::ENDPOINT, config('services.vertex.model'));
 
-        // An empty Expect header: above ~1 MB curl would otherwise ask Google "100-continue?" first, and Google answers 417.
-        $response = Http::withHeaders(['Expect' => ''])->timeout(600)
+        // expect=false: above ~1 MB curl would otherwise send "Expect: 100-continue", and Google answers 417.
+        $response = Http::withOptions(['expect' => false])->timeout(600)
             ->retry(3, 3000, fn ($e) => $e instanceof ConnectionException || ($e instanceof RequestException && in_array($e->response->status(), [429, 500, 502, 503, 504], true)), throw: true)
             ->withQueryParameters(['key' => config('services.vertex.key')])
             ->post($url, [
