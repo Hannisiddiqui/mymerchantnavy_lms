@@ -313,6 +313,9 @@ def build_text(chs, main_size, base, tex=False):
         kind = None
         if small and ch["c"].strip():
             kind = "sup" if mid < base - 0.12 * main_size else ("sub" if mid > base + 0.12 * main_size else None)
+        elif ch["size"] < 0.92 * main_size and ch["c"].strip() and abs(mid - base) > 0.25 * main_size:
+            # a power or index written only slightly smaller (about 83% of the text size) but clearly raised or lowered: x², a₁
+            kind = "sup" if mid < base else "sub"
         if run and kind != run[0]:
             parts.append(flush_run(run))
             run = None
