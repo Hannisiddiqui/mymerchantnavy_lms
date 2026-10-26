@@ -77,7 +77,7 @@ class AiReadersTest extends TestCase
     public function test_vertex_request_has_the_pdf_the_schema_and_the_key_and_reply_is_read(): void
     {
         $this->keys();
-        config(['services.vertex.key' => 'vtx-key', 'services.vertex.model' => 'gemini-2.5-flash']);
+        config(['services.vertex.key' => 'vtx-key', 'services.vertex.model' => 'gemini-3.8-flash']);
         Http::fake(['aiplatform.googleapis.com/*' => Http::response([
             'candidates' => [['content' => ['parts' => [['thought' => true, 'text' => 'thinking'], ['text' => '{"questions":[]}']]], 'finishReason' => 'STOP']],
         ])]);
@@ -90,7 +90,7 @@ class AiReadersTest extends TestCase
             $parts = $body['contents'][0]['parts'];
             $items = $body['generationConfig']['responseSchema']['properties']['questions']['items'];
 
-            return str_starts_with($request->url(), 'https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-2.5-flash:generateContent?')
+            return str_starts_with($request->url(), 'https://aiplatform.googleapis.com/v1/publishers/google/models/gemini-3.8-flash:generateContent?')
                 && str_contains($request->url(), 'key=vtx-key')
                 && $parts[0] === ['inlineData' => ['mimeType' => 'application/pdf', 'data' => base64_encode('%PDF-fake')]]
                 && $parts[1] === ['text' => 'Read it']
