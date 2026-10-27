@@ -20,7 +20,7 @@ use Illuminate\Support\Facades\Storage;
 use Livewire\Livewire;
 use Tests\TestCase;
 
-/** Notes on what a student reads, students that can only be active or inactive, and "read" that is marked by hand. */
+/** Notes on what a student reads, students that can be marked active/inactive (or deleted), and "read" that is marked by hand. */
 class NotesAndStudentStatusTest extends TestCase
 {
     use RefreshDatabase;
@@ -176,26 +176,13 @@ class NotesAndStudentStatusTest extends TestCase
 
     // ------------------------------------------------------------------ students: active or inactive only
 
-    public function test_a_student_can_never_be_deleted(): void
-    {
-        $student = $this->student();
-
-        $this->expectException(\LogicException::class);
-        $student->delete();
-    }
-
-    public function test_the_admin_can_mark_a_student_inactive_and_active_but_has_no_delete(): void
+    public function test_the_admin_can_mark_a_student_inactive_active_or_delete_them(): void
     {
         $this->actingAs(Admin::create(['name' => 'A', 'email' => 'a@example.com', 'password' => 'secret-password']), 'admin');
         Filament::setCurrentPanel('admin');
         $student = $this->student();
         $student->createToken('phone');
         $this->assertCount(1, $student->tokens);
-
-        // the edit page has no delete button
-        $html = $this->get("/admin/students/{$student->id}/edit")->assertOk()->getContent();
-        $this->assertStringNotContainsString('Delete', $html);
-        Livewire::test(EditStudent::class, ['record' => $student->id])->assertActionDoesNotExist('delete');
 
         // the list: mark inactive logs them out everywhere, mark active lets them back in
         Livewire::test(ListStudents::class)
@@ -208,8 +195,17 @@ class NotesAndStudentStatusTest extends TestCase
         Livewire::test(ListStudents::class)->callTableAction('activate', $student);
         $this->assertTrue($student->fresh()->is_active);
 
-        // no delete anywhere in the student list
-        Livewire::test(ListStudents::class)->assertTableActionDoesNotExist('delete')->assertTableBulkActionDoesNotExist('delete');
+        // the edit page has a Delete button that really deletes, with the student's notes going with them
+        $this->postNote($student);
+        $this->assertSame(1, StudentNote::where('user_id', $student->id)->count());
+        Livewire::test(EditStudent::class, ['record' => $student->id])->assertActionExists('delete')->callAction('delete');
+        $this->assertNull(User::find($student->id));
+        $this->assertSame(0, StudentNote::where('user_id', $student->id)->count());
+    }
+
+    private function postNote(User $student): void
+    {
+        StudentNote::create(['user_id' => $student->id, 'chapter_content_id' => $this->pdf->id, 'page' => 2, 'body' => 'a note']);
     }
 
     public function test_switching_the_account_off_on_the_edit_form_also_logs_the_student_out(): void
