@@ -48,11 +48,6 @@ class User extends Authenticatable
 
     protected static function booted(): void
     {
-        // A registered student is never deleted (their results, notes and history stay): they are marked inactive instead.
-        static::deleting(function (self $student) {
-            throw new \LogicException('Students cannot be deleted. Mark the student inactive instead.');
-        });
-
         // Switching a student to inactive also ends every session they have open, so the block takes effect at once.
         static::updated(function (self $student) {
             if ($student->wasChanged('is_active') && ! $student->is_active) {

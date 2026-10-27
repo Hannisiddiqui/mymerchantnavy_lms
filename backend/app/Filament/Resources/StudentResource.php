@@ -19,7 +19,6 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 
 class StudentResource extends Resource
 {
@@ -73,7 +72,7 @@ class StudentResource extends Resource
             ->recordActions([
                 AssignCourseAction::make(fn (Action $action) => $action->getRecord()),
                 EditAction::make(),
-                // The only way to switch a student off: students are never deleted.
+                // Switching a student off without losing anything (Delete is on the edit page).
                 Action::make('deactivate')->label('Mark inactive')->icon('heroicon-o-no-symbol')->color('danger')
                     ->visible(fn (User $record) => $record->is_active)
                     ->requiresConfirmation()
@@ -90,27 +89,6 @@ class StudentResource extends Resource
                         Notification::make()->title('Student marked active')->success()->send();
                     }),
             ]);
-    }
-
-    /** Students can be marked active or inactive, never deleted. */
-    public static function canDelete(Model $record): bool
-    {
-        return false;
-    }
-
-    public static function canDeleteAny(): bool
-    {
-        return false;
-    }
-
-    public static function canForceDelete(Model $record): bool
-    {
-        return false;
-    }
-
-    public static function canForceDeleteAny(): bool
-    {
-        return false;
     }
 
     public static function getRelations(): array
