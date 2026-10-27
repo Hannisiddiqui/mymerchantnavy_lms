@@ -194,6 +194,13 @@ class StudentCatalog
         $contentIds = ChapterContent::whereIn('chapter_id', $chapterIds)->pluck('id');
         $done = $contentIds->intersect($this->completed())->count();
 
+        // Practice tests are counted per chapter: a chapter whose test is split into parts (Part 1 of 3 …) counts once,
+        // so the number lines up with the chapters. Mock tests are counted on their own.
+        $practice = ChapterContent::with('contentable')->whereIn('chapter_id', $chapterIds)->where('type', ContentType::PracticeTest)->get()
+            ->filter(fn (ChapterContent $c) => $c->contentable instanceof Test && $c->contentable->is_published)
+            ->pluck('chapter_id')->unique()->count();
+        $mock = $course->tests()->where('kind', TestKind::Mock)->where('is_published', true)->count();
+
         return [
             'id' => $course->id,
             'title' => $course->title,
@@ -201,7 +208,9 @@ class StudentCatalog
             'accent' => self::ACCENTS[$course->id % count(self::ACCENTS)],
             'subjectsCount' => $subjectIds->count(),
             'chaptersCount' => $chapterIds->count(),
-            'testsCount' => $course->tests()->where('is_published', true)->count(),
+            'practiceTestsCount' => $practice,
+            'mockTestsCount' => $mock,
+            'testsCount' => $practice + $mock, // older versions of the student site read this one
             'progressPercent' => $contentIds->isEmpty() ? 0 : (int) round($done / $contentIds->count() * 100),
             'assignedAt' => $this->enrollments()->get($course->id)?->assigned_at?->toIso8601String(),
         ];

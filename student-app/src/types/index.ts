@@ -35,7 +35,9 @@ export interface CourseSummary {
   accent: string;
   subjectsCount: number;
   chaptersCount: number;
-  testsCount: number;
+  /** Chapters that have a practice test (a test split into parts still counts once per chapter). */
+  practiceTestsCount: number;
+  mockTestsCount: number;
   progressPercent: number;
   assignedAt: string;
 }

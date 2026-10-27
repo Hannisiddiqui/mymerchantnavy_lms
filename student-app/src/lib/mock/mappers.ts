@@ -93,7 +93,8 @@ export function toCourseSummary(courseId: number): CourseSummary {
     accent: c.accent,
     subjectsCount: subjects.length,
     chaptersCount: subjects.reduce((n, s) => n + s.chapters.length, 0),
-    testsCount: mockTests.filter((t) => t.courseId === c.id).length,
+    practiceTestsCount: 0,
+    mockTestsCount: mockTests.filter((t) => t.courseId === c.id).length,
     progressPercent: percent(contents.filter((x) => x.completed).length, contents.length),
     assignedAt: c.assignedAt,
   };

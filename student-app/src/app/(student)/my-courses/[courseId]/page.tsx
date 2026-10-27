@@ -1,7 +1,7 @@
 "use client";
 
 import { useParams } from "next/navigation";
-import { Layers, Target, TrendingUp } from "lucide-react";
+import { BookOpen, ClipboardList, Layers, Target, TrendingUp } from "lucide-react";
 import * as api from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { cn } from "@/lib/utils";
@@ -28,10 +28,12 @@ export default function CoursePage() {
       <section className={cn("relative mb-6 overflow-hidden rounded-2xl bg-gradient-to-br p-5 text-white sm:mb-8 sm:p-8", course.accent)}>
         <div aria-hidden className="absolute -right-10 -top-10 size-56 rounded-full bg-white/10 blur-2xl" />
         <p className="relative max-w-2xl text-sm text-white/80 sm:text-base">{course.description}</p>
-        <div className="relative mt-5 grid grid-cols-1 gap-2.5 sm:mt-6 sm:grid-cols-3 sm:gap-4">
-          <Stat icon={Layers} label="Subjects" value={`${course.subjectsCount} · ${course.chaptersCount} chapters`} />
-          <Stat icon={Target} label="Tests" value={`${course.testsCount} practice & mock`} />
-          <div className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/15 sm:p-4">
+        <div className="relative mt-5 grid grid-cols-2 gap-2.5 sm:mt-6 sm:grid-cols-4 sm:gap-4 xl:grid-cols-5">
+          <Stat icon={Layers} label="Subjects" value={String(course.subjectsCount)} />
+          <Stat icon={BookOpen} label="Chapters" value={String(course.chaptersCount)} />
+          <Stat icon={Target} label="Practice tests" value={String(course.practiceTestsCount)} />
+          <Stat icon={ClipboardList} label="Mock tests" value={String(course.mockTestsCount)} />
+          <div className="col-span-2 rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/15 sm:col-span-4 sm:p-4 xl:col-span-1">
             <div className="flex items-center justify-between gap-3 sm:block">
               <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/70">
                 <TrendingUp className="size-4" /> Progress
@@ -63,11 +65,11 @@ export default function CoursePage() {
 
 function Stat({ icon: Icon, label, value }: { icon: React.ElementType; label: string; value: string }) {
   return (
-    <div className="flex items-center justify-between gap-3 rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/15 sm:block sm:p-4">
+    <div className="rounded-xl bg-white/10 px-4 py-3 ring-1 ring-white/15 sm:p-4">
       <p className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-white/70">
-        <Icon className="size-4" /> {label}
+        <Icon className="size-4 shrink-0" /> {label}
       </p>
-      <p className="text-[15px] font-bold sm:mt-1 sm:text-lg">{value}</p>
+      <p className="mt-1 text-xl font-bold sm:text-2xl">{value}</p>
     </div>
   );
 }

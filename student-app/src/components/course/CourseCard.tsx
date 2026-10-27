@@ -27,7 +27,7 @@ export function CourseCard({ course }: { course: CourseSummary }) {
             <Layers className="size-3.5" /> {course.subjectsCount} subjects · {course.chaptersCount} chapters
           </span>
           <span className="flex items-center gap-1.5">
-            <Target className="size-3.5" /> {course.testsCount} tests
+            <Target className="size-3.5" /> {course.practiceTestsCount} practice · {course.mockTestsCount} mock tests
           </span>
         </div>
         <div className="mt-auto pt-5">
