@@ -12,12 +12,14 @@ use Filament\Actions\EditAction;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 
 class StudentResource extends Resource
 {
@@ -71,7 +73,44 @@ class StudentResource extends Resource
             ->recordActions([
                 AssignCourseAction::make(fn (Action $action) => $action->getRecord()),
                 EditAction::make(),
+                // The only way to switch a student off: students are never deleted.
+                Action::make('deactivate')->label('Mark inactive')->icon('heroicon-o-no-symbol')->color('danger')
+                    ->visible(fn (User $record) => $record->is_active)
+                    ->requiresConfirmation()
+                    ->modalHeading('Mark this student inactive?')
+                    ->modalDescription('They are logged out of every device and cannot log in again until you mark them active. Their results, notes and history are kept.')
+                    ->action(function (User $record) {
+                        $record->update(['is_active' => false]);
+                        Notification::make()->title('Student marked inactive')->success()->send();
+                    }),
+                Action::make('activate')->label('Mark active')->icon('heroicon-o-check-circle')->color('success')
+                    ->visible(fn (User $record) => ! $record->is_active)
+                    ->action(function (User $record) {
+                        $record->update(['is_active' => true]);
+                        Notification::make()->title('Student marked active')->success()->send();
+                    }),
             ]);
+    }
+
+    /** Students can be marked active or inactive, never deleted. */
+    public static function canDelete(Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return false;
+    }
+
+    public static function canForceDelete(Model $record): bool
+    {
+        return false;
+    }
+
+    public static function canForceDeleteAny(): bool
+    {
+        return false;
     }
 
     public static function getRelations(): array

@@ -2,7 +2,7 @@
  * App-wide settings. Brand text, sidebar menu and profile options live here
  * so they can be changed without touching any page.
  */
-import { BookOpen, ChartNoAxesCombined, ClipboardList, Trophy, UserRound, type LucideIcon } from "lucide-react";
+import { BookOpen, ChartNoAxesCombined, ClipboardList, NotebookPen, Trophy, UserRound, type LucideIcon } from "lucide-react";
 
 export const brand = {
   name: "My Merchant Navy",
@@ -28,6 +28,7 @@ export const sidebarNav: NavItem[] = [
   { label: "Mock Tests", href: "/mock-tests", icon: ClipboardList },
   { label: "Performance", href: "/performance", icon: ChartNoAxesCombined },
   { label: "Results", href: "/results", icon: Trophy },
+  { label: "My Notes", href: "/notes", icon: NotebookPen },
   { label: "My Profile", href: "/profile", icon: UserRound },
 ];
 

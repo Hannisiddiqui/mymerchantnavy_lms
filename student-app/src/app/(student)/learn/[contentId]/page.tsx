@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, CircleCheck, Clock, FileQuestion, Trophy } from "lucide-react";
@@ -9,11 +10,11 @@ import { useApi } from "@/lib/use-api";
 import { ContentRow } from "@/components/course/ContentRow";
 import { contentTypes } from "@/components/course/contentTypes";
 import { AssignmentView } from "@/components/content/AssignmentView";
-import { ReachedEnd } from "@/components/content/ReachedEnd";
 import { LiveClassView } from "@/components/content/LiveClassView";
 import { ProtectedPdfViewer } from "@/components/content/ProtectedPdfViewer";
 import { VideoPlayer } from "@/components/content/VideoPlayer";
 import { MathText } from "@/components/math/MathText";
+import { NotesPanel } from "@/components/notes/NotesPanel";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -26,6 +27,19 @@ export default function LearnPage() {
   const id = Number(contentId);
   const { data, loading, error, reload, setData } = useApi(() => api.courses.getContent(id), [id]);
 
+  // PDF reading state shared with the notes: the page being read, a way to scroll the viewer, and where to open
+  // (a saved note links here as /learn/12?page=7).
+  const [pdfPage, setPdfPage] = useState(1);
+  const [noteCount, setNoteCount] = useState(0);
+  const [startPage, setStartPage] = useState<number | null>(null);
+  const pdfGoTo = useRef<((page: number) => void) | null>(null);
+  useEffect(() => {
+    const p = Number(new URLSearchParams(window.location.search).get("page"));
+    setStartPage(p > 0 ? p : null);
+    setPdfPage(1);
+    setNoteCount(0);
+  }, [id]);
+
   if (loading) return <PageSkeleton />;
   if (error || !data) return <ErrorState message={error ?? "Content not found"} onRetry={reload} />;
 
@@ -37,10 +51,23 @@ export default function LearnPage() {
   const chapter = subject.chapters.find((ch) => ch.id === content.chapterId)!;
   let chapterNo = 0;
 
-  // Reading, watching or listening count as done when the student reaches the end or moves on. A test or an assignment
-  // counts only when it is actually taken or handed in (the server records that), so those are never auto-completed here.
-  const autoCompletes = !content.completed && ["video", "note", "pdf", "live_class"].includes(content.type);
+  // A document (PDF or written note) is marked as read ONLY when the student presses "Mark as read", even if they
+  // scrolled to the very end. Watching a video or a recorded class still counts when they move on to the next item.
+  // A test or an assignment counts only when it is actually taken or handed in (the server records that).
+  const isDocument = content.type === "pdf" || content.type === "note";
+  const autoCompletes = !content.completed && ["video", "live_class"].includes(content.type);
   const onDone = autoCompletes ? () => void markComplete() : undefined;
+  // Notes can be written on anything the student reads or watches (not on tests or assignments)
+  const canTakeNotes = ["pdf", "note", "video", "live_class"].includes(content.type);
+
+  function goToPage(page: number) {
+    document.getElementById("reader")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    pdfGoTo.current?.(page);
+  }
+  function takeNote() {
+    document.getElementById("my-notes")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    window.setTimeout(() => document.getElementById("note-composer")?.focus({ preventScroll: true }), 350);
+  }
 
   async function markComplete() {
     await api.courses.markContentComplete(content.id);
@@ -72,16 +99,21 @@ export default function LearnPage() {
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
         <div className="min-w-0 space-y-4">
-          <ContentBody item={content} onDone={onDone} />
+          <div id="reader" className="scroll-mt-20">
+            <ContentBody
+              item={content}
+              pdf={{ startPage, onPageChange: setPdfPage, goToRef: pdfGoTo, noteCount, onTakeNote: takeNote }}
+            />
+          </div>
 
           <div className="flex flex-wrap items-center gap-2">
             {content.completed ? (
               <span className="flex items-center gap-1.5 text-sm font-semibold text-green-700">
-                <CircleCheck className="size-5" /> Completed
+                <CircleCheck className="size-5" /> {isDocument ? "Marked as read" : "Completed"}
               </span>
             ) : content.type !== "practice_test" ? (
-              <Button variant="outline" onClick={markComplete}>
-                <CircleCheck className="size-4" /> Mark as complete
+              <Button variant={isDocument ? "primary" : "outline"} onClick={markComplete}>
+                <CircleCheck className="size-4" /> {isDocument ? "Mark as read" : "Mark as complete"}
               </Button>
             ) : null}
             <div className="ml-auto flex gap-2">
@@ -97,6 +129,18 @@ export default function LearnPage() {
               )}
             </div>
           </div>
+
+          {canTakeNotes && (
+            <NotesPanel
+              key={content.id}
+              contentId={content.id}
+              isPdf={content.type === "pdf"}
+              currentPage={content.type === "pdf" ? pdfPage : undefined}
+              totalPages={content.type === "pdf" ? content.pageCount : undefined}
+              onGoToPage={goToPage}
+              onCount={setNoteCount}
+            />
+          )}
         </div>
 
         <aside className="lg:sticky lg:top-20 lg:self-start">
@@ -136,19 +180,35 @@ export default function LearnPage() {
 }
 
 /** Picks the viewer for each content type. Add a case here for a new type. */
-function ContentBody({ item, onDone }: { item: ContentItem; onDone?: () => void }) {
+function ContentBody({
+  item,
+  pdf,
+}: {
+  item: ContentItem;
+  pdf: { startPage: number | null; onPageChange: (page: number) => void; goToRef: React.MutableRefObject<((page: number) => void) | null>; noteCount: number; onTakeNote: () => void };
+}) {
   switch (item.type) {
     case "video":
       return <VideoPlayer title={item.title} embedUrl={item.embedUrl} durationSeconds={item.durationSeconds} />;
     case "live_class":
       return <LiveClassView item={item} />;
     case "pdf":
-      return <ProtectedPdfViewer contentId={item.id} pageCount={item.pageCount} onReachEnd={onDone} />;
+      return (
+        <ProtectedPdfViewer
+          key={item.id}
+          contentId={item.id}
+          pageCount={item.pageCount}
+          startPage={pdf.startPage}
+          onPageChange={pdf.onPageChange}
+          goToRef={pdf.goToRef}
+          noteCount={pdf.noteCount}
+          onTakeNote={pdf.onTakeNote}
+        />
+      );
     case "note":
       return (
         <Card className="p-6 sm:p-8">
           <MathText html={item.body} className="text-[15px] leading-relaxed text-slate-700" />
-          {onDone && <ReachedEnd onReach={onDone} />}
         </Card>
       );
     case "assignment":

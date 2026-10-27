@@ -276,3 +276,27 @@ export interface PerformanceReport {
   trend: PerformanceTrendPoint[];
   subjects: SubjectPerformance[];
 }
+
+// ---------- Notes (backend: App\Http\Controllers\Api\V1\NoteController) ----------
+
+/** A student's own note on a piece of content. For a PDF it can be pinned to a page. */
+export interface StudentNote {
+  id: number;
+  contentId: number;
+  /** PDF page the note belongs to; null = the whole item. */
+  page: number | null;
+  body: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+/** A note plus where it belongs, for the "My Notes" page. */
+export interface NoteWithContext extends StudentNote {
+  contentTitle: string;
+  contentType: ContentType;
+  chapterTitle: string;
+  subjectId: number;
+  subjectTitle: string;
+  courseId: number;
+  courseTitle: string;
+}

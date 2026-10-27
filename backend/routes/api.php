@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\V1\AttemptController;
 use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\ContentController;
 use App\Http\Controllers\Api\V1\CourseController;
+use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PdfPageController;
 use App\Http\Controllers\Api\V1\PerformanceController;
@@ -57,6 +58,13 @@ Route::prefix('v1')->group(function () {
         Route::post('contents/{id}/complete', [ContentController::class, 'complete'])->whereNumber('id');
         Route::get('contents/{id}/pages', [ContentController::class, 'pages'])->whereNumber('id');
         Route::post('contents/{id}/submission', [ContentController::class, 'submitAssignment'])->whereNumber('id');
+
+        // The student's own notes on what they read or watch
+        Route::get('contents/{id}/notes', [NoteController::class, 'forContent'])->whereNumber('id');
+        Route::post('contents/{id}/notes', [NoteController::class, 'store'])->whereNumber('id')->middleware('throttle:60,1');
+        Route::get('notes', [NoteController::class, 'index']);
+        Route::put('notes/{id}', [NoteController::class, 'update'])->whereNumber('id')->middleware('throttle:60,1');
+        Route::delete('notes/{id}', [NoteController::class, 'destroy'])->whereNumber('id');
 
         // Tests
         Route::get('mock-tests', [TestController::class, 'mockTests']);

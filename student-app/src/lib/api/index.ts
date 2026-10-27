@@ -9,4 +9,5 @@ export * as assignments from "./assignments";
 export * as tests from "./tests";
 export * as results from "./results";
 export * as performance from "./performance";
+export * as notes from "./notes";
 export * as notifications from "./notifications";
