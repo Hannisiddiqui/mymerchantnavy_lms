@@ -153,10 +153,27 @@ export type PaletteStatus = "not_visited" | "not_answered" | "answered" | "revie
 
 // ---------- Results ----------
 
+export type ReportReason = "wrong_answer" | "question_error" | "option_error" | "explanation_error" | "formatting" | "other";
+
+export type ReportStatus = "open" | "resolved" | "rejected";
+
+/** A problem the student reported on a question (backend: QuestionReport::toStudentArray). */
+export interface QuestionReportInfo {
+  id: number;
+  reason: ReportReason;
+  details: string;
+  status: ReportStatus;
+  /** The admin's reply once the report is closed. */
+  adminNote: string;
+  createdAt: string;
+}
+
 export interface SolutionQuestion extends Question {
   correctOptionId: number;
   selectedOptionId: number | null;
   explanation: string;
+  /** The student's latest report on this question, if any. */
+  report?: QuestionReportInfo | null;
 }
 
 export interface AttemptSummary {
@@ -190,7 +207,7 @@ export interface AttemptResult extends AttemptSummary {
 
 // ---------- Notifications ----------
 
-export type NotificationType = "course_assigned" | "live_class" | "result" | "announcement";
+export type NotificationType = "course_assigned" | "live_class" | "result" | "announcement" | "report";
 
 export interface AppNotification {
   id: string;
@@ -200,4 +217,60 @@ export interface AppNotification {
   href?: string;
   createdAt: string;
   read: boolean;
+}
+
+// ---------- Performance dashboard (backend: App\Services\Student\PerformanceReport) ----------
+
+/** Right / wrong / skipped answers plus accuracy (null while nothing was answered). */
+export interface PerformanceCounts {
+  correct: number;
+  incorrect: number;
+  skipped: number;
+  accuracy: number | null;
+}
+
+export interface ChapterPerformance extends PerformanceCounts {
+  id: number;
+  title: string;
+  /** The chapter's own practice test, when it has one. */
+  testId: number | null;
+  attempts: number;
+  bestScorePercent: number | null;
+  lastScorePercent: number | null;
+  lastAttemptId: string | null;
+  lastAttemptAt: string | null;
+}
+
+export interface SubjectPerformance extends PerformanceCounts {
+  id: number;
+  title: string;
+  courseTitle: string;
+  chaptersTotal: number;
+  chaptersStarted: number;
+  avgScorePercent: number | null;
+  chapters: ChapterPerformance[];
+}
+
+export interface PerformanceTrendPoint {
+  attemptId: string;
+  testTitle: string;
+  testKind: TestKind;
+  submittedAt: string;
+  scorePercent: number;
+  accuracy: number;
+}
+
+export interface PerformanceReport {
+  overview: PerformanceCounts & {
+    testsTaken: number;
+    attempts: number;
+    avgScorePercent: number | null;
+    bestScorePercent: number | null;
+    timeSpentSeconds: number;
+    chaptersStarted: number;
+    chaptersTotal: number;
+    lastActivityAt: string | null;
+  };
+  trend: PerformanceTrendPoint[];
+  subjects: SubjectPerformance[];
 }

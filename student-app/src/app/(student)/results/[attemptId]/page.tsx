@@ -141,7 +141,7 @@ export default function ResultPage() {
         </div>
         <div className="space-y-4">
           {filtered.map(({ q, no }) => (
-            <SolutionItem key={q.id} q={q} number={no} marksCorrect={r.test.marksCorrect} marksWrong={r.test.marksWrong} />
+            <SolutionItem key={`${r.id}-${q.id}`} q={q} number={no} marksCorrect={r.test.marksCorrect} marksWrong={r.test.marksWrong} attemptId={r.id} />
           ))}
           {filtered.length === 0 && <p className="rounded-2xl border border-dashed border-line bg-white p-8 text-center text-sm text-slate-500">No questions in this group.</p>}
         </div>

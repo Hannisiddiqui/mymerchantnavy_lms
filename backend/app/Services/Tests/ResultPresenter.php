@@ -2,9 +2,11 @@
 
 namespace App\Services\Tests;
 
+use App\Models\QuestionReport;
 use App\Models\TestAttempt;
 use App\Services\Student\StudentCatalog;
 use Illuminate\Support\Arr;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Builds the result JSON (matches AttemptSummary / AttemptResult in student-app/src/types/index.ts).
@@ -39,8 +41,12 @@ class ResultPresenter
         $test = $attempt->test->loadMissing('course')->loadCount('questions');
         $ranking = $this->ranking->for($attempt);
         $answers = $attempt->answers()->get()->keyBy('question_id');
+        // The student's own latest report on each question, so the "Report" button can show its status.
+        $reports = QuestionReport::where('user_id', $attempt->user_id)
+            ->whereIn('question_id', DB::table('test_questions')->where('test_id', $test->id)->select('question_id'))
+            ->latest('id')->get()->unique('question_id')->keyBy('question_id');
 
-        $solutions = $test->questions()->with('options')->get()->map(function ($q) use ($answers) {
+        $solutions = $test->questions()->with('options')->get()->map(function ($q) use ($answers, $reports) {
             return [
                 'id' => $q->id,
                 'body' => $q->body,
@@ -48,6 +54,7 @@ class ResultPresenter
                 'correctOptionId' => $q->options->firstWhere('is_correct', true)?->id,
                 'selectedOptionId' => $answers->get($q->id)?->selected_option_id,
                 'explanation' => $q->explanation ?? '',
+                'report' => $reports->get($q->id)?->toStudentArray(),
             ];
         })->values()->all();
 

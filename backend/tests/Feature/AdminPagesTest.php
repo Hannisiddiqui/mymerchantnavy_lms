@@ -40,7 +40,7 @@ class AdminPagesTest extends TestCase
             '/admin/questions', '/admin/questions/create',
             '/admin/question-imports', "/admin/question-imports/{$import->id}/review",
             '/admin/students', '/admin/students/create', "/admin/students/{$student->id}/edit",
-            '/admin/attempts', '/admin/enrollments', '/admin/question-analysis', '/admin/admins', '/admin/admins/create',
+            '/admin/attempts', '/admin/question-reports', '/admin/enrollments', '/admin/question-analysis', '/admin/admins', '/admin/admins/create',
         ];
     }
 

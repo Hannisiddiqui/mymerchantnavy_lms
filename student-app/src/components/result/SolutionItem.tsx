@@ -3,6 +3,7 @@ import type { SolutionQuestion } from "@/types";
 import { cn } from "@/lib/utils";
 import { MathText } from "@/components/math/MathText";
 import { Badge } from "@/components/ui/Badge";
+import { ReportQuestion } from "@/components/result/ReportQuestion";
 
 export type SolutionOutcome = "correct" | "incorrect" | "skipped";
 
@@ -12,7 +13,7 @@ export function outcomeOf(q: SolutionQuestion): SolutionOutcome {
 }
 
 /** One question in the detailed solutions: your answer, the correct answer and the explanation. */
-export function SolutionItem({ q, number, marksCorrect, marksWrong }: { q: SolutionQuestion; number: number; marksCorrect: number; marksWrong: number }) {
+export function SolutionItem({ q, number, marksCorrect, marksWrong, attemptId }: { q: SolutionQuestion; number: number; marksCorrect: number; marksWrong: number; attemptId: string }) {
   const outcome = outcomeOf(q);
   return (
     <article className="rounded-2xl border border-line bg-white p-5 sm:p-6" id={`q-${number}`}>
@@ -56,6 +57,8 @@ export function SolutionItem({ q, number, marksCorrect, marksWrong }: { q: Solut
         </p>
         <MathText html={q.explanation} className="text-[15px] leading-relaxed text-slate-700" />
       </div>
+
+      <ReportQuestion attemptId={attemptId} questionId={q.id} number={number} report={q.report} />
     </article>
   );
 }

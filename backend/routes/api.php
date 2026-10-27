@@ -6,7 +6,9 @@ use App\Http\Controllers\Api\V1\ContentController;
 use App\Http\Controllers\Api\V1\CourseController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PdfPageController;
+use App\Http\Controllers\Api\V1\PerformanceController;
 use App\Http\Controllers\Api\V1\ProfileController;
+use App\Http\Controllers\Api\V1\QuestionReportController;
 use App\Http\Controllers\Api\V1\TestController;
 use App\Http\Controllers\Api\V1\WordPressController;
 use App\Http\Middleware\VerifyWordPressSignature;
@@ -63,9 +65,12 @@ Route::prefix('v1')->group(function () {
         Route::put('attempts/{attempt}/answers/{question}', [AttemptController::class, 'saveAnswer'])->whereNumber('question');
         Route::post('attempts/{attempt}/submit', [AttemptController::class, 'submit']);
         Route::get('attempts/{attempt}/result', [AttemptController::class, 'result']);
+        Route::post('attempts/{attempt}/questions/{question}/report', [QuestionReportController::class, 'store'])
+            ->whereNumber('question')->middleware('throttle:30,1');
 
-        // Results
+        // Results and the performance dashboard
         Route::get('results', [AttemptController::class, 'index']);
+        Route::get('performance', [PerformanceController::class, 'show']);
 
         // Notifications
         Route::get('notifications', [NotificationController::class, 'index']);
