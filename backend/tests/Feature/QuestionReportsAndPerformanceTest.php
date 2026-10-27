@@ -204,6 +204,56 @@ class QuestionReportsAndPerformanceTest extends TestCase
         $this->assertNull($average['accuracy']);
     }
 
+    /**
+     * The live data: every question is untagged (no chapter_id) and every test is a practice test placed in a chapter.
+     * The result must still land on that chapter, and on its subject.
+     */
+    public function test_practice_tests_count_for_their_chapter_even_when_questions_are_not_tagged(): void
+    {
+        $outline = app(CourseOutline::class);
+        $science = $outline->addSubject($this->course, 'Science');
+        $motion = $outline->addChapter($science, 'Motion');
+        $test = Test::create(['course_id' => $this->course->id, 'title' => 'Motion Practice Test', 'kind' => TestKind::Practice,
+            'duration_minutes' => 90, 'marks_correct' => 2, 'marks_wrong' => 0.25, 'is_published' => true]);
+        $questions = [];
+        foreach (range(1, 4) as $n) {
+            $q = app(QuestionService::class)->save([
+                'body' => "M{$n}", 'explanation' => 'x', 'correct' => 2,
+                'option_1' => 'A', 'option_2' => 'B', 'option_3' => 'C', 'option_4' => 'D', // no subject_id, no chapter_id
+            ]);
+            $test->questions()->attach($q->id, ['position' => $n]);
+            $questions[] = $q;
+        }
+        $outline->saveContent($motion, ContentType::PracticeTest, ['title' => 'Practice', 'test_id' => $test->id]);
+        $this->assertNull($questions[0]->fresh()->chapter_id);
+
+        $student = $this->student();
+        $session = $this->actingAs($student, 'sanctum')->postJson("/api/v1/tests/{$test->id}/attempts")->assertOk()->json('data');
+        foreach ([2, 2, 1, null] as $i => $position) { // 2 right, 1 wrong, 1 skipped
+            $this->putJson("/api/v1/attempts/{$session['attemptId']}/answers/{$questions[$i]->id}", [
+                'selectedOptionId' => $position ? $questions[$i]->options()->where('position', $position)->value('id') : null,
+                'markedForReview' => false, 'visited' => true,
+            ])->assertOk();
+        }
+        $this->postJson("/api/v1/attempts/{$session['attemptId']}/submit")->assertOk();
+
+        $data = $this->getJson('/api/v1/performance')->assertOk()->json('data');
+
+        $this->assertSame(1, $data['overview']['attempts']);
+        $this->assertSame(1, $data['overview']['chaptersStarted']);
+        $subject = collect($data['subjects'])->firstWhere('title', 'Science');
+        $this->assertSame(1, $subject['chaptersStarted']);
+        $this->assertSame(2, $subject['correct']);
+        $row = $subject['chapters'][0];
+        $this->assertSame('Motion', $row['title']);
+        $this->assertEquals(['correct' => 2, 'incorrect' => 1, 'skipped' => 1, 'attempts' => 1, 'testId' => $test->id],
+            array_intersect_key($row, array_flip(['correct', 'incorrect', 'skipped', 'attempts', 'testId'])));
+        $this->assertSame(67, $row['accuracy']);
+        $this->assertEquals(46.9, $row['lastScorePercent']);
+        // Maths (never attempted) stays untouched
+        $this->assertSame(0, collect($data['subjects'])->firstWhere('title', 'Maths')['chaptersStarted']);
+    }
+
     public function test_performance_with_no_attempts(): void
     {
         $this->actingAs($this->student(), 'sanctum');

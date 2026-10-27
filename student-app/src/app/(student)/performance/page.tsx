@@ -5,7 +5,7 @@ import { useMemo, useState } from "react";
 import { ArrowRight, BookOpenCheck, ChartNoAxesCombined, Clock, Flame, ListChecks, Target, TrendingUp } from "lucide-react";
 import * as api from "@/lib/api";
 import { useApi } from "@/lib/use-api";
-import type { ChapterPerformance, PerformanceReport } from "@/types";
+import type { ChapterPerformance, PerformanceReport, SubjectPerformance } from "@/types";
 import { levelOf } from "@/components/performance/level";
 import { OutcomeBar } from "@/components/performance/OutcomeBar";
 import { Ring } from "@/components/performance/Ring";
@@ -13,7 +13,7 @@ import { SubjectCard } from "@/components/performance/SubjectCard";
 import { TrendChart } from "@/components/performance/TrendChart";
 import { Button } from "@/components/ui/Button";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { EmptyState, ErrorState, PageSkeleton } from "@/components/ui/States";
+import { ErrorState, PageSkeleton } from "@/components/ui/States";
 
 type Ranked = ChapterPerformance & { subject: string };
 
@@ -43,21 +43,24 @@ function Dashboard({ report }: { report: PerformanceReport }) {
     };
   }, [subjects]);
 
+  // Nothing attempted yet: still show every subject and chapter, each with a Start button for its practice test.
   if (o.attempts === 0) {
     return (
-      <EmptyState
-        icon={ChartNoAxesCombined}
-        title="Your performance will show up here"
-        body="Take a practice or mock test and we'll track your accuracy for every subject and chapter."
-        action={
-          <div className="flex flex-wrap justify-center gap-2">
-            <Button href="/my-courses">Go to My Courses</Button>
-            <Button variant="outline" href="/mock-tests">
-              Mock Tests
-            </Button>
+      <div className="space-y-6">
+        <div className="flex flex-col items-start gap-3 rounded-2xl bg-gradient-to-br from-brand-50 via-white to-brand-100/60 p-5 ring-1 ring-brand-100 sm:flex-row sm:items-center sm:p-6">
+          <span className="grid size-12 shrink-0 place-items-center rounded-2xl bg-white text-brand-600 shadow-sm ring-1 ring-brand-100">
+            <ChartNoAxesCombined className="size-6" />
+          </span>
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-bold text-navy-900">Your performance will show up here</h2>
+            <p className="mt-1 text-sm text-slate-600">Every practice test in your chapters and every mock test you take is tracked, subject by subject and chapter by chapter. Pick a chapter below to begin.</p>
           </div>
-        }
-      />
+          <Button variant="outline" href="/mock-tests">
+            Mock Tests
+          </Button>
+        </div>
+        <SubjectList subjects={subjects} openId={openId} setOpenId={setOpenId} />
+      </div>
     );
   }
 
@@ -112,22 +115,30 @@ function Dashboard({ report }: { report: PerformanceReport }) {
         </section>
       )}
 
-      {/* Subjects */}
-      <section>
-        <div className="mb-3 flex items-end justify-between gap-3">
-          <h2 className="text-lg font-bold text-navy-900">Subject-wise performance</h2>
-          <button className="text-sm font-semibold text-brand-600 hover:underline" onClick={() => setOpenId(openId === null ? (subjects[0]?.id ?? null) : null)}>
-            {openId === null ? "Open first" : "Collapse all"}
-          </button>
-        </div>
-        <div className="space-y-3">
-          {subjects.map((s) => (
-            <SubjectCard key={s.id} subject={s} open={openId === s.id} onToggle={() => setOpenId(openId === s.id ? null : s.id)} />
-          ))}
-        </div>
-        <p className="mt-3 text-xs text-slate-400">Accuracy = right answers ÷ questions you answered, over all your attempts. Skipped questions are not counted against you.</p>
-      </section>
+      <SubjectList subjects={subjects} openId={openId} setOpenId={setOpenId} />
     </div>
+  );
+}
+
+/** Every subject with its chapters. Each chapter's own practice test and any mock test questions count towards it. */
+function SubjectList({ subjects, openId, setOpenId }: { subjects: SubjectPerformance[]; openId: number | null; setOpenId: (id: number | null) => void }) {
+  return (
+    <section>
+      <div className="mb-3 flex items-end justify-between gap-3">
+        <h2 className="text-lg font-bold text-navy-900">Subject-wise performance</h2>
+        <button className="text-sm font-semibold text-brand-600 hover:underline" onClick={() => setOpenId(openId === null ? (subjects[0]?.id ?? null) : null)}>
+          {openId === null ? "Open first" : "Collapse all"}
+        </button>
+      </div>
+      <div className="space-y-3">
+        {subjects.map((s) => (
+          <SubjectCard key={s.id} subject={s} open={openId === s.id} onToggle={() => setOpenId(openId === s.id ? null : s.id)} />
+        ))}
+      </div>
+      <p className="mt-3 text-xs text-slate-400">
+        Includes the practice test in each chapter and your mock tests. Accuracy = right answers ÷ questions you answered, over all your attempts. Skipped questions are not counted against you.
+      </p>
+    </section>
   );
 }
 
