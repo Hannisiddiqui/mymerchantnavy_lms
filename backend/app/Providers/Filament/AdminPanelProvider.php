@@ -46,7 +46,7 @@ class AdminPanelProvider extends PanelProvider
                 'gray' => Color::Slate,
             ])
             ->renderHook(PanelsRenderHook::HEAD_END, fn () => view('filament.admin-head'))
-            ->navigationGroups(['Learning', 'People', 'Reports', 'Settings'])
+            ->navigationGroups(['Learning', 'People', 'Reports', 'Settings', 'Super Admin'])
             ->discoverResources(in: app_path('Filament/Resources'), for: 'App\\Filament\\Resources')
             ->discoverPages(in: app_path('Filament/Pages'), for: 'App\\Filament\\Pages')
             ->pages([Dashboard::class])

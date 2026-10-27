@@ -24,6 +24,13 @@ class AttemptController extends Controller
         $test = $catalog->findTest($test);
         $attempt = $this->attempts->start($request->user(), $test);
 
+        \App\Models\ActivityLog::record(
+            event: 'test.attempt_started',
+            description: "Student {$request->user()->email} started attempt on test '{$test->title}'",
+            subject: $attempt,
+            properties: ['test_id' => $test->id, 'attempt_uuid' => $attempt->uuid]
+        );
+
         return $this->data($this->session($attempt, $test, $catalog->testSummary($test)));
     }
 
@@ -40,6 +47,18 @@ class AttemptController extends Controller
     {
         $done = $this->attempts->submit($this->own($request, $attempt), $request->validated('answers'));
         $this->catalog($request)->refresh();
+
+        \App\Models\ActivityLog::record(
+            event: 'test.attempt_submitted',
+            description: "Student {$request->user()->email} submitted test '{$done->test?->title}' (Score: {$done->score}/{$done->max_score})",
+            subject: $done,
+            properties: [
+                'test_id' => $done->test_id,
+                'score' => $done->score,
+                'max_score' => $done->max_score,
+                'attempt_uuid' => $done->uuid,
+            ]
+        );
 
         return $this->data(['attemptId' => $done->uuid]);
     }

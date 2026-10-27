@@ -3,10 +3,13 @@
 namespace App\Providers;
 
 use App\Models;
+use App\Observers\AuditObserver;
 use App\Services\Otp\OtpSender;
+use Illuminate\Auth\Events\Login;
 use Illuminate\Cache\RateLimiting\Limit;
 use Illuminate\Database\Eloquent\Relations\Relation;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Event;
 use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
@@ -35,6 +38,11 @@ class AppServiceProvider extends ServiceProvider
         Relation::enforceMorphMap([
             'user' => Models\User::class,
             'admin' => Models\Admin::class,
+            'course' => Models\Course::class,
+            'chapter' => Models\Chapter::class,
+            'question' => Models\Question::class,
+            'test_attempt' => Models\TestAttempt::class,
+            'enrollment' => Models\Enrollment::class,
             'subject' => Models\Subject::class,
             'test' => Models\Test::class,
             'pdf' => Models\PdfDocument::class,
@@ -42,6 +50,36 @@ class AppServiceProvider extends ServiceProvider
             'live_class' => Models\LiveClass::class,
             'note' => Models\Note::class,
             'assignment' => Models\Assignment::class,
+            'setting' => Models\Setting::class,
+            'activity_log' => Models\ActivityLog::class,
         ]);
+
+        // Audit observers for tracking changes made by admins
+        Models\Admin::observe(AuditObserver::class);
+        Models\Course::observe(AuditObserver::class);
+        Models\Test::observe(AuditObserver::class);
+        Models\Question::observe(AuditObserver::class);
+        Models\User::observe(AuditObserver::class);
+
+        // Track authentication events across the platform
+        Event::listen(Login::class, function (Login $event) {
+            if ($event->user instanceof Models\Admin) {
+                Models\ActivityLog::record(
+                    event: 'admin.login',
+                    description: "Admin {$event->user->email} signed in to the admin panel.",
+                    subject: $event->user,
+                    properties: ['guard' => $event->guard],
+                    admin: $event->user
+                );
+            } elseif ($event->user instanceof Models\User) {
+                Models\ActivityLog::record(
+                    event: 'student.login',
+                    description: "Student {$event->user->email} logged in.",
+                    subject: $event->user,
+                    properties: ['guard' => $event->guard],
+                    student: $event->user
+                );
+            }
+        });
     }
 }

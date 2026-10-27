@@ -44,7 +44,16 @@ class AuthController extends Controller
             $user->forceFill(['email_verified_at' => now()])->save();
         }
 
-        $token = $this->devices->login($user, $request->validated('device_name') ?? 'Unknown device');
+        $deviceName = $request->validated('device_name') ?? 'Unknown device';
+        $token = $this->devices->login($user, $deviceName);
+
+        \App\Models\ActivityLog::record(
+            event: 'student.login',
+            description: "Student {$user->email} logged in on device: {$deviceName}",
+            subject: $user,
+            properties: ['device_name' => $deviceName],
+            student: $user
+        );
 
         return response()->json(['data' => [
             'token' => $token,
@@ -55,7 +64,19 @@ class AuthController extends Controller
     /** POST /api/v1/auth/logout: logs out this device only. */
     public function logout(Request $request): JsonResponse
     {
-        $request->user()->currentAccessToken()->delete();
+        $user = $request->user();
+        $token = $user->currentAccessToken();
+        $deviceName = $token?->name ?? 'Unknown device';
+
+        \App\Models\ActivityLog::record(
+            event: 'student.logout',
+            description: "Student {$user->email} logged out from device: {$deviceName}",
+            subject: $user,
+            properties: ['device_name' => $deviceName],
+            student: $user
+        );
+
+        $token?->delete();
 
         return response()->json(['data' => null]);
     }

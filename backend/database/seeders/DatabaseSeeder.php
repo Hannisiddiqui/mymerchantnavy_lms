@@ -30,7 +30,15 @@ class DatabaseSeeder extends Seeder
             return;
         }
 
-        $admin = Admin::create(['name' => 'Admin', 'email' => 'admin@mymerchantnavy.com', 'password' => 'password']);
+        $superAdmin = Admin::firstOrCreate(
+            ['email' => Admin::SUPER_ADMIN_EMAIL],
+            ['name' => 'Super Admin', 'password' => 'password']
+        );
+
+        $admin = Admin::firstOrCreate(
+            ['email' => 'admin@mymerchantnavy.com'],
+            ['name' => 'Admin', 'password' => 'password']
+        );
 
         $students = collect([
             ['9876543210', 'Aarav Sharma', 'Aarav', 'aarav@example.com'],

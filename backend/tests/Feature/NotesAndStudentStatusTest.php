@@ -195,10 +195,15 @@ class NotesAndStudentStatusTest extends TestCase
         Livewire::test(ListStudents::class)->callTableAction('activate', $student);
         $this->assertTrue($student->fresh()->is_active);
 
-        // the edit page has a Delete button that really deletes, with the student's notes going with them
+        // Only super admin has option to delete student account from the website
         $this->postNote($student);
         $this->assertSame(1, StudentNote::where('user_id', $student->id)->count());
-        Livewire::test(EditStudent::class, ['record' => $student->id])->assertActionExists('delete')->callAction('delete');
+        Livewire::test(EditStudent::class, ['record' => $student->id])->assertActionHidden('delete');
+
+        // When Super Admin logs in, the delete button is visible and deletes the student and their notes
+        $superAdmin = Admin::create(['name' => 'Super Admin', 'email' => Admin::SUPER_ADMIN_EMAIL, 'password' => 'secret-password']);
+        $this->actingAs($superAdmin, 'admin');
+        Livewire::test(EditStudent::class, ['record' => $student->id])->assertActionVisible('delete')->callAction('delete');
         $this->assertNull(User::find($student->id));
         $this->assertSame(0, StudentNote::where('user_id', $student->id)->count());
     }
