@@ -5,11 +5,15 @@ namespace App\Services\Pdf;
 use RuntimeException;
 
 /**
- * Burns the student's name and login (email or phone) into a page image: a few light diagonal marks.
- * A screenshot or photo of the page therefore always carries who it came from.
+ * Burns two kinds of marks into a page image, so a screenshot or photo of a page always carries where it came from:
+ *  - the student's name and login (email or phone): a few light diagonal marks;
+ *  - "Created by - MyMerchantNavy.com": one larger diagonal mark across the middle of the page.
+ * Both are faint (about 9-10% opaque), so the text under them stays easy to read.
  */
 class WatermarkService
 {
+    public const BRAND = 'Created by - MyMerchantNavy.com';
+
     /** @return string PNG bytes */
     public function apply(string $pngPath, string $text): string
     {
@@ -20,10 +24,10 @@ class WatermarkService
         $height = imagesy($image);
         $size = max(12, (int) ($width / 50));
         $font = $this->font();
-        $color = imagecolorallocatealpha($image, 11, 30, 61, 116); // navy, about 9% opaque: readable page, still visible on a screenshot
+        $color = imagecolorallocatealpha($image, 11, 30, 61, 116); // navy, about 9% opaque
 
-        // Four marks per page, staggered, so the text under them stays easy to read.
-        foreach ([[0.05, 0.28], [0.40, 0.50], [0.05, 0.72], [0.40, 0.94]] as [$fx, $fy]) {
+        // Four marks per page, staggered around the brand mark in the middle.
+        foreach ([[0.05, 0.28], [0.45, 0.18], [0.05, 0.82], [0.45, 0.96]] as [$fx, $fy]) {
             $x = (int) ($width * $fx);
             $y = (int) ($height * $fy);
             if ($font) {
@@ -33,11 +37,47 @@ class WatermarkService
             }
         }
 
+        $this->brandMark($image, $width, $height, $font);
+
         ob_start();
         imagepng($image);
         imagedestroy($image);
 
         return ob_get_clean();
+    }
+
+    /** "Created by - MyMerchantNavy.com", one line at 30 degrees, centred on the page (brand blue, about 10% opaque). */
+    private function brandMark(\GdImage $image, int $width, int $height, ?string $font): void
+    {
+        $color = imagecolorallocatealpha($image, 29, 78, 216, 115);
+
+        if (! $font) {
+            $textWidth = imagefontwidth(5) * strlen(self::BRAND);
+            imagestring($image, 5, (int) (($width - $textWidth) / 2), (int) ($height / 2), self::BRAND, $color); // bitmap fallback
+
+            return;
+        }
+
+        $angle = 30;
+        [$cos, $sin] = [cos(deg2rad($angle)), sin(deg2rad($angle))];
+        $size = max(16, $width / 22);
+
+        // Measure the unrotated text, and shrink it if its slanted width would not fit comfortably on the page.
+        $measure = function (float $size) use ($font): array {
+            $box = imagettfbbox($size, 0, $font, self::BRAND);
+
+            return [$box[2] - $box[0], $box[1] - $box[7]];
+        };
+        [$textWidth, $textHeight] = $measure($size);
+        if ($textWidth * $cos > $width * 0.85) {
+            $size *= ($width * 0.85) / ($textWidth * $cos);
+            [$textWidth, $textHeight] = $measure($size);
+        }
+
+        // imagettftext() places the baseline start; offset it so the middle of the text lands on the page centre.
+        $dx = $textWidth / 2 * $cos - $textHeight / 2 * $sin;
+        $dy = -$textWidth / 2 * $sin - $textHeight / 2 * $cos;
+        imagettftext($image, $size, $angle, (int) ($width / 2 - $dx), (int) ($height / 2 - $dy), $color, $font, self::BRAND);
     }
 
     /** First usable TrueType font: LMS_WATERMARK_FONT, then common system fonts. */

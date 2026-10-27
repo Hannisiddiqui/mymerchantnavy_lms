@@ -18,7 +18,11 @@ use Symfony\Component\Process\Process;
  */
 class PdfProcessor
 {
-    private const DPI = 110;
+    /**
+     * 200 gives A4 pages about 1650px wide: sharp text on a phone (3x screens need ~1100px) and still readable when
+     * zoomed to 200%. The old 110 stretched a 910px image over the screen, which looked soft and grey.
+     */
+    public const DPI = 200;
 
     public function __construct(private PdfTool $tool) {}
 
@@ -27,13 +31,19 @@ class PdfProcessor
         $disk = Storage::disk('local');
         abort_unless($disk->exists($document->file_path), 404, 'PDF file is missing.');
 
+        // Render into a temporary folder and swap it in, so a student who is reading the document never meets
+        // missing pages while it is being rendered again.
         $dir = "pdf-pages/{$document->id}";
-        $disk->deleteDirectory($dir);
-        $disk->makeDirectory($dir);
+        $tmp = "{$dir}.tmp";
+        $disk->deleteDirectory($tmp);
+        $disk->makeDirectory($tmp);
 
         $count = $this->hasPdftoppm()
-            ? $this->renderWithPoppler($disk->path($document->file_path), $disk->path($dir))
-            : $this->tool->render($disk->path($document->file_path), $disk->path($dir), self::DPI)['pageCount'];
+            ? $this->renderWithPoppler($disk->path($document->file_path), $disk->path($tmp))
+            : $this->tool->render($disk->path($document->file_path), $disk->path($tmp), self::DPI)['pageCount'];
+
+        $disk->deleteDirectory($dir);
+        rename($disk->path($tmp), $disk->path($dir));
 
         $document->update(['page_count' => $count, 'processed_at' => now()]);
     }

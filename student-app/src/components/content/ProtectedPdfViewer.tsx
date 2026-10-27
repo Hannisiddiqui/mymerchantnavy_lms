@@ -124,12 +124,15 @@ export function ProtectedPdfViewer({ contentId, pageCount, onReachEnd }: { conte
           {Array.from({ length: preparing ? 0 : total }, (_, i) => (
             <div key={i} id={`pdf-page-${i + 1}`} className="relative aspect-[1/1.414] overflow-hidden bg-white shadow-sm" draggable={false}>
               {pageUrls?.[i] ? (
+                // The real page images already carry the student's name and "Created by - MyMerchantNavy.com", burned in by the server
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={pageUrls[i]} alt={`Page ${i + 1}`} loading="lazy" decoding="async" draggable={false} className="pointer-events-none size-full object-contain" />
               ) : (
-                <MockPage number={i + 1} />
+                <>
+                  <MockPage number={i + 1} />
+                  <Watermark text={watermark} />
+                </>
               )}
-              <Watermark text={watermark} />
             </div>
           ))}
         </div>
