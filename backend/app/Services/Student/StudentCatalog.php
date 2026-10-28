@@ -56,9 +56,12 @@ class StudentCatalog
             ->pluck('course_id');
     }
 
+    /** Courses shown in "My Courses": the ones with access, plus expired ones (shown as expired, with a renew message). Cancelled ones are left out. */
     public function courses(): array
     {
-        return Course::whereIn('id', $this->courseIds())
+        $listed = $this->user->enrollments()->where('status', '!=', 'cancelled')->pluck('course_id');
+
+        return Course::where('is_active', true)->whereIn('id', $listed)
             ->get()
             ->map(fn (Course $c) => $this->courseSummary($c))
             ->values()->all();

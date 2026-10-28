@@ -83,7 +83,8 @@ class WordPressLink
         ?\DateTimeInterface $purchaseDate = null
     ): array {
         $given = [];
-        $purchaseType = ($amount !== null && (float) $amount > 0) ? 'paid' : 'paid'; // purchases through payment webhook are marked as 'paid'
+        // A price of 0 is a free sign-up. When WordPress sends no amount (older plugin), it is treated as a paid purchase.
+        $purchaseType = ($amount !== null && $amount <= 0) ? 'free' : 'paid';
         foreach ($this->coursesFor($productId) as $course) {
             if ($this->enrollments->assign(
                 student: $student,

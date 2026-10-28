@@ -194,9 +194,10 @@ add_action('mmn_lms_sync_user', 'mmn_lms_sync_user', 10, 2);
  *     do_action('mmn_lms_payment_success', $user_id, $product_id, $order_id);
  *
  * $user_id: WordPress user id, WP_User or email. $product_id: the id you typed on the course in the LMS admin.
- * $order_id: optional, only for the record.
+ * $order_id: the order id; the LMS uses it to ignore the same payment arriving twice.
+ * $extra: optional ['amount' => rupees paid (0 = free), 'payment_id' => ..., 'purchase_date' => ISO 8601 time the payment was confirmed].
  */
-function mmn_lms_payment_success($user, $product_id, $order_id = '')
+function mmn_lms_payment_success($user, $product_id, $order_id = '', $extra = [])
 {
     $wp_user = mmn_lms_user($user);
     if (! $wp_user) {
@@ -208,9 +209,11 @@ function mmn_lms_payment_success($user, $product_id, $order_id = '')
     return mmn_lms_send_with_retry('enroll', mmn_lms_student_payload($wp_user) + [
         'product_id' => (string) $product_id,
         'order_id'   => (string) $order_id,
-    ]);
+    ] + array_filter(is_array($extra) ? $extra : [], function ($v) {
+        return $v !== null && $v !== '';
+    }));
 }
-add_action('mmn_lms_payment_success', 'mmn_lms_payment_success', 10, 3);
+add_action('mmn_lms_payment_success', 'mmn_lms_payment_success', 10, 4);
 
 // ---------------------------------------------------------------------------------------------------- 3. signing the student in to the LMS
 

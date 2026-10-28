@@ -40,6 +40,10 @@ export interface CourseSummary {
   mockTestsCount: number;
   progressPercent: number;
   assignedAt: string;
+  /** Access dates (older servers do not send them). `expiresAt` is null for lifetime access. */
+  expiresAt?: string | null;
+  isExpired?: boolean;
+  remainingDuration?: string | null;
 }
 
 export interface SubjectSummary {

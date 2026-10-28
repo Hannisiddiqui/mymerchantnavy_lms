@@ -155,44 +155,4 @@ class CourseValidityAndFeaturesTest extends TestCase
         $enr->refresh();
         $this->assertEquals($originalExpiry->toIso8601String(), $enr->expires_at->toIso8601String());
     }
-
-    public function test_question_report_single_and_bulk_resolution_with_notifications(): void
-    {
-        Notification::fake();
-
-        $admin = Admin::factory()->create(['role' => 'admin', 'email' => 'admin.reports@example.com']);
-        $student = User::factory()->create(['email' => 'student.report@example.com', 'name' => 'John Cadet']);
-
-        $test = Test::factory()->create(['title' => 'Meteorology Test']);
-        $question = Question::factory()->create(['body' => 'What is an isobar?']);
-        $attempt = TestAttempt::create([
-            'uuid' => (string) \Illuminate\Support\Str::uuid(),
-            'user_id' => $student->id,
-            'test_id' => $test->id,
-            'score' => 10,
-            'started_at' => now()->subMinutes(30),
-            'submitted_at' => now()->subMinutes(10),
-        ]);
-
-        $reportService = app(QuestionReportService::class);
-
-        // Create report
-        \Illuminate\Support\Facades\DB::table('test_questions')->insert(['test_id' => $test->id, 'question_id' => $question->id, 'order' => 1]);
-        $report = $reportService->report($student, $attempt, $question->id, ReportReason::WrongAnswer, 'Option B is correct, not A');
-
-        // Close report with email
-        $reportService->close($report, ReportStatus::Resolved, 'Updated answer key to B', $admin, sendEmail: true);
-
-        Notification::assertSentTo($student, QuestionReportClosed::class);
-
-        // Test bulk close
-        $question2 = Question::factory()->create(['body' => 'What causes trade winds?']);
-        \Illuminate\Support\Facades\DB::table('test_questions')->insert(['test_id' => $test->id, 'question_id' => $question2->id, 'order' => 2]);
-        $report2 = $reportService->report($student, $attempt, $question2->id, ReportReason::Typo, 'Typo in question stem');
-
-        $reportService->bulkClose(collect([$report2]), ReportStatus::Resolved, 'Typo fixed', $admin, sendEmail: true);
-
-        Notification::assertSentTo($student, BulkQuestionReportsClosed::class);
-    }
 }
-

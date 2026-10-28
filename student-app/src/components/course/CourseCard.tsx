@@ -36,8 +36,15 @@ export function CourseCard({ course }: { course: CourseSummary }) {
             <span className="text-navy-900">{course.progressPercent}%</span>
           </div>
           <ProgressBar value={course.progressPercent} />
-          <span className="mt-4 flex items-center gap-1.5 text-sm font-semibold text-brand-600">
-            Continue learning <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
+          {course.expiresAt && (
+            <p className={cn("mt-3 text-xs font-semibold", course.isExpired ? "text-red-600" : "text-slate-500")}>
+              {course.isExpired
+                ? `Expired on ${new Date(course.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}. Renew to continue.`
+                : `Valid until ${new Date(course.expiresAt).toLocaleDateString("en-IN", { day: "numeric", month: "short", year: "numeric" })}`}
+            </p>
+          )}
+          <span className={cn("mt-4 flex items-center gap-1.5 text-sm font-semibold", course.isExpired ? "text-red-600" : "text-brand-600")}>
+            {course.isExpired ? "Course expired" : "Continue learning"} <ArrowRight className="size-4 transition group-hover:translate-x-0.5" />
           </span>
         </div>
       </div>

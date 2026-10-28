@@ -130,11 +130,13 @@ class CourseValiditySettings extends Page implements HasSchemas
 
     public function save(): void
     {
+        abort_unless(static::canAccess(), 403);
         $formData = $this->form->getState();
         $courseId = $formData['course_id'] ?? $this->selectedCourseId;
 
         $course = Course::findOrFail($courseId);
         $oldType = $course->validity_type;
+        $before = $course->only(['validity_type', 'validity_duration_months', 'validity_duration_days', 'validity_fixed_expiry_date']);
 
         $course->update([
             'validity_type' => $formData['validity_type'],
@@ -149,12 +151,16 @@ class CourseValiditySettings extends Page implements HasSchemas
             subject: $course,
             properties: [
                 'course_id' => $course->id,
-                'validity_type' => $course->validity_type,
-                'validity_duration_months' => $course->validity_duration_months,
-                'validity_fixed_expiry_date' => $course->validity_fixed_expiry_date,
+                'old' => $before,
+                'new' => $course->only(['validity_type', 'validity_duration_months', 'validity_duration_days', 'validity_fixed_expiry_date']),
             ],
             admin: auth('admin')->user()
         );
+
+        $this->emailSuperAdmin('Course validity updated: '.$course->title, [
+            "The validity rule of \"{$course->title}\" was changed from {$oldType} to {$course->validity_type} by ".auth('admin')->user()?->email.'.',
+            'It applies to NEW purchases only. Students who already have the course keep their current expiry date.',
+        ], $course->id);
 
         Notification::make()
             ->title('Course Validity Saved')
@@ -165,6 +171,7 @@ class CourseValiditySettings extends Page implements HasSchemas
 
     public function recalculateExistingEnrollments(): void
     {
+        abort_unless(static::canAccess(), 403);
         $course = Course::findOrFail($this->selectedCourseId);
         $enrollments = Enrollment::where('course_id', $course->id)->get();
 
@@ -193,11 +200,39 @@ class CourseValiditySettings extends Page implements HasSchemas
             admin: auth('admin')->user()
         );
 
+        $this->emailSuperAdmin('Existing enrollments recalculated: '.$course->title, [
+            "Expiry dates of {$updatedCount} existing enrollments of \"{$course->title}\" were recalculated with the rule {$course->validity_type} by ".auth('admin')->user()?->email.'.',
+        ], $course->id);
+
         Notification::make()
             ->title('Enrollments Recalculated')
             ->body("Successfully recalculated and updated expiry timestamps for {$updatedCount} enrolled students.")
             ->success()
             ->send();
+    }
+
+    /** Sends the notice by email to the Super Admin and records the recipient and the result in the activity log. */
+    private function emailSuperAdmin(string $subject, array $lines, int $courseId): void
+    {
+        $recipient = \App\Models\Admin::where('email', \App\Models\Admin::SUPER_ADMIN_EMAIL)->first();
+        if (! $recipient) {
+            return;
+        }
+
+        try {
+            $recipient->notify(new \App\Notifications\CourseValidityChanged($subject, $lines));
+            $status = 'queued';
+        } catch (\Throwable $e) {
+            report($e);
+            $status = 'failed';
+        }
+
+        ActivityLog::record(
+            event: 'email.course_validity',
+            description: "Email \"{$subject}\" to {$recipient->email}: {$status}.",
+            properties: ['course_id' => $courseId, 'recipient' => $recipient->email, 'status' => $status],
+            admin: auth('admin')->user()
+        );
     }
 
     public function getSelectedCourseProperty(): ?Course

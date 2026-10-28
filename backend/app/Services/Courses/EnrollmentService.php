@@ -41,44 +41,66 @@ class EnrollmentService
             ->first();
 
         if ($existing) {
-            // Idempotency: If webhook retries with the same order_id, return false without altering
+            // Idempotency: a webhook retry with the same order id changes nothing
             if ($orderId && $existing->order_id === $orderId) {
                 return false;
             }
 
-            // If it's an explicit renewal or repurchase (new order_id), calculate new expiry
-            if ($orderId && $orderId !== $existing->order_id) {
-                $existing->update([
-                    'purchase_date' => $actualPurchaseDate,
-                    'expires_at' => $expiresAt,
-                    'purchase_type' => $purchaseType,
-                    'order_id' => $orderId,
-                    'payment_id' => $paymentId ?: $existing->payment_id,
-                    'amount' => $amount ?: $existing->amount,
-                    'status' => 'active',
-                ]);
+            $wasActive = $existing->isActive();
+            $isPurchase = (bool) $orderId;
+            $isAdminRenewal = ! $orderId && $by !== null && ! $wasActive;
 
-                ActivityLog::record(
-                    event: 'enrollment.renewed',
-                    description: "Course '{$course->title}' renewed for {$student->name} ({$student->email}) until " . ($expiresAt ? $expiresAt->format('d M Y') : 'Lifetime') . " (Order #{$orderId}).",
-                    subject: $existing,
-                    properties: [
-                        'course_id' => $course->id,
-                        'student_id' => $student->id,
-                        'order_id' => $orderId,
-                        'expires_at' => $expiresAt?->toIso8601String(),
-                        'purchase_type' => $purchaseType,
-                    ],
-                    admin: $by,
-                    student: $student
-                );
-
-                return true;
+            // Nothing to do: an admin re-assigning a course the student still has
+            if (! $isPurchase && ! $isAdminRenewal) {
+                return false;
             }
 
-            return false;
-        }
+            // Renewal policy (documented in docs/HANDOFF.md):
+            //  - a new paid order while the course is still active EXTENDS from the current expiry, so no paid days are lost;
+            //    a lifetime enrollment stays lifetime;
+            //  - an expired or cancelled enrollment starts again from the new purchase date;
+            //  - an admin re-assigning an expired course starts again from today.
+            $previous = $existing->expires_at;
+            if ($explicitExpiresAt) {
+                $newExpiry = Carbon::parse($explicitExpiresAt);
+            } elseif ($wasActive && $isPurchase) {
+                $newExpiry = $previous === null ? null : $course->calculateExpiry($previous);
+            } else {
+                $newExpiry = $course->calculateExpiry($isAdminRenewal ? now() : $actualPurchaseDate);
+            }
 
+            $existing->update([
+                'purchase_date' => $isAdminRenewal ? now() : $actualPurchaseDate,
+                'expires_at' => $newExpiry,
+                'purchase_type' => $isAdminRenewal ? 'assigned' : $purchaseType,
+                'order_id' => $orderId ?? $existing->order_id,
+                'payment_id' => $paymentId ?: $existing->payment_id,
+                'amount' => $amount ?: $existing->amount,
+                'assigned_by' => $isAdminRenewal ? $by->id : $existing->assigned_by,
+                'status' => 'active',
+            ]);
+
+            ActivityLog::record(
+                event: 'enrollment.renewed',
+                description: "Course '{$course->title}' renewed for {$student->name} ({$student->email}) until ".($newExpiry ? $newExpiry->format('d M Y') : 'Lifetime').($orderId ? " (Order #{$orderId})" : ' (by admin)').'.',
+                subject: $existing,
+                properties: [
+                    'course_id' => $course->id,
+                    'student_id' => $student->id,
+                    'order_id' => $orderId,
+                    'previous_expires_at' => $previous?->toIso8601String(),
+                    'expires_at' => $newExpiry?->toIso8601String(),
+                    'purchase_type' => $purchaseType,
+                    'policy' => $wasActive && $isPurchase ? 'extended_from_current_expiry' : 'restarted',
+                ],
+                admin: $by,
+                student: $student
+            );
+
+            $student->notify(new CourseAssigned($course, $newExpiry, renewed: true));
+
+            return true;
+        }
         $enrollment = Enrollment::create([
             'user_id' => $student->id,
             'course_id' => $course->id,
@@ -108,7 +130,7 @@ class EnrollmentService
             student: $student
         );
 
-        $student->notify(new CourseAssigned($course));
+        $student->notify(new CourseAssigned($course, $expiresAt));
 
         return true;
     }

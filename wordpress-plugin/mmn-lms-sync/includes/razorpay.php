@@ -96,7 +96,13 @@ function mmn_lms_order_paid($post_id, $payment_id)
     update_post_meta($post_id, 'status', 'paid');
     update_post_meta($post_id, 'payment_id', sanitize_text_field($payment_id));
 
-    $result = mmn_lms_payment_success((int) get_post_field('post_author', $post_id), get_post_meta($post_id, 'product', true), 'mmn-' . $post_id);
+    // The confirmed payment time, amount (rupees) and payment id go with the message, so the LMS dates the course from the real purchase.
+    $extra = [
+        'amount'        => round(((int) get_post_meta($post_id, 'amount', true)) / 100, 2),
+        'payment_id'    => ($payment_id === 'free') ? null : sanitize_text_field($payment_id),
+        'purchase_date' => gmdate('c'),
+    ];
+    $result = mmn_lms_payment_success((int) get_post_field('post_author', $post_id), get_post_meta($post_id, 'product', true), 'mmn-' . $post_id, $extra);
     $path   = '/my-courses';
     if ($result && $result[0] && ! empty($result[1]['courses']) && count($result[1]['courses']) === 1) {
         $path = '/my-courses/' . (int) $result[1]['courses'][0]['id'];

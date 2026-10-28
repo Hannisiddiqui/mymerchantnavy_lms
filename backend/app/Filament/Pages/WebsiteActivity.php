@@ -131,12 +131,12 @@ class WebsiteActivity extends Page implements HasTable, HasSchemas
                     }),
             ])
             ->headerActions([
-                \Filament\Tables\Actions\Action::make('export_filtered')
+                \Filament\Actions\Action::make('export_filtered')
                     ->label('Export Filtered (CSV)')
                     ->icon('heroicon-o-arrow-down-tray')
                     ->color('primary')
                     ->action(function (): StreamedResponse {
-                        $query = $this->getFilteredTableQuery();
+                        $query = $this->getFilteredSortedTableQuery();
 
                         return response()->streamDownload(function () use ($query) {
                             $handle = fopen('php://output', 'w');

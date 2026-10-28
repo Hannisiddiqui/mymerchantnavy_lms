@@ -43,6 +43,8 @@ class AppServiceProvider extends ServiceProvider
             'question' => Models\Question::class,
             'test_attempt' => Models\TestAttempt::class,
             'enrollment' => Models\Enrollment::class,
+            'question_report' => Models\QuestionReport::class,
+            'student_note' => Models\StudentNote::class,
             'subject' => Models\Subject::class,
             'test' => Models\Test::class,
             'pdf' => Models\PdfDocument::class,

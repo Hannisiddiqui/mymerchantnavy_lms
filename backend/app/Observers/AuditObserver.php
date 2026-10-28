@@ -60,6 +60,19 @@ class AuditObserver
             return;
         }
 
+        // Never write secrets to the log (only the fact that they changed), and keep long text short.
+        $secret = ['password', 'remember_token', 'two_factor_secret'];
+        $old = [];
+        foreach ($dirty as $field => $value) {
+            if (in_array($field, $secret, true)) {
+                $dirty[$field] = '[changed]';
+                continue;
+            }
+            $before = $model->getOriginal($field);
+            $old[$field] = $this->short($before);
+            $dirty[$field] = $this->short($value);
+        }
+
         $type = class_basename($model);
         $event = strtolower("{$type}.updated");
         $desc = "{$type} updated";
@@ -99,9 +112,26 @@ class AuditObserver
             subject: $model,
             properties: [
                 'changes' => array_keys($dirty),
+                'old' => $old,
                 'dirty' => $dirty,
             ]
         );
+    }
+
+    /** A loggable form of a value: enums become their value, long text is cut. */
+    private function short(mixed $value): mixed
+    {
+        if ($value instanceof \BackedEnum) {
+            $value = $value->value;
+        }
+        if ($value instanceof \DateTimeInterface) {
+            return $value->format('c');
+        }
+        if (is_string($value) && mb_strlen($value) > 200) {
+            return mb_substr($value, 0, 200).'…';
+        }
+
+        return is_scalar($value) || $value === null ? $value : json_encode($value);
     }
 
     public function deleted(Model $model): void
