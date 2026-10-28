@@ -72,7 +72,7 @@
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900">
                         @foreach ($enrollments as $enr)
                             <tr>
-                                <td class="p-2.5 font-bold text-gray-900 dark:text-white">{{ $enr->course->title }}</td>
+                                <td class="p-2.5 font-bold text-gray-900 dark:text-white">{{ $enr->course?->title ?? 'Untitled Course' }}</td>
                                 <td class="p-2.5">
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium {{ $enr->purchase_type === 'paid' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400' : ($enr->purchase_type === 'free' ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300') }}">
                                         {{ ucfirst($enr->purchase_type ?: 'Assigned') }}

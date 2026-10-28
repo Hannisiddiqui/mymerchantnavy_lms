@@ -9,13 +9,16 @@
 
 <style>
     /* Prevent raw SVGs in custom blade views, callouts or tables from expanding across the full screen */
+    svg { max-width: 100%; }
+    svg.h-4, svg.w-4 { width: 1rem !important; height: 1rem !important; max-width: 1rem !important; max-height: 1rem !important; }
     svg.h-5, svg.w-5 { width: 1.25rem !important; height: 1.25rem !important; max-width: 1.25rem !important; max-height: 1.25rem !important; }
     svg.h-6, svg.w-6 { width: 1.5rem !important; height: 1.5rem !important; max-width: 1.5rem !important; max-height: 1.5rem !important; }
     svg.h-8, svg.w-8 { width: 2rem !important; height: 2rem !important; max-width: 2rem !important; max-height: 2rem !important; }
     svg.h-10, svg.w-10 { width: 2.5rem !important; height: 2.5rem !important; max-width: 2.5rem !important; max-height: 2.5rem !important; }
     svg.h-12, svg.w-12 { width: 3rem !important; height: 3rem !important; max-width: 3rem !important; max-height: 3rem !important; }
-    svg:not([width]):not([class*="w-"]) { max-width: 2rem; max-height: 2rem; }
-    .fi-callout-icon { width: 1.5rem !important; height: 1.5rem !important; max-width: 1.5rem !important; max-height: 1.5rem !important; }
+    svg:not([width]):not([class*="w-"]) { max-width: 2.5rem; max-height: 2.5rem; }
+    .fi-callout-icon svg, .fi-callout svg, [class*="callout"] svg { width: 1.5rem !important; height: 1.5rem !important; max-width: 1.5rem !important; max-height: 1.5rem !important; }
+    .fi-btn-icon svg, .fi-icon-btn-icon svg { width: 1.25rem !important; height: 1.25rem !important; max-width: 1.25rem !important; max-height: 1.25rem !important; }
 
     /* ===== Course & test builder (prefix cb-) ===== */
     .cb-wrap { display: flex; flex-direction: column; gap: 1rem; }
