@@ -26,9 +26,9 @@ class WebsiteActivity extends Page implements HasTable
 {
     use InteractsWithTable;
 
-    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';
+    protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-command-line';
 
-    protected static string|\UnitEnum|null $navigationGroup = 'Reports';
+    protected static string|\UnitEnum|null $navigationGroup = 'Super Admin';
 
     protected static ?int $navigationSort = 1;
 
@@ -40,16 +40,7 @@ class WebsiteActivity extends Page implements HasTable
 
     public static function canAccess(): bool
     {
-        $admin = auth('admin')->user();
-
-        return ($admin?->isSuperAdmin() || $admin?->isAdmin()) ?? false;
-    }
-
-    protected function getHeaderWidgets(): array
-    {
-        return [
-            \App\Filament\Widgets\WebsiteActivityStats::class,
-        ];
+        return auth('admin')->user()?->isSuperAdmin() ?? false;
     }
 
     public function table(Table $table): Table

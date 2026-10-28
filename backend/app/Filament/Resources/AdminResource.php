@@ -76,8 +76,9 @@ class AdminResource extends Resource
                     }
 
                     return [
-                        AdminRole::Admin->value => 'Admin (View all data: students, courses, results — no deletion)',
-                        AdminRole::Editor->value => 'Editor (Update and change course content only)',
+                        AdminRole::Admin->value => 'Admin (Manage courses, tests, reports)',
+                        AdminRole::Manager->value => 'Manager (Content and question editor)',
+                        AdminRole::Support->value => 'Support (Student assistance)',
                     ];
                 })
                 ->default(AdminRole::Admin->value)
@@ -108,11 +109,6 @@ class AdminResource extends Resource
         ])->columns(2);
     }
 
-    public static function canViewAny(): bool
-    {
-        return ! (auth('admin')->user()?->isEditor() ?? false);
-    }
-
     public static function table(Table $table): Table
     {
         return $table
@@ -136,7 +132,7 @@ class AdminResource extends Resource
                         return match ($val) {
                             AdminRole::SuperAdmin->value => 'danger',
                             AdminRole::Admin->value => 'primary',
-                            AdminRole::Editor->value => 'warning',
+                            AdminRole::Manager->value => 'warning',
                             default => 'gray',
                         };
                     }),

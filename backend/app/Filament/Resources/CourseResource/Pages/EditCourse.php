@@ -17,8 +17,7 @@ class EditCourse extends EditRecord
         return [
             Action::make('curriculum')->label('Build course content')->icon('heroicon-o-squares-plus')
                 ->url(fn () => static::getResource()::getUrl('curriculum', ['record' => $this->getRecord()])),
-            DeleteAction::make()
-                ->visible(fn () => auth('admin')->user()?->isSuperAdmin() ?? false),
+            DeleteAction::make(),
         ];
     }
 }

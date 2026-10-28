@@ -55,46 +55,10 @@ class AuthController extends Controller
             student: $user
         );
 
-        $deviceLimitEnabled = filter_var(\App\Models\Setting::get('device_limit_enabled', true), FILTER_VALIDATE_BOOLEAN);
-        $studentMaxDevices = (int) \App\Models\Setting::get('student_max_devices', config('lms.max_devices', 2) ?: 2);
-        $tabLimitEnabled = filter_var(\App\Models\Setting::get('tab_limit_enabled', true), FILTER_VALIDATE_BOOLEAN);
-        $studentMaxTabs = (int) \App\Models\Setting::get('student_max_tabs', 2);
-
         return response()->json(['data' => [
             'token' => $token,
             'needsProfile' => $user->needsProfile(),
-            'sessionPolicy' => [
-                'device_limit_enabled' => $deviceLimitEnabled,
-                'student_max_devices' => $studentMaxDevices,
-                'tab_limit_enabled' => $tabLimitEnabled,
-                'student_max_tabs' => $studentMaxTabs,
-            ],
         ]]);
-    }
-
-    /** GET /api/v1/session-policy: returns device and tab limiting configuration for the client app. */
-    public function sessionPolicy(): JsonResponse
-    {
-        $deviceLimitEnabled = filter_var(\App\Models\Setting::get('device_limit_enabled', true), FILTER_VALIDATE_BOOLEAN);
-        $studentMaxDevices = (int) \App\Models\Setting::get('student_max_devices', config('lms.max_devices', 2) ?: 2);
-        if ($studentMaxDevices <= 0) {
-            $studentMaxDevices = 2;
-        }
-
-        $tabLimitEnabled = filter_var(\App\Models\Setting::get('tab_limit_enabled', true), FILTER_VALIDATE_BOOLEAN);
-        $studentMaxTabs = (int) \App\Models\Setting::get('student_max_tabs', 2);
-        if ($studentMaxTabs <= 0) {
-            $studentMaxTabs = 2;
-        }
-
-        return response()->json([
-            'data' => [
-                'device_limit_enabled' => $deviceLimitEnabled,
-                'student_max_devices' => $studentMaxDevices,
-                'tab_limit_enabled' => $tabLimitEnabled,
-                'student_max_tabs' => $studentMaxTabs,
-            ],
-        ]);
     }
 
     /** POST /api/v1/auth/logout: logs out this device only. */

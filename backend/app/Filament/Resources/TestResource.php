@@ -21,7 +21,6 @@ use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
-use Illuminate\Database\Eloquent\Model;
 
 /** Practice tests (placed inside chapters) and mock tests (placed in the course between subjects). */
 class TestResource extends Resource
@@ -33,16 +32,6 @@ class TestResource extends Resource
     protected static string|\UnitEnum|null $navigationGroup = 'Learning';
 
     protected static ?int $navigationSort = 2;
-
-    public static function canDelete(Model $record): bool
-    {
-        return auth('admin')->user()?->isSuperAdmin() ?? false;
-    }
-
-    public static function canDeleteAny(): bool
-    {
-        return auth('admin')->user()?->isSuperAdmin() ?? false;
-    }
 
     public static function form(Schema $schema): Schema
     {

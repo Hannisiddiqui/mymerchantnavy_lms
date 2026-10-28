@@ -28,16 +28,6 @@ class QuestionImportResource extends Resource
 
     protected static ?int $navigationSort = 4;
 
-    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
-    {
-        return auth('admin')->user()?->isSuperAdmin() ?? false;
-    }
-
-    public static function canDeleteAny(): bool
-    {
-        return auth('admin')->user()?->isSuperAdmin() ?? false;
-    }
-
     public static function canCreate(): bool
     {
         return false;

@@ -24,11 +24,6 @@ class AttemptResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
-    public static function canViewAny(): bool
-    {
-        return ! (auth('admin')->user()?->isEditor() ?? false);
-    }
-
     public static function canCreate(): bool
     {
         return false;

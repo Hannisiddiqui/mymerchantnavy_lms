@@ -15,10 +15,9 @@ class DeviceSessionService
     {
         $token = $user->createToken(mb_substr($deviceName, 0, 120))->plainTextToken;
 
-        $enabled = filter_var(Setting::get('device_limit_enabled', true), FILTER_VALIDATE_BOOLEAN);
-        $maxDevices = (int) Setting::get('student_max_devices', config('lms.max_devices', 2) ?: 2);
+        $maxDevices = (int) Setting::get('student_max_devices', config('lms.max_devices', 0));
 
-        if ($enabled && $maxDevices > 0) {
+        if ($maxDevices > 0) {
             $user->tokens()
                 ->orderByDesc('id')
                 ->get()

@@ -24,9 +24,6 @@ class EditQuestion extends EditRecord
 
     protected function getHeaderActions(): array
     {
-        return [
-            DeleteAction::make()
-                ->visible(fn () => auth('admin')->user()?->isSuperAdmin() ?? false),
-        ];
+        return [DeleteAction::make()];
     }
 }

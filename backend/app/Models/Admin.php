@@ -11,9 +11,7 @@ use Illuminate\Validation\ValidationException;
 
 /**
  * Admin panel user (admin.mymerchantnavy.com).
- * - Super admin: strictly support.mymerchantnavy@gmail.com (highest authority, only one who can delete data & set session limits).
- * - Admin: can view and check all data (students, courses, tests, enrollments, reports) but CANNOT delete anything.
- * - Editor: only able to update and change course content (courses, curriculum, tests, questions).
+ * Super admin is strictly support.mymerchantnavy@gmail.com with highest authority.
  */
 class Admin extends Authenticatable implements FilamentUser
 {
@@ -60,21 +58,6 @@ class Admin extends Authenticatable implements FilamentUser
         return strtolower((string) $this->email) === self::SUPER_ADMIN_EMAIL;
     }
 
-    public function isAdmin(): bool
-    {
-        return $this->isSuperAdmin() || $this->role === AdminRole::Admin;
-    }
-
-    public function isEditor(): bool
-    {
-        return ! $this->isSuperAdmin() && $this->role === AdminRole::Editor;
-    }
-
-    public function canDeleteAnything(): bool
-    {
-        return $this->isSuperAdmin();
-    }
-
     public function canManageAdmins(): bool
     {
         return $this->isSuperAdmin();
@@ -92,17 +75,7 @@ class Admin extends Authenticatable implements FilamentUser
 
     public function canViewActivityLogs(): bool
     {
-        return $this->isAdmin();
-    }
-
-    public function canManageStudents(): bool
-    {
-        return $this->isAdmin();
-    }
-
-    public function canManageCourseContent(): bool
-    {
-        return true;
+        return $this->isSuperAdmin();
     }
 
     public function canAccessPanel(Panel $panel): bool
