@@ -46,6 +46,21 @@ class QuestionReportResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
+    public static function canViewAny(): bool
+    {
+        return ! (auth('admin')->user()?->isEditor() ?? false);
+    }
+
+    public static function canDelete(\Illuminate\Database\Eloquent\Model $record): bool
+    {
+        return auth('admin')->user()?->isSuperAdmin() ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth('admin')->user()?->isSuperAdmin() ?? false;
+    }
+
     public static function canCreate(): bool
     {
         return false;

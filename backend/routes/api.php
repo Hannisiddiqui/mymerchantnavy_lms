@@ -23,6 +23,9 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')->group(function () {
+    // ---- Session security policy (device & tab limits) ----
+    Route::get('session-policy', [AuthController::class, 'sessionPolicy']);
+
     // ---- Login (public, rate-limited) ----
     Route::middleware('throttle:otp')->group(function () {
         Route::post('auth/otp/send', [AuthController::class, 'sendOtp']);

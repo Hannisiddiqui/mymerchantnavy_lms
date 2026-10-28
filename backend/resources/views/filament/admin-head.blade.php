@@ -125,4 +125,24 @@
     .ri-expl { margin-top: .5rem; font-size: .8125rem; color: var(--gray-600); }
     .ri-expl summary { cursor: pointer; font-weight: 600; color: var(--primary-600); }
     .ri-expl p { margin: .25rem 0; }
+
+    /* Constrain icon sizes and ensure pristine responsive rendering */
+    .fi-callout-icon svg,
+    .fi-wi-stats-overview-stat-icon svg,
+    .fi-section-header-icon svg,
+    .fi-icon svg {
+        width: 1.5rem !important;
+        height: 1.5rem !important;
+        max-width: 1.5rem !important;
+        max-height: 1.5rem !important;
+        flex-shrink: 0 !important;
+    }
+
+    /* Stat cards aesthetic elevation */
+    .fi-wi-stats-overview-stat {
+        transition: transform 0.15s ease, box-shadow 0.15s ease;
+    }
+    .fi-wi-stats-overview-stat:hover {
+        transform: translateY(-2px);
+    }
 </style>

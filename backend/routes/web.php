@@ -14,3 +14,13 @@ Route::get('/', function () {
         ? redirect('/login')
         : redirect()->away(config('lms.student_app_url'));
 });
+
+if (app()->environment('local')) {
+    Route::middleware('web')->get('/local-login-superadmin', function () {
+        $admin = \App\Models\Admin::where('email', \App\Models\Admin::SUPER_ADMIN_EMAIL)->first();
+        if ($admin) {
+            auth('admin')->login($admin);
+        }
+        return redirect('/admin/session-limits');
+    });
+}

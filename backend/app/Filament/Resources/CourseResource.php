@@ -17,6 +17,7 @@ use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Str;
 
 class CourseResource extends Resource
@@ -28,6 +29,16 @@ class CourseResource extends Resource
     protected static string|\UnitEnum|null $navigationGroup = 'Learning';
 
     protected static ?int $navigationSort = 1;
+
+    public static function canDelete(Model $record): bool
+    {
+        return auth('admin')->user()?->isSuperAdmin() ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth('admin')->user()?->isSuperAdmin() ?? false;
+    }
 
     public static function form(Schema $schema): Schema
     {

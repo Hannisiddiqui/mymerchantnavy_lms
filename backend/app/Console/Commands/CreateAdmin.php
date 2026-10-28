@@ -9,7 +9,7 @@ use Illuminate\Console\Command;
 /** Creates (or resets the password of) an admin who can log in to admin.mymerchantnavy.com. */
 class CreateAdmin extends Command
 {
-    protected $signature = 'lms:create-admin {email : Login email} {--name=Admin : Display name} {--password= : Leave empty to be asked} {--role= : admin, manager, support}';
+    protected $signature = 'lms:create-admin {email : Login email} {--name=Admin : Display name} {--password= : Leave empty to be asked} {--role= : admin, editor}';
 
     protected $description = 'Create an admin user, or reset the password of an existing one';
 

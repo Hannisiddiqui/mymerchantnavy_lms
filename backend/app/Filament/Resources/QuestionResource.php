@@ -22,7 +22,9 @@ use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
+use Illuminate\Database\Eloquent\Model;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
  * The question bank: every question ever written. A question can be used in many tests.
@@ -39,6 +41,16 @@ class QuestionResource extends Resource
 
     protected static ?int $navigationSort = 3;
 
+    public static function canDelete(Model $record): bool
+    {
+        return auth('admin')->user()?->isSuperAdmin() ?? false;
+    }
+
+    public static function canDeleteAny(): bool
+    {
+        return auth('admin')->user()?->isSuperAdmin() ?? false;
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components(QuestionForm::schema());
@@ -51,7 +63,7 @@ class QuestionResource extends Resource
             ->columns([
                 TextColumn::make('id')->label('#')->sortable(),
                 TextColumn::make('body')->label('Question')->html()->wrap()->extraAttributes(['class' => 'cb-math'])
-                    ->formatStateUsing(fn ($state) => \Illuminate\Support\Str::limit(strip_tags($state), 160))
+                    ->formatStateUsing(fn ($state) => Str::limit(strip_tags($state), 160))
                     ->searchable(query: fn (Builder $query, string $search) => $query->where(fn (Builder $w) => $w
                         ->whereLike('body', "%{$search}%")
                         ->orWhereLike('explanation', "%{$search}%")
@@ -59,7 +71,9 @@ class QuestionResource extends Resource
                 TextColumn::make('answer')->label('Answer')->badge()->color('success')
                     ->state(fn (Question $record) => app(QuestionService::class)->correctLetter($record)),
                 TextColumn::make('subject.title')->label('Subject')->toggleable(),
-                TextColumn::make('difficulty')->badge()->placeholder('—')->color(fn ($state) => match ($state) {'easy' => 'success', 'hard' => 'danger', default => 'warning'}),
+                TextColumn::make('difficulty')->badge()->placeholder('—')->color(fn ($state) => match ($state) {
+                    'easy' => 'success', 'hard' => 'danger', default => 'warning'
+                }),
                 TextColumn::make('tests_count')->label('In tests')->sortable()
                     ->tooltip(fn (Question $record) => $record->tests->pluck('title')->implode(', ') ?: 'Not used in any test'),
                 TextColumn::make('updated_at')->label('Updated')->since()->toggleable(isToggledHiddenByDefault: true),
@@ -94,7 +108,7 @@ class QuestionResource extends Resource
                             $start = (DB::table('test_questions')->where('test_id', $test->id)->max('position') ?? -1) + 1;
                             $test->questions()->attach($new->mapWithKeys(fn ($id, $i) => [$id => ['position' => $start + $i]])->all());
                             Notification::make()->title("{$new->count()} question(s) added to “{$test->title}”")->success()
-                                ->actions([\Filament\Actions\Action::make('open')->label('Open test')->url(TestResource::getUrl('questions', ['record' => $test]))])->send();
+                                ->actions([Action::make('open')->label('Open test')->url(TestResource::getUrl('questions', ['record' => $test]))])->send();
                         })->deselectRecordsAfterCompletion(),
                     DeleteBulkAction::make(),
                 ]),

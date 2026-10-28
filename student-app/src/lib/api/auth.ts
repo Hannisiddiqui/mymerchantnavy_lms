@@ -54,3 +54,22 @@ export async function logout(): Promise<void> {
   if (!USE_MOCK) await request("/auth/logout", { method: "POST" }).catch(() => undefined);
   tokenStore.clear();
 }
+
+export interface SessionPolicy {
+  device_limit_enabled: boolean;
+  student_max_devices: number;
+  tab_limit_enabled: boolean;
+  student_max_tabs: number;
+}
+
+export async function getSessionPolicy(): Promise<SessionPolicy> {
+  if (USE_MOCK) {
+    return {
+      device_limit_enabled: true,
+      student_max_devices: 2,
+      tab_limit_enabled: true,
+      student_max_tabs: 2,
+    };
+  }
+  return request<SessionPolicy>("/session-policy");
+}
