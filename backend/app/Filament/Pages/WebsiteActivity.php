@@ -9,6 +9,8 @@ use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Pages\Page;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
@@ -22,9 +24,10 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
  * Super-Admin-only page to inspect all activity across the website
  * performed by other admins and students (changes, logins, deletions, test attempts, settings).
  */
-class WebsiteActivity extends Page implements HasTable
+class WebsiteActivity extends Page implements HasTable, HasSchemas
 {
     use InteractsWithTable;
+    use InteractsWithSchemas;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-command-line';
 

@@ -10,14 +10,17 @@ use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 use Illuminate\Support\Facades\DB;
 
 /**
  * Super-Admin-only page to configure session limits and security policies.
  */
-class SessionLimits extends Page
+class SessionLimits extends Page implements HasSchemas
 {
+    use InteractsWithSchemas;
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-lock-closed';
 
     protected static string|\UnitEnum|null $navigationGroup = 'Super Admin';

@@ -13,14 +13,17 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
+use Filament\Schemas\Concerns\InteractsWithSchemas;
+use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 
 /**
  * Super Admin Course Validity Management
  * Configure automatic calendar-based validity rules from purchase date.
  */
-class CourseValiditySettings extends Page
+class CourseValiditySettings extends Page implements HasSchemas
 {
+    use InteractsWithSchemas;
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
 
     protected static string|\UnitEnum|null $navigationGroup = 'Super Admin';
@@ -63,18 +66,15 @@ class CourseValiditySettings extends Page
 
         $this->selectedCourseId = $course->id;
 
-        $this->form->fill([
+        $this->data = [
             'course_id' => $course->id,
             'validity_type' => $course->validity_type ?: '6_months',
             'validity_duration_months' => $course->validity_duration_months ?: 6,
             'validity_duration_days' => $course->validity_duration_days,
             'validity_fixed_expiry_date' => $course->validity_fixed_expiry_date ? (is_string($course->validity_fixed_expiry_date) ? substr($course->validity_fixed_expiry_date, 0, 10) : $course->validity_fixed_expiry_date->format('Y-m-d')) : null,
-        ]);
-    }
+        ];
 
-    public function updatedSelectedCourseId($value): void
-    {
-        $this->loadCourse((int) $value);
+        $this->form->fill($this->data);
     }
 
     public function form(Schema $schema): Schema
@@ -90,7 +90,11 @@ class CourseValiditySettings extends Page
                             ->options(Course::orderBy('title')->pluck('title', 'id'))
                             ->required()
                             ->live()
-                            ->afterStateUpdated(fn ($state) => $this->loadCourse((int) $state)),
+                            ->afterStateUpdated(function ($state, $old) {
+                                if ($state && (int)$state !== (int)$this->selectedCourseId) {
+                                    $this->loadCourse((int) $state);
+                                }
+                            }),
                     ]),
 
                 Section::make('Validity Duration Rules')
