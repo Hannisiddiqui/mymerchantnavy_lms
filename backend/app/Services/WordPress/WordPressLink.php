@@ -74,11 +74,27 @@ class WordPressLink
     }
 
     /** @return array<int,string> titles of the courses newly given */
-    public function enroll(User $student, string $productId): array
-    {
+    public function enroll(
+        User $student,
+        string $productId,
+        ?string $orderId = null,
+        ?string $paymentId = null,
+        ?float $amount = null,
+        ?\DateTimeInterface $purchaseDate = null
+    ): array {
         $given = [];
+        $purchaseType = ($amount !== null && (float) $amount > 0) ? 'paid' : 'paid'; // purchases through payment webhook are marked as 'paid'
         foreach ($this->coursesFor($productId) as $course) {
-            if ($this->enrollments->assign($student, $course)) {
+            if ($this->enrollments->assign(
+                student: $student,
+                course: $course,
+                by: null,
+                purchaseDate: $purchaseDate ?: now(),
+                purchaseType: $purchaseType,
+                orderId: $orderId,
+                paymentId: $paymentId,
+                amount: $amount
+            )) {
                 $given[] = $course->title;
             }
         }

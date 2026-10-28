@@ -1,9 +1,9 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, CircleCheck, Clock, FileQuestion, Trophy } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, CircleCheck, Clock, FileQuestion, Trophy } from "lucide-react";
 import * as api from "@/lib/api";
 import type { ContentItem } from "@/types";
 import { useApi } from "@/lib/use-api";
@@ -39,6 +39,25 @@ export default function LearnPage() {
     setPdfPage(1);
     setNoteCount(0);
   }, [id]);
+
+  // Chapter accordion expansion state: auto-expand current chapter by default
+  const [openChapters, setOpenChapters] = useState<Record<number, boolean>>({});
+
+  useEffect(() => {
+    if (data?.content?.chapterId) {
+      setOpenChapters((prev) => ({
+        ...prev,
+        [data.content.chapterId]: true,
+      }));
+    }
+  }, [data?.content?.chapterId]);
+
+  function toggleChapter(chId: number) {
+    setOpenChapters((prev) => ({
+      ...prev,
+      [chId]: !prev[chId],
+    }));
+  }
 
   if (loading) return <PageSkeleton />;
   if (error || !data) return <ErrorState message={error ?? "Content not found"} onRetry={reload} />;
@@ -144,33 +163,77 @@ export default function LearnPage() {
         </div>
 
         <aside className="lg:sticky lg:top-20 lg:self-start">
-          <Card className="overflow-hidden">
-            <div className="border-b border-line px-4 py-3">
+          <Card className="overflow-hidden shadow-sm border border-line">
+            <div className="border-b border-line bg-slate-50/50 px-4 py-3 dark:bg-slate-900/50">
               <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{subject.title}</p>
-              <p className="font-bold text-navy-900">Chapter content</p>
+              <div className="flex items-center justify-between mt-0.5">
+                <p className="font-bold text-navy-900 dark:text-white">Chapter Navigation</p>
+                <span className="text-xs font-medium text-slate-500">
+                  {all.filter((c) => c.completed).length}/{all.length} completed
+                </span>
+              </div>
             </div>
-            <div className="max-h-[70vh] overflow-y-auto p-2">
-              {subject.chapters.map((ch) =>
-                ch.test ? (
-                  <Link
-                    key={ch.id}
-                    href={`/tests/${ch.test.id}`}
-                    className="mb-2 flex items-center gap-2 rounded-lg bg-navy-900/5 px-3 py-2.5 text-sm font-bold text-navy-900 hover:bg-navy-900/10"
-                  >
-                    <Trophy className="size-4 text-brand-600" /> {ch.test.title}
-                    <span className="ml-auto text-xs font-medium text-slate-500">Mock test</span>
-                  </Link>
-                ) : (
-                <div key={ch.id} className="mb-2">
-                  <p className="px-3 pb-1 pt-2 text-xs font-bold text-slate-500">
-                    {++chapterNo}. {ch.title}
-                  </p>
-                  {ch.contents.map((c) => (
-                    <ContentRow key={c.id} item={c} active={c.id === content.id} compact />
-                  ))}
-                </div>
-                ),
-              )}
+            <div className="max-h-[70vh] overflow-y-auto p-2 space-y-1.5 divide-y divide-slate-100 dark:divide-slate-800">
+              {subject.chapters.map((ch) => {
+                if (ch.test) {
+                  return (
+                    <Link
+                      key={ch.id}
+                      href={`/tests/${ch.test.id}`}
+                      className="flex items-center gap-2 rounded-lg bg-navy-900/5 px-3 py-2.5 text-sm font-bold text-navy-900 hover:bg-navy-900/10 dark:bg-navy-900/20 dark:text-white"
+                    >
+                      <Trophy className="size-4 text-brand-600 shrink-0" />
+                      <span className="truncate">{ch.test.title}</span>
+                      <span className="ml-auto text-xs font-medium text-slate-500 shrink-0">Mock test</span>
+                    </Link>
+                  );
+                }
+
+                const isCurrentChapter = ch.id === content.chapterId;
+                const isOpen = openChapters[ch.id] ?? isCurrentChapter;
+                const completedInChapter = ch.contents.filter((c) => c.completed).length;
+                const num = ++chapterNo;
+
+                return (
+                  <div key={ch.id} className={`pt-1.5 rounded-lg transition-colors ${isCurrentChapter ? "bg-brand-50/30 dark:bg-brand-950/10" : ""}`}>
+                    <button
+                      type="button"
+                      onClick={() => toggleChapter(ch.id)}
+                      className="flex w-full items-center justify-between px-2.5 py-1.5 text-left text-xs font-bold text-slate-700 hover:text-navy-900 dark:text-slate-300 dark:hover:text-white"
+                    >
+                      <span className="flex items-center gap-1.5 truncate">
+                        <span className={`inline-flex items-center justify-center size-5 rounded-full text-[10px] font-semibold shrink-0 ${isCurrentChapter ? "bg-brand-600 text-white" : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"}`}>
+                          {num}
+                        </span>
+                        <span className="truncate">{ch.title}</span>
+                      </span>
+                      <span className="flex items-center gap-1.5 shrink-0 ml-2">
+                        <span className="text-[11px] font-normal text-slate-500">
+                          {completedInChapter}/{ch.contents.length}
+                        </span>
+                        {isOpen ? (
+                          <ChevronDown className="size-3.5 text-slate-400" />
+                        ) : (
+                          <ChevronRight className="size-3.5 text-slate-400" />
+                        )}
+                      </span>
+                    </button>
+
+                    {isOpen && (
+                      <div className="mt-1 space-y-0.5 pb-1 pl-1 pr-0.5">
+                        {ch.contents.map((c) => (
+                          <ContentRow
+                            key={c.id}
+                            item={c}
+                            active={c.id === content.id}
+                            compact
+                          />
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
             </div>
           </Card>
         </aside>

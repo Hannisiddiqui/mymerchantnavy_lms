@@ -6,9 +6,13 @@ use App\Filament\Resources\StudentResource\Pages;
 use App\Filament\Resources\StudentResource\RelationManagers\AttemptsRelationManager;
 use App\Filament\Resources\StudentResource\RelationManagers\CoursesRelationManager;
 use App\Filament\Support\AssignCourseAction;
+use App\Models\Course;
+use App\Models\Enrollment;
 use App\Models\User;
+use Carbon\Carbon;
 use Filament\Actions\Action;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -17,8 +21,11 @@ use Filament\Resources\Resource;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\IconColumn;
 use Filament\Tables\Columns\TextColumn;
+use Filament\Tables\Filters\Filter;
+use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 
 class StudentResource extends Resource
@@ -70,25 +77,143 @@ class StudentResource extends Resource
     {
         return $table
             ->columns([
-                TextColumn::make('email')->searchable()->weight('bold')->description(fn ($record) => $record->email_verified_at ? null : 'not verified yet'),
-                TextColumn::make('name')->searchable()->placeholder('— not completed —'),
-                TextColumn::make('phone')->label('Mobile')->searchable()->toggleable()->placeholder('—'),
-                TextColumn::make('target_exam')->label('Target exam')->toggleable(),
-                TextColumn::make('attempt_year')->label('Year')->toggleable(),
-                TextColumn::make('courses_count')->counts('courses')->label('Courses')->badge(),
-                IconColumn::make('is_active')->label('Active')->boolean(),
-                TextColumn::make('created_at')->label('Registered')->dateTime('d M Y')->sortable(),
+                TextColumn::make('name')
+                    ->label('Student')
+                    ->searchable(['name', 'email', 'phone'])
+                    ->weight('bold')
+                    ->description(fn (User $record) => $record->email . ($record->phone ? " • {$record->phone}" : ''))
+                    ->formatStateUsing(fn ($state, User $record) => $state ?: ($record->email)),
+
+                TextColumn::make('purchase_status')
+                    ->label('Purchase')
+                    ->badge()
+                    ->state(function (User $record) {
+                        $enrollments = $record->enrollments;
+                        if ($enrollments->isEmpty()) {
+                            return 'No Course';
+                        }
+                        if ($enrollments->contains('purchase_type', 'paid')) {
+                            return 'Paid';
+                        }
+                        if ($enrollments->contains('purchase_type', 'free')) {
+                            return 'Free';
+                        }
+
+                        return 'Assigned';
+                    })
+                    ->color(fn (string $state): string => match ($state) {
+                        'Paid' => 'success',
+                        'Free' => 'info',
+                        'Assigned' => 'gray',
+                        default => 'warning',
+                    }),
+
+                TextColumn::make('enrolled_courses')
+                    ->label('Course Access')
+                    ->state(function (User $record) {
+                        $enrollments = $record->enrollments()->with('course')->get();
+                        if ($enrollments->isEmpty()) {
+                            return 'None';
+                        }
+
+                        return $enrollments->map(function (Enrollment $enr) {
+                            $title = $enr->course?->title ?? 'Course';
+                            $status = $enr->isExpired() ? 'Expired' : ($enr->expires_at ? 'Exp: ' . $enr->expires_at->format('d M y') : 'Active');
+
+                            return "{$title} ({$status})";
+                        })->implode("\n");
+                    })
+                    ->wrap()
+                    ->badge()
+                    ->color(fn ($state) => str_contains((string) $state, 'Expired') ? 'danger' : 'primary'),
+
+                TextColumn::make('target_exam')
+                    ->label('Target Exam')
+                    ->toggleable()
+                    ->placeholder('—')
+                    ->description(fn (User $record) => $record->attempt_year ? "Year: {$record->attempt_year}" : null),
+
+                IconColumn::make('is_active')
+                    ->label('Active')
+                    ->boolean(),
+
+                TextColumn::make('created_at')
+                    ->label('Registered')
+                    ->dateTime('d M Y, H:i')
+                    ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')
             ->filters([
-                TernaryFilter::make('has_course')->label('Has a course')
-                    ->queries(true: fn ($q) => $q->has('courses'), false: fn ($q) => $q->doesntHave('courses')),
-                TernaryFilter::make('is_active')->label('Active'),
+                SelectFilter::make('purchase_status')
+                    ->label('Purchase Type')
+                    ->options([
+                        'paid' => 'Paid Students (Has Paid Purchase)',
+                        'free' => 'Free Students (Has Free Enrollment)',
+                        'assigned' => 'Admin Assigned Students',
+                        'no_course' => 'Students Without a Course',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        return match ($data['value'] ?? null) {
+                            'paid' => $query->withPaidEnrollment(),
+                            'free' => $query->withFreeEnrollment(),
+                            'assigned' => $query->whereHas('enrollments', fn ($q) => $q->where('purchase_type', 'assigned')),
+                            'no_course' => $query->withoutCourses(),
+                            default => $query,
+                        };
+                    }),
+
+                SelectFilter::make('enrollment_status')
+                    ->label('Access Status')
+                    ->options([
+                        'active' => 'Active Enrollments',
+                        'expired' => 'Expired Enrollments',
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        return match ($data['value'] ?? null) {
+                            'active' => $query->withActiveEnrollment(),
+                            'expired' => $query->withExpiredEnrollment(),
+                            default => $query,
+                        };
+                    }),
+
+                SelectFilter::make('course_id')
+                    ->label('Course')
+                    ->options(Course::orderBy('title')->pluck('title', 'id'))
+                    ->query(fn (Builder $query, array $data) => filled($data['value'] ?? null)
+                        ? $query->whereHas('enrollments', fn ($q) => $q->where('course_id', $data['value']))
+                        : $query),
+
+                Filter::make('registration_range')
+                    ->form([
+                        DatePicker::make('registered_from')->label('Registered From'),
+                        DatePicker::make('registered_until')->label('Registered Until'),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        return $query
+                            ->when($data['registered_from'], fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
+                            ->when($data['registered_until'], fn ($q, $date) => $q->whereDate('created_at', '<=', $date));
+                    }),
+
+                TernaryFilter::make('is_active')
+                    ->label('Account Status')
+                    ->trueLabel('Active Only')
+                    ->falseLabel('Inactive Only'),
             ])
             ->recordActions([
+                Action::make('view_details')
+                    ->label('View Details')
+                    ->icon('heroicon-o-information-circle')
+                    ->color('info')
+                    ->modalHeading(fn (User $record) => "Student Overview: " . ($record->name ?: $record->email))
+                    ->modalContent(fn (User $record) => view('filament.resources.student-details', ['record' => $record]))
+                    ->modalSubmitAction(false)
+                    ->modalCancelActionLabel('Close')
+                    ->modalWidth('3xl'),
+
                 AssignCourseAction::make(fn (Action $action) => $action->getRecord()),
+
                 EditAction::make(),
-                // Switching a student off without losing anything (Delete is on the edit page).
+
                 Action::make('deactivate')->label('Mark inactive')->icon('heroicon-o-no-symbol')->color('danger')
                     ->visible(fn (User $record) => $record->is_active)
                     ->requiresConfirmation()
@@ -98,6 +223,7 @@ class StudentResource extends Resource
                         $record->update(['is_active' => false]);
                         Notification::make()->title('Student marked inactive')->success()->send();
                     }),
+
                 Action::make('activate')->label('Mark active')->icon('heroicon-o-check-circle')->color('success')
                     ->visible(fn (User $record) => ! $record->is_active)
                     ->action(function (User $record) {

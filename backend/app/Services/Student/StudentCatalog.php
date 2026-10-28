@@ -51,6 +51,7 @@ class StudentCatalog
     public function courseIds(): Collection
     {
         return $this->courseIds ??= $this->user->enrollments()
+            ->active()
             ->whereHas('course', fn ($q) => $q->where('is_active', true))
             ->pluck('course_id');
     }
@@ -120,8 +121,14 @@ class StudentCatalog
     public function findContent(int $id): ChapterContent
     {
         $content = ChapterContent::with('chapter.subject', 'contentable')->findOrFail($id);
+        $courseId = $content->chapter->subject->course_id;
 
-        if (! $this->courseIds()->contains($content->chapter->subject->course_id)
+        $enrollment = $this->enrollments()->get($courseId);
+        if ($enrollment && $enrollment->isExpired()) {
+            abort(403, "Your access to this course expired on {$enrollment->expires_at->format('d M Y')}. Please renew your course access to continue.");
+        }
+
+        if (! $this->courseIds()->contains($courseId)
             || ($content->contentable instanceof Test && ! $content->contentable->is_published)) {
             throw new ModelNotFoundException;
         }
@@ -152,8 +159,16 @@ class StudentCatalog
 
     public function findTest(int $id): Test
     {
-        return Test::with('course')->withCount('questions')
-            ->whereIn('course_id', $this->courseIds())->where('is_published', true)->findOrFail($id);
+        $test = Test::with('course')->withCount('questions')->where('is_published', true)->findOrFail($id);
+
+        $enrollment = $this->enrollments()->get($test->course_id);
+        if ($enrollment && $enrollment->isExpired()) {
+            abort(403, "Your access to this course test expired on {$enrollment->expires_at->format('d M Y')}. Please renew your course access to continue.");
+        }
+
+        abort_unless($this->courseIds()->contains($test->course_id), 404);
+
+        return $test;
     }
 
     public function testSummary(Test $test): array
@@ -182,6 +197,11 @@ class StudentCatalog
 
     private function accessibleCourse(int $id): Course
     {
+        $enrollment = $this->enrollments()->get($id);
+        if ($enrollment && $enrollment->isExpired()) {
+            abort(403, "Your access to this course expired on {$enrollment->expires_at->format('d M Y')}. Please renew your course access to continue.");
+        }
+
         abort_unless($this->courseIds()->contains($id), 404);
 
         return Course::findOrFail($id);
@@ -201,6 +221,8 @@ class StudentCatalog
             ->pluck('chapter_id')->unique()->count();
         $mock = $course->tests()->where('kind', TestKind::Mock)->where('is_published', true)->count();
 
+        $enrollment = $this->enrollments()->get($course->id);
+
         return [
             'id' => $course->id,
             'title' => $course->title,
@@ -212,7 +234,12 @@ class StudentCatalog
             'mockTestsCount' => $mock,
             'testsCount' => $practice + $mock, // older versions of the student site read this one
             'progressPercent' => $contentIds->isEmpty() ? 0 : (int) round($done / $contentIds->count() * 100),
-            'assignedAt' => $this->enrollments()->get($course->id)?->assigned_at?->toIso8601String(),
+            'assignedAt' => $enrollment?->assigned_at?->toIso8601String(),
+            'purchaseDate' => $enrollment?->purchase_date?->toIso8601String(),
+            'expiresAt' => $enrollment?->expires_at?->toIso8601String(),
+            'purchaseType' => $enrollment?->purchase_type ?? 'assigned',
+            'remainingDuration' => $enrollment?->remainingDuration(),
+            'isExpired' => $enrollment?->isExpired() ?? false,
         ];
     }
 

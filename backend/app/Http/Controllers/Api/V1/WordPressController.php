@@ -28,12 +28,25 @@ class WordPressController extends Controller
     /** POST /integrations/wordpress/enroll: a payment succeeded. Creates the student if needed and gives the course. Safe to repeat. */
     public function enroll(Request $request): JsonResponse
     {
-        $data = $request->validate($this->studentRules() + ['product_id' => ['required', 'string', 'max:191'], 'order_id' => ['nullable', 'string', 'max:191']]);
+        $data = $request->validate($this->studentRules() + [
+            'product_id' => ['required', 'string', 'max:191'],
+            'order_id' => ['nullable', 'string', 'max:191'],
+            'payment_id' => ['nullable', 'string', 'max:191'],
+            'amount' => ['nullable', 'numeric'],
+            'purchase_date' => ['nullable', 'date'],
+        ]);
 
         abort_if(! $this->link->coursesFor($data['product_id']), 422, "No course is linked to WordPress product {$data['product_id']}. Set it on the course in the admin panel.");
         $user = $this->link->student($data['email'], $data['name'] ?? null, $data['phone'] ?? null, $data['wp_user_id'] ?? null, (bool) ($data['email_verified'] ?? false));
 
-        $newCourses = $this->link->enroll($user, $data['product_id']);
+        $newCourses = $this->link->enroll(
+            student: $user,
+            productId: $data['product_id'],
+            orderId: $data['order_id'] ?? null,
+            paymentId: $data['payment_id'] ?? null,
+            amount: isset($data['amount']) ? (float) $data['amount'] : null,
+            purchaseDate: isset($data['purchase_date']) ? new \DateTime($data['purchase_date']) : null
+        );
         // every course this product gives (not only the new ones), so WordPress can send the student to it
         $courses = array_map(fn ($c) => ['id' => $c->id, 'title' => $c->title], $this->link->coursesFor($data['product_id']));
 

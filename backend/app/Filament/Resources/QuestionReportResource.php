@@ -119,12 +119,31 @@ class QuestionReportResource extends Resource
                 ]),
             ])
             ->toolbarActions([
-                BulkAction::make('resolveSelected')->label('Mark resolved')->icon('heroicon-o-check-circle')->color('success')
-                    ->requiresConfirmation()->modalDescription('Each student gets a note that the question was fixed.')
-                    ->action(function (Collection $records) {
-                        $records->where('status', ReportStatus::Open)
-                            ->each(fn (QuestionReport $r) => app(QuestionReportService::class)->close($r, ReportStatus::Resolved, null, Auth::guard('admin')->user()));
-                        Notification::make()->title('Reports resolved')->success()->send();
+                BulkAction::make('resolveSelected')
+                    ->label('Bulk Resolve & Email')
+                    ->icon('heroicon-o-check-circle')
+                    ->color('success')
+                    ->modalHeading('Resolve Selected Reports & Send Consolidated Notifications')
+                    ->modalDescription('Each affected student receives in-app notifications and an optional consolidated Brevo email detailing their resolved questions.')
+                    ->schema([
+                        Textarea::make('admin_note')
+                            ->label('Consolidated Instructor Feedback (Optional)')
+                            ->rows(3)
+                            ->placeholder('e.g. Questions have been reviewed by the academic faculty and answers updated in the question bank.'),
+                        Toggle::make('send_email')
+                            ->label('Send Consolidated Email Notifications (Brevo SMTP)')
+                            ->helperText('Groups reports by student so each student receives only one clean summary email.')
+                            ->default(true),
+                    ])
+                    ->action(function (Collection $records, array $data) {
+                        $resolved = app(QuestionReportService::class)->bulkClose(
+                            reports: $records,
+                            status: ReportStatus::Resolved,
+                            note: $data['admin_note'] ?? null,
+                            admin: Auth::guard('admin')->user(),
+                            sendEmail: (bool) ($data['send_email'] ?? true)
+                        );
+                        Notification::make()->title("{$resolved} report(s) marked resolved and notified")->success()->send();
                     })->deselectRecordsAfterCompletion(),
             ])
             ->emptyStateHeading('No reports here')
@@ -164,20 +183,32 @@ class QuestionReportResource extends Resource
             ->modalHeading(fn (QuestionReport $record) => "Fix question #{$record->question_id}")
             ->modalDescription(fn (QuestionReport $record) => $record->reason->getLabel().($record->details ? ': “'.$record->details.'”' : ''))
             ->visible(fn (QuestionReport $record) => $record->question !== null)
-            ->fillForm(fn (QuestionReport $record) => app(QuestionService::class)->toForm($record->question) + ['close_report' => $record->status === ReportStatus::Open])
+            ->fillForm(fn (QuestionReport $record) => app(QuestionService::class)->toForm($record->question) + [
+                'close_report' => $record->status === ReportStatus::Open,
+                'send_email' => true,
+            ])
             ->schema(fn () => [
                 ...QuestionForm::schema(),
-                Section::make('Report')->schema([
+                Section::make('Report Resolution')->schema([
                     Toggle::make('close_report')->label('Mark this report resolved and tell the student')->live(),
                     Textarea::make('admin_note')->label('Reply to the student (optional)')->rows(2)
                         ->placeholder('e.g. Thanks, the answer key was wrong; it is now (b).')
                         ->visible(fn ($get) => $get('close_report')),
+                    Toggle::make('send_email')->label('Send Brevo Email Notification to Student')
+                        ->default(true)
+                        ->visible(fn ($get) => $get('close_report')),
                 ]),
             ])
             ->action(function (QuestionReport $record, array $data) {
-                app(QuestionService::class)->save(Arr::except($data, ['close_report', 'admin_note']), $record->question);
+                app(QuestionService::class)->save(Arr::except($data, ['close_report', 'admin_note', 'send_email']), $record->question);
                 if ($data['close_report'] ?? false) {
-                    app(QuestionReportService::class)->close($record, ReportStatus::Resolved, $data['admin_note'] ?? null, Auth::guard('admin')->user());
+                    app(QuestionReportService::class)->close(
+                        report: $record,
+                        status: ReportStatus::Resolved,
+                        note: $data['admin_note'] ?? null,
+                        admin: Auth::guard('admin')->user(),
+                        sendEmail: (bool) ($data['send_email'] ?? true)
+                    );
                 }
                 Notification::make()->title(($data['close_report'] ?? false) ? 'Question saved and report resolved' : 'Question saved')->success()->send();
             });
@@ -192,10 +223,17 @@ class QuestionReportResource extends Resource
             ->schema([
                 Textarea::make('admin_note')->label('Reply to the student (optional)')->rows(3)
                     ->placeholder($status === ReportStatus::Resolved ? 'e.g. Thanks, the typo in option C is fixed.' : 'e.g. The answer is correct: 15% of 80 is 12, see step 2 of the solution.'),
+                Toggle::make('send_email')->label('Send Brevo Email Notification to Student')->default(true),
             ])
             ->action(function (QuestionReport $record, array $data) use ($status) {
-                app(QuestionReportService::class)->close($record, $status, $data['admin_note'] ?? null, Auth::guard('admin')->user());
-                Notification::make()->title('Report closed')->success()->send();
+                app(QuestionReportService::class)->close(
+                    report: $record,
+                    status: $status,
+                    note: $data['admin_note'] ?? null,
+                    admin: Auth::guard('admin')->user(),
+                    sendEmail: (bool) ($data['send_email'] ?? true)
+                );
+                Notification::make()->title('Report closed and student notified')->success()->send();
             });
     }
 }

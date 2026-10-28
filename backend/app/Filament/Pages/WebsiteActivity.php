@@ -4,6 +4,7 @@ namespace App\Filament\Pages;
 
 use App\Models\ActivityLog;
 use Filament\Actions\Action;
+use Filament\Forms\Components\DatePicker;
 use Filament\Forms\Components\KeyValue;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
@@ -11,9 +12,11 @@ use Filament\Pages\Page;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Concerns\InteractsWithTable;
 use Filament\Tables\Contracts\HasTable;
+use Filament\Tables\Filters\Filter;
 use Filament\Tables\Filters\SelectFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 /**
  * Super-Admin-only page to inspect all activity across the website
@@ -109,6 +112,11 @@ class WebsiteActivity extends Page implements HasTable
                 SelectFilter::make('event')
                     ->label('Event Category')
                     ->options([
+                        'course.validity_updated' => 'Course Validity Updated',
+                        'course.enrollments_recalculated' => 'Enrollments Recalculated',
+                        'enrollment.created' => 'Enrollment Created',
+                        'enrollment.renewed' => 'Enrollment Renewed',
+                        'enrollment.removed' => 'Enrollment Removed',
                         'student.deleted' => 'Student Deleted',
                         'student.login' => 'Student Login',
                         'admin.login' => 'Admin Login',
@@ -117,6 +125,47 @@ class WebsiteActivity extends Page implements HasTable
                         'test.attempt_started' => 'Test Started',
                         'test.attempt_submitted' => 'Test Submitted',
                     ]),
+                Filter::make('created_at_range')
+                    ->form([
+                        DatePicker::make('logged_from')->label('Logged From'),
+                        DatePicker::make('logged_until')->label('Logged Until'),
+                    ])
+                    ->query(function (Builder $query, array $data) {
+                        return $query
+                            ->when($data['logged_from'], fn ($q, $date) => $q->whereDate('created_at', '>=', $date))
+                            ->when($data['logged_until'], fn ($q, $date) => $q->whereDate('created_at', '<=', $date));
+                    }),
+            ])
+            ->headerActions([
+                \Filament\Tables\Actions\Action::make('export_filtered')
+                    ->label('Export Filtered (CSV)')
+                    ->icon('heroicon-o-arrow-down-tray')
+                    ->color('primary')
+                    ->action(function (): StreamedResponse {
+                        $query = $this->getFilteredTableQuery();
+
+                        return response()->streamDownload(function () use ($query) {
+                            $handle = fopen('php://output', 'w');
+                            fputcsv($handle, ['ID', 'Timestamp', 'Actor Type', 'Actor Name', 'Actor Email', 'Actor Role', 'Event', 'Description', 'IP Address', 'User Agent']);
+                            $query->chunk(200, function ($records) use ($handle) {
+                                foreach ($records as $row) {
+                                    fputcsv($handle, [
+                                        $row->id,
+                                        $row->created_at?->format('Y-m-d H:i:s'),
+                                        $row->actor_type,
+                                        $row->actor_name,
+                                        $row->actor_email,
+                                        $row->actor_role,
+                                        $row->event,
+                                        $row->description,
+                                        $row->ip_address,
+                                        $row->user_agent,
+                                    ]);
+                                }
+                            });
+                            fclose($handle);
+                        }, 'website_activity_' . date('Y_m_d_His') . '.csv', ['Content-Type' => 'text/csv']);
+                    }),
             ])
             ->recordActions([
                 Action::make('viewDetails')

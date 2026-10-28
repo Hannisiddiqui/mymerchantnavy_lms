@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Database\Factories\UserFactory;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -59,13 +60,69 @@ class User extends Authenticatable
     public function courses(): BelongsToMany
     {
         return $this->belongsToMany(Course::class, 'enrollments')
-            ->withPivot(['assigned_at', 'assigned_by'])
+            ->withPivot([
+                'assigned_at',
+                'assigned_by',
+                'purchase_date',
+                'expires_at',
+                'purchase_type',
+                'order_id',
+                'payment_id',
+                'amount',
+                'status',
+            ])
             ->withTimestamps();
+    }
+
+    public function activeCourses(): BelongsToMany
+    {
+        return $this->courses()
+            ->where(function (Builder $q) {
+                $q->whereNull('enrollments.expires_at')
+                    ->orWhere('enrollments.expires_at', '>', now());
+            })
+            ->where('enrollments.status', '!=', 'cancelled');
     }
 
     public function enrollments(): HasMany
     {
         return $this->hasMany(Enrollment::class);
+    }
+
+    public function activeEnrollments(): HasMany
+    {
+        return $this->enrollments()->active();
+    }
+
+    public function expiredEnrollments(): HasMany
+    {
+        return $this->enrollments()->expired();
+    }
+
+    /** Query scopes for filtering students */
+    public function scopeWithPaidEnrollment(Builder $query): Builder
+    {
+        return $query->whereHas('enrollments', fn (Builder $q) => $q->where('purchase_type', 'paid'));
+    }
+
+    public function scopeWithFreeEnrollment(Builder $query): Builder
+    {
+        return $query->whereHas('enrollments', fn (Builder $q) => $q->where('purchase_type', 'free'));
+    }
+
+    public function scopeWithoutCourses(Builder $query): Builder
+    {
+        return $query->whereDoesntHave('enrollments');
+    }
+
+    public function scopeWithActiveEnrollment(Builder $query): Builder
+    {
+        return $query->whereHas('enrollments', fn (Builder $q) => $q->active());
+    }
+
+    public function scopeWithExpiredEnrollment(Builder $query): Builder
+    {
+        return $query->whereHas('enrollments', fn (Builder $q) => $q->expired());
     }
 
     public function attempts(): HasMany
