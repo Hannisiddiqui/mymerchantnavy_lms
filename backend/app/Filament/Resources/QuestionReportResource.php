@@ -6,14 +6,17 @@ use App\Enums\ReportReason;
 use App\Enums\ReportStatus;
 use App\Filament\Resources\QuestionReportResource\Pages\ListQuestionReports;
 use App\Filament\Support\QuestionForm;
+use App\Models\ActivityLog;
 use App\Models\Question;
 use App\Models\QuestionReport;
+use App\Models\Setting;
 use App\Services\Tests\QuestionReportService;
 use App\Services\Tests\QuestionService;
 use Filament\Actions\Action;
 use Filament\Actions\ActionGroup;
 use Filament\Actions\BulkAction;
 use Filament\Forms\Components\Textarea;
+use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Resource;
@@ -25,6 +28,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
 
 /**
@@ -95,6 +99,97 @@ class QuestionReportResource extends Resource
                     ->modalSubmitAction(false)->modalCancelActionLabel('Close')
                     ->modalContent(fn (QuestionReport $record) => static::preview($record)),
                 static::fixAction(),
+                Action::make('emailChange')
+                    ->label('Email Change')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('info')
+                    ->modalHeading(fn (QuestionReport $record) => "Email Question Change Notification (Q #{$record->question_id})")
+                    ->modalDescription('Autofills the reported question, student details, and dispatches an audit email to the specified faculty/admin address directly from this dashboard.')
+                    ->modalWidth('2xl')
+                    ->schema([
+                        TextInput::make('recipient_email')
+                            ->label('Recipient Email Address')
+                            ->default(fn () => Setting::get('audit_notification_emails', 'support.mymerchantnavy@gmail.com'))
+                            ->required(),
+                        TextInput::make('student_name')
+                            ->label('Raised by Student')
+                            ->default(fn (QuestionReport $record) => ($record->user?->name ?: 'Student #'.$record->user_id).' ('.($record->user?->email ?: 'No email').')')
+                            ->disabled(),
+                        TextInput::make('question_info')
+                            ->label('Question Reference')
+                            ->default(fn (QuestionReport $record) => "Question #{$record->question_id} · ".($record->test?->title ?? 'Question Bank'))
+                            ->disabled(),
+                        Textarea::make('question_body')
+                            ->label('Reported Question Text')
+                            ->default(fn (QuestionReport $record) => strip_tags((string) ($record->question?->body ?? '')))
+                            ->rows(2)
+                            ->disabled(),
+                        TextInput::make('report_reason')
+                            ->label('Student Report Reason')
+                            ->default(fn (QuestionReport $record) => $record->reason->getLabel().($record->details ? " — \"{$record->details}\"" : ''))
+                            ->disabled(),
+                        Textarea::make('changes_made')
+                            ->label('What Was Changed / Correction Details')
+                            ->placeholder('e.g. Verified answer key; changed correct option from (b) to (c), fixed explanation formula.')
+                            ->rows(3)
+                            ->required(),
+                        Toggle::make('mark_as_resolved')
+                            ->label('Mark report as resolved in system')
+                            ->default(true),
+                    ])
+                    ->action(function (QuestionReport $record, array $data) {
+                        $admin = Auth::guard('admin')->user();
+                        $adminEmail = $admin?->email ?? 'admin';
+                        $recipient = $data['recipient_email'];
+                        $changes = $data['changes_made'];
+                        $studentInfo = ($record->user?->name ?: 'Student #'.$record->user_id).' ('.($record->user?->email ?: '—').')';
+                        $qTitle = $record->test?->title ?? 'Question Bank';
+                        $qBody = strip_tags((string) ($record->question?->body ?? ''));
+                        $reason = $record->reason->getLabel().($record->details ? " — \"{$record->details}\"" : '');
+
+                        $emailBody = "A question change notification was initiated in the LMS Dashboard:\n\n"
+                            ."Question ID: #{$record->question_id}\n"
+                            ."Test / Subject: {$qTitle}\n"
+                            ."Raised By Student: {$studentInfo}\n"
+                            ."Student Report Reason: {$reason}\n\n"
+                            ."Question Body:\n{$qBody}\n\n"
+                            ."Changes Made by {$adminEmail}:\n{$changes}\n\n"
+                            ."Timestamp: ".now()->format('Y-m-d H:i:s')." UTC\n"
+                            ."---\n"
+                            ."My Merchant Navy LMS Academic Portal\n"
+                            ."https://api.mymerchantnavy.com/admin/question-reports";
+
+                        try {
+                            Mail::raw($emailBody, function ($msg) use ($recipient, $record) {
+                                $msg->to($recipient)->subject("[Question Update] Question #{$record->question_id} Modified by Academic Admin");
+                            });
+                        } catch (\Throwable $e) {
+                            report($e);
+                        }
+
+                        if ($data['mark_as_resolved'] ?? false) {
+                            $record->update(['status' => ReportStatus::Resolved]);
+                        }
+
+                        ActivityLog::record(
+                            event: 'question.report_change_emailed',
+                            description: "Admin {$adminEmail} emailed change details for Question #{$record->question_id} to {$recipient}.",
+                            subject: $record->question,
+                            properties: [
+                                'question_id' => $record->question_id,
+                                'recipient' => $recipient,
+                                'changes' => $changes,
+                                'student_id' => $record->user_id,
+                            ],
+                            admin: $admin
+                        );
+
+                        Notification::make()
+                            ->title('Question Change Notification Emailed')
+                            ->body("Email dispatched to {$recipient}.")
+                            ->success()
+                            ->send();
+                    }),
                 ActionGroup::make([
                     static::closeAction('resolve', ReportStatus::Resolved, 'Mark resolved', 'heroicon-o-check-circle', 'success'),
                     static::closeAction('reject', ReportStatus::Rejected, 'No change needed', 'heroicon-o-x-circle', 'gray'),
@@ -104,8 +199,89 @@ class QuestionReportResource extends Resource
                 ]),
             ])
             ->toolbarActions([
+                BulkAction::make('bulkEmailChanges')
+                    ->label('Bulk Email Changes (Selected)')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('info')
+                    ->modalHeading('Bulk Email Question Changes to Mentioned Address')
+                    ->modalDescription('Autofetches all selected questions and student reports, and sends a comprehensive change notification to the mentioned email.')
+                    ->modalWidth('2xl')
+                    ->schema([
+                        TextInput::make('recipient_email')
+                            ->label('Recipient Email Address')
+                            ->default(fn () => Setting::get('audit_notification_emails', 'support.mymerchantnavy@gmail.com'))
+                            ->required(),
+                        Textarea::make('bulk_changes_summary')
+                            ->label('Summary of Changes Made')
+                            ->placeholder('e.g. Corrected questions across Selected Tests; updated answer options, fixed typos, verified explanations with curriculum faculty.')
+                            ->rows(3)
+                            ->required(),
+                        Toggle::make('mark_as_resolved')
+                            ->label('Mark all selected reports as resolved')
+                            ->default(true),
+                    ])
+                    ->action(function (Collection $records, array $data) {
+                        $admin = Auth::guard('admin')->user();
+                        $adminEmail = $admin?->email ?? 'admin';
+                        $recipient = $data['recipient_email'];
+                        $summary = $data['bulk_changes_summary'];
+                        $count = $records->count();
+
+                        $questionsList = '';
+                        foreach ($records as $index => $rep) {
+                            $num = $index + 1;
+                            $student = ($rep->user?->name ?: 'Student #'.$rep->user_id).' ('.($rep->user?->email ?: '—').')';
+                            $qText = Str::limit(strip_tags((string) ($rep->question?->body ?? '')), 140);
+                            $reason = $rep->reason->getLabel();
+                            $questionsList .= "{$num}. Question #{$rep->question_id} ({$rep->test?->title})\n"
+                                ."   Raised by: {$student} [Reason: {$reason}]\n"
+                                ."   Question: {$qText}\n\n";
+
+                            if ($data['mark_as_resolved'] ?? false) {
+                                $rep->update(['status' => ReportStatus::Resolved]);
+                            }
+                        }
+
+                        $emailBody = "Bulk Question Change Notification ({$count} Questions):\n\n"
+                            ."Actioned By: {$adminEmail}\n"
+                            ."Summary of Changes:\n{$summary}\n\n"
+                            ."Details of Affected Questions:\n"
+                            ."------------------------------------\n"
+                            .$questionsList
+                            ."Timestamp: ".now()->format('Y-m-d H:i:s')." UTC\n"
+                            ."---\n"
+                            ."My Merchant Navy LMS Academic Portal\n"
+                            ."https://api.mymerchantnavy.com/admin/question-reports";
+
+                        try {
+                            Mail::raw($emailBody, function ($msg) use ($recipient, $count) {
+                                $msg->to($recipient)->subject("[Bulk Update] {$count} Questions Modified by Academic Admin");
+                            });
+                        } catch (\Throwable $e) {
+                            report($e);
+                        }
+
+                        ActivityLog::record(
+                            event: 'question.bulk_reports_emailed',
+                            description: "Admin {$adminEmail} sent bulk change notification for {$count} questions to {$recipient}.",
+                            properties: [
+                                'count' => $count,
+                                'recipient' => $recipient,
+                                'summary' => $summary,
+                                'report_ids' => $records->pluck('id')->all(),
+                            ],
+                            admin: $admin
+                        );
+
+                        Notification::make()
+                            ->title("Bulk Change Email Sent ({$count} reports)")
+                            ->body("Dispatched summary to {$recipient}.")
+                            ->success()
+                            ->send();
+                    })->deselectRecordsAfterCompletion(),
+
                 BulkAction::make('resolveSelected')
-                    ->label('Bulk Resolve & Email')
+                    ->label('Bulk Resolve & Email Students')
                     ->icon('heroicon-o-check-circle')
                     ->color('success')
                     ->modalHeading('Resolve Selected Reports & Send Consolidated Notifications')

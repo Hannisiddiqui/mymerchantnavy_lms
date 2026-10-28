@@ -20,6 +20,93 @@
     .fi-callout-icon svg, .fi-callout svg, [class*="callout"] svg { width: 1.5rem !important; height: 1.5rem !important; max-width: 1.5rem !important; max-height: 1.5rem !important; }
     .fi-btn-icon svg, .fi-icon-btn-icon svg { width: 1.25rem !important; height: 1.25rem !important; max-width: 1.25rem !important; max-height: 1.25rem !important; }
 
+    /* Custom Resilient Layout & Spacing Classes */
+    .mmn-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.25rem;
+        margin-top: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .mmn-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .dark .mmn-card {
+        background-color: #0f172a;
+        border-color: #334155;
+        color: #f8fafc;
+    }
+    .mmn-card-blue {
+        background-color: #f0f7ff;
+        border-color: #bfdbfe;
+    }
+    .dark .mmn-card-blue {
+        background-color: rgba(30, 58, 138, 0.25);
+        border-color: rgba(96, 165, 250, 0.3);
+    }
+    .mmn-stat-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+    }
+    .dark .mmn-stat-label {
+        color: #94a3b8;
+    }
+    .mmn-stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-top: 0.35rem;
+        line-height: 1.2;
+    }
+    .dark .mmn-stat-value {
+        color: #f8fafc;
+    }
+    .mmn-stat-sub {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 0.35rem;
+    }
+    .dark .mmn-stat-sub {
+        color: #94a3b8;
+    }
+    .mmn-btn-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 1.75rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid #e2e8f0;
+    }
+    .dark .mmn-btn-row {
+        border-top-color: #334155;
+    }
+    .mmn-action-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        margin-top: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    .dark .mmn-action-card {
+        background-color: #0f172a;
+        border-color: #334155;
+    }
+
     /* ===== Course & test builder (prefix cb-) ===== */
     .cb-wrap { display: flex; flex-direction: column; gap: 1rem; }
     .cb-card { border: 1px solid var(--gray-200); background: #fff; border-radius: .75rem; }

@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\V1\PdfPageController;
 use App\Http\Controllers\Api\V1\PerformanceController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\QuestionReportController;
+use App\Http\Controllers\Api\V1\SupportController;
 use App\Http\Controllers\Api\V1\TestController;
 use App\Http\Controllers\Api\V1\WordPressController;
 use App\Http\Middleware\VerifyWordPressSignature;
@@ -23,6 +24,10 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')->group(function () {
+    // ---- Student Support & Chatbot ----
+    Route::get('support/config', [SupportController::class, 'config']);
+    Route::post('support/query', [SupportController::class, 'sendQuery'])->middleware('throttle:30,1');
+
     // ---- Login (public, rate-limited) ----
     Route::middleware('throttle:otp')->group(function () {
         Route::post('auth/otp/send', [AuthController::class, 'sendOtp']);

@@ -10,10 +10,10 @@
         </x-slot>
     </x-filament::callout>
 
-    <form wire:submit="save" class="space-y-6">
+    <form wire:submit="save" style="margin-top: 1.5rem;">
         {{ $this->form }}
 
-        <div>
+        <div class="mmn-btn-row">
             <x-filament::button type="submit" size="lg" icon="heroicon-o-check">
                 Save Session Policies
             </x-filament::button>

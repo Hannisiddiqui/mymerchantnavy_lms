@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { usePathname } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
+import { SupportChatbot } from "@/components/support/SupportChatbot";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { cn } from "@/lib/utils";
 
@@ -30,6 +31,7 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
         <Topbar onMenu={() => setMenuOpen(true)} />
         <main className={cn("mx-auto px-4 py-6 sm:px-6 lg:py-8", inLesson ? "max-w-none" : "max-w-6xl")}>{children}</main>
       </div>
+      <SupportChatbot />
     </div>
   );
 }

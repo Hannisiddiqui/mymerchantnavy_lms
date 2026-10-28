@@ -49,14 +49,28 @@ export default function LearnPage() {
         ...prev,
         [data.content.chapterId]: true,
       }));
+
+      if (typeof document !== "undefined") {
+        setTimeout(() => {
+          document.getElementById(`nav-chapter-${data.content.chapterId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 250);
+      }
     }
   }, [data?.content?.chapterId]);
 
   function toggleChapter(chId: number) {
-    setOpenChapters((prev) => ({
-      ...prev,
-      [chId]: !prev[chId],
-    }));
+    setOpenChapters((prev) => {
+      const willOpen = !prev[chId];
+      if (willOpen && typeof document !== "undefined") {
+        setTimeout(() => {
+          document.getElementById(`nav-chapter-${chId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 60);
+      }
+      return {
+        ...prev,
+        [chId]: willOpen,
+      };
+    });
   }
 
   if (loading) return <PageSkeleton />;
@@ -195,7 +209,11 @@ export default function LearnPage() {
                 const num = ++chapterNo;
 
                 return (
-                  <div key={ch.id} className={`pt-1.5 rounded-lg transition-colors ${isCurrentChapter ? "bg-brand-50/30 dark:bg-brand-950/10" : ""}`}>
+                  <div
+                    key={ch.id}
+                    id={`nav-chapter-${ch.id}`}
+                    className={`pt-1.5 rounded-lg transition-colors scroll-mt-6 ${isCurrentChapter ? "bg-brand-50/30 dark:bg-brand-950/10" : ""}`}
+                  >
                     <button
                       type="button"
                       onClick={() => toggleChapter(ch.id)}
