@@ -68,7 +68,7 @@ class CourseValiditySettings extends Page
             'validity_type' => $course->validity_type ?: '6_months',
             'validity_duration_months' => $course->validity_duration_months ?: 6,
             'validity_duration_days' => $course->validity_duration_days,
-            'validity_fixed_expiry_date' => $course->validity_fixed_expiry_date?->format('Y-m-d'),
+            'validity_fixed_expiry_date' => $course->validity_fixed_expiry_date ? (is_string($course->validity_fixed_expiry_date) ? substr($course->validity_fixed_expiry_date, 0, 10) : $course->validity_fixed_expiry_date->format('Y-m-d')) : null,
         ]);
     }
 

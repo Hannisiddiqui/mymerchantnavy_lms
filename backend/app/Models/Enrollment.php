@@ -52,7 +52,13 @@ class Enrollment extends Model
     /** Check if the enrollment course access is expired */
     public function isExpired(): bool
     {
-        return $this->expires_at !== null && $this->expires_at->isPast();
+        if (empty($this->expires_at)) {
+            return false;
+        }
+
+        $expiry = $this->expires_at instanceof Carbon ? $this->expires_at : Carbon::parse($this->expires_at);
+
+        return $expiry->isPast();
     }
 
     /** Check if the enrollment course access is currently active */

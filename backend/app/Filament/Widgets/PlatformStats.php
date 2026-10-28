@@ -2,6 +2,7 @@
 
 namespace App\Filament\Widgets;
 
+use App\Filament\Resources\AttemptResource;
 use App\Filament\Resources\StudentResource;
 use App\Models\Course;
 use App\Models\Enrollment;
@@ -9,6 +10,7 @@ use App\Models\TestAttempt;
 use App\Models\User;
 use Filament\Widgets\StatsOverviewWidget;
 use Filament\Widgets\StatsOverviewWidget\Stat;
+use Illuminate\Support\Facades\Schema;
 
 /**
  * Interactive LMS Dashboard Summary Cards.
@@ -20,13 +22,16 @@ class PlatformStats extends StatsOverviewWidget
 
     protected function getStats(): array
     {
+        $hasExpiresAt = Schema::hasColumn('enrollments', 'expires_at');
+        $hasPurchaseType = Schema::hasColumn('enrollments', 'purchase_type');
+
         $totalStudents = User::count();
-        $paidStudents = User::withPaidEnrollment()->count();
-        $freeStudents = User::withFreeEnrollment()->count();
+        $paidStudents = $hasPurchaseType ? User::withPaidEnrollment()->count() : 0;
+        $freeStudents = $hasPurchaseType ? User::withFreeEnrollment()->count() : 0;
         $studentsWithoutCourse = User::withoutCourses()->count();
 
-        $activeEnrollments = Enrollment::active()->count();
-        $expiredEnrollments = Enrollment::expired()->count();
+        $activeEnrollments = $hasExpiresAt ? Enrollment::active()->count() : Enrollment::count();
+        $expiredEnrollments = $hasExpiresAt ? Enrollment::expired()->count() : 0;
         $testsToday = TestAttempt::whereDate('submitted_at', today())->count();
 
         return [
@@ -77,7 +82,8 @@ class PlatformStats extends StatsOverviewWidget
                 ->descriptionIcon('heroicon-m-clipboard-document-check')
                 ->icon('heroicon-o-chart-bar')
                 ->color('primary')
-                ->url(route('filament.admin.resources.test-results.index')),
+                ->url(AttemptResource::getUrl('index')),
         ];
     }
 }
+

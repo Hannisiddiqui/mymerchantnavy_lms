@@ -27,6 +27,7 @@ use Filament\Tables\Filters\TernaryFilter;
 use Filament\Tables\Table;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Support\Facades\Schema as DbSchema;
 
 class StudentResource extends Resource
 {
@@ -148,10 +149,12 @@ class StudentResource extends Resource
                         'no_course' => 'Students Without a Course',
                     ])
                     ->query(function (Builder $query, array $data) {
+                        $hasCol = DbSchema::hasColumn('enrollments', 'purchase_type');
+
                         return match ($data['value'] ?? null) {
-                            'paid' => $query->withPaidEnrollment(),
-                            'free' => $query->withFreeEnrollment(),
-                            'assigned' => $query->whereHas('enrollments', fn ($q) => $q->where('purchase_type', 'assigned')),
+                            'paid' => $hasCol ? $query->withPaidEnrollment() : $query,
+                            'free' => $hasCol ? $query->withFreeEnrollment() : $query,
+                            'assigned' => $hasCol ? $query->whereHas('enrollments', fn ($q) => $q->where('purchase_type', 'assigned')) : $query,
                             'no_course' => $query->withoutCourses(),
                             default => $query,
                         };
@@ -164,9 +167,11 @@ class StudentResource extends Resource
                         'expired' => 'Expired Enrollments',
                     ])
                     ->query(function (Builder $query, array $data) {
+                        $hasCol = DbSchema::hasColumn('enrollments', 'expires_at');
+
                         return match ($data['value'] ?? null) {
-                            'active' => $query->withActiveEnrollment(),
-                            'expired' => $query->withExpiredEnrollment(),
+                            'active' => $hasCol ? $query->withActiveEnrollment() : $query,
+                            'expired' => $hasCol ? $query->withExpiredEnrollment() : $query,
                             default => $query,
                         };
                     }),
