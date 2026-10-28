@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
 import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, CircleCheck, Clock, FileQuestion, Trophy } from "lucide-react";

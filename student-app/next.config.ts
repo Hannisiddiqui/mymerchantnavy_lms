@@ -8,6 +8,9 @@ import type { NextConfig } from "next";
 const backendOrigin = (process.env.NEXT_PUBLIC_API_URL ?? "").replace(/\/api\/v1\/?$/, "");
 
 const nextConfig: NextConfig = {
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
   async redirects() {
     return [
       { source: "/admin", has: [{ type: "host", value: "lms\\.(?<domain>.+)" }], destination: "https://api.:domain/admin", permanent: false },

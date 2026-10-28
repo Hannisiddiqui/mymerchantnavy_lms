@@ -1,8 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { MessageCircle, X, Send, CheckCircle2, MessageSquare, Mail, Phone, Loader2 } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { MessageCircle, X, Send, CheckCircle2, MessageSquare, Phone, Loader2 } from "lucide-react";
 import { apiBaseUrl } from "@/lib/api/client";
 
 interface SupportConfig {
@@ -83,8 +82,9 @@ export function SupportChatbot() {
 
       setSuccess(true);
       setMessage("");
-    } catch (err: any) {
-      setErrorMsg(err.message || "Failed to deliver message. Please contact us on WhatsApp.");
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to deliver message. Please contact us on WhatsApp.";
+      setErrorMsg(msg);
     } finally {
       setSubmitting(false);
     }

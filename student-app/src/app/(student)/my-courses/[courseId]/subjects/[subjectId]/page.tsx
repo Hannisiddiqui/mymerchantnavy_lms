@@ -52,7 +52,6 @@ export default function SubjectPage() {
     if (hash && hash.startsWith("#chapter-")) {
       const target = hash.replace("#chapter-", "");
       const num = parseInt(target, 10);
-      let matchedIdx = 0;
       let realChapterNo = 0;
       for (const ch of subject.chapters) {
         if (!ch.test) realChapterNo++;
