@@ -91,7 +91,8 @@ class ActivityLog extends Model
             'created_at' => now(),
         ]);
 
-        static::dispatchNotificationEmail($log);
+        // Note: Generic audit alerts disabled to prevent duplicate emails.
+        // Dedicated emails are sent directly by respective actions (Question Corrections, Support Queries, etc.)
 
         return $log;
     }

@@ -200,33 +200,37 @@ class QuestionReportResource extends Resource
                         $qBody = strip_tags((string) ($record->question?->body ?? ''));
                         $reason = $record->reason->getLabel().($record->details ? " — \"{$record->details}\"" : '');
 
-                        $optionsText = '';
+                        $optionsFormatted = [];
                         $options = $record->question?->options ?? collect();
                         $chosenId = $record->attempt?->answers()->where('question_id', $record->question_id)->value('selected_option_id');
                         foreach ($options as $idx => $opt) {
-                            $letter = chr(65 + $idx);
-                            $tags = [];
-                            if ($opt->is_correct) $tags[] = '✓ CORRECT KEY';
-                            if ($opt->id === $chosenId) $tags[] = '👤 STUDENT PICK';
-                            $tagStr = ! empty($tags) ? ' [' . implode(', ', $tags) . ']' : '';
-                            $optionsText .= "({$letter}) " . strip_tags((string) $opt->body) . "{$tagStr}\n";
+                            $optionsFormatted[] = [
+                                'letter' => chr(65 + $idx),
+                                'body' => strip_tags((string) $opt->body),
+                                'is_correct' => (bool) $opt->is_correct,
+                                'was_student_pick' => ($opt->id === $chosenId),
+                            ];
                         }
 
-                        $emailBody = "A question change notification was initiated in the LMS Dashboard:\n\n"
-                            ."Question ID: #{$record->question_id}\n"
-                            ."Test / Subject: {$qTitle}\n"
-                            ."Raised By Student: {$studentInfo}\n"
-                            ."Student Report Reason: {$reason}\n\n"
-                            ."Question Body:\n{$qBody}\n\n"
-                            ."Answer Options & Key:\n{$optionsText}\n"
-                            ."Changes Made by {$adminEmail}:\n{$changes}\n\n"
-                            ."Timestamp: ".now()->format('Y-m-d H:i:s')." UTC\n"
-                            ."---\n"
-                            ."My Merchant Navy LMS Academic Portal\n"
-                            ."https://api.mymerchantnavy.com/admin/question-reports";
+                        $viewData = [
+                            'questionId' => $record->question_id,
+                            'testTitle' => $qTitle,
+                            'adminName' => $admin?->name ?? 'Academic Admin',
+                            'adminEmail' => $adminEmail,
+                            'adminRole' => method_exists($admin?->role, 'getLabel') ? $admin->role->getLabel() : ($admin?->role?->value ?? 'Administrator'),
+                            'ipAddress' => request()->ip() ?? 'Unknown',
+                            'studentInfo' => $studentInfo,
+                            'reason' => $reason,
+                            'details' => $record->details,
+                            'qBody' => $qBody,
+                            'options' => $optionsFormatted,
+                            'changes' => $changes,
+                            'timestamp' => now()->format('Y-m-d H:i:s'),
+                            'dashboardUrl' => 'https://api.mymerchantnavy.com/admin/question-reports',
+                        ];
 
                         try {
-                            Mail::raw($emailBody, function ($msg) use ($recipient, $record) {
+                            Mail::send('emails.question-correction', $viewData, function ($msg) use ($recipient, $record) {
                                 $msg->to($recipient)->subject("[Question Update] Question #{$record->question_id} Modified by Academic Admin");
                             });
                         } catch (\Throwable $e) {
@@ -311,19 +315,18 @@ class QuestionReportResource extends Resource
                             }
                         }
 
-                        $emailBody = "Bulk Question Change Notification ({$count} Questions):\n\n"
-                            ."Actioned By: {$adminEmail}\n"
-                            ."Summary of Changes:\n{$summary}\n\n"
-                            ."Details of Affected Questions:\n"
-                            ."------------------------------------\n"
-                            .$questionsList
-                            ."Timestamp: ".now()->format('Y-m-d H:i:s')." UTC\n"
-                            ."---\n"
-                            ."My Merchant Navy LMS Academic Portal\n"
-                            ."https://api.mymerchantnavy.com/admin/question-reports";
+                        $bulkData = [
+                            'count' => $count,
+                            'adminName' => $admin?->name ?? 'Academic Admin',
+                            'adminEmail' => $adminEmail,
+                            'ipAddress' => request()->ip() ?? 'Unknown',
+                            'summary' => $summary,
+                            'questionsList' => $questionsList,
+                            'timestamp' => now()->format('Y-m-d H:i:s'),
+                        ];
 
                         try {
-                            Mail::raw($emailBody, function ($msg) use ($recipient, $count) {
+                            Mail::send('emails.bulk-question-correction', $bulkData, function ($msg) use ($recipient, $count) {
                                 $msg->to($recipient)->subject("[Bulk Update] {$count} Questions Modified by Academic Admin");
                             });
                         } catch (\Throwable $e) {

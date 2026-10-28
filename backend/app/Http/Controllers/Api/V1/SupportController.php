@@ -39,26 +39,25 @@ class SupportController extends Controller
         $email = $data['email'];
         $phone = $data['phone'] ?: 'Not provided';
         $msg = $data['message'];
+        $cleanPhone = preg_replace('/\D/', '', (string) $phone);
 
-        $body = "A student submitted an inquiry via the LMS Chatbot:\n\n"
-            ."Student Name: {$name}\n"
-            ."Email Address: {$email}\n"
-            ."Mobile / WhatsApp: {$phone}\n"
-            ."Query Category: {$category}\n\n"
-            ."Student Query / Doubt:\n"
-            ."-------------------------------------\n"
-            ."{$msg}\n"
-            ."-------------------------------------\n\n"
-            ."IP Address: ".$request->ip()."\n"
-            ."Device: ".$request->userAgent()."\n"
-            ."Timestamp: ".now()->format('Y-m-d H:i:s')." UTC\n\n"
-            ."---\n"
-            ."My Merchant Navy Student Support System";
+        $viewData = [
+            'name' => $name,
+            'email' => $email,
+            'phone' => $phone,
+            'cleanPhone' => $cleanPhone,
+            'category' => $category,
+            'msg' => $msg,
+            'ip' => $request->ip(),
+            'device' => $request->userAgent(),
+            'timestamp' => now()->format('Y-m-d H:i:s'),
+        ];
 
         try {
-            Mail::raw($body, function ($mail) use ($recipient, $name, $category) {
+            Mail::send('emails.student-support-query', $viewData, function ($mail) use ($recipient, $name, $category, $email) {
                 $mail->to($recipient)
-                    ->subject("[LMS Student Query] {$category} from {$name}");
+                    ->replyTo($email, $name)
+                    ->subject("[MMN Student Query] {$category} from {$name}");
             });
         } catch (\Throwable $e) {
             report($e);
