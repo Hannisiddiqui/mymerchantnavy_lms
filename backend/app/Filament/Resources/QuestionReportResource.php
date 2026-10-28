@@ -71,7 +71,7 @@ class QuestionReportResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn (Builder $query) => $query->with(['user', 'question', 'test'])
+            ->modifyQueryUsing(fn (Builder $query) => $query->with(['user', 'question.options', 'test', 'attempt.answers'])
                 ->withCount(['sameQuestion as same_question_count' => fn (Builder $q) => $q->where('status', ReportStatus::Open)]))
             ->columns([
                 TextColumn::make('status')->badge()->sortable(),
@@ -79,6 +79,39 @@ class QuestionReportResource extends Resource
                 TextColumn::make('question.body')->label('Question')->wrap()->extraAttributes(['class' => 'cb-math'])
                     ->formatStateUsing(fn ($state) => Str::limit(strip_tags((string) $state), 110))
                     ->description(fn (QuestionReport $record) => $record->test ? "Q #{$record->question_id} · {$record->test->title}" : "Q #{$record->question_id}"),
+                TextColumn::make('answer_status')
+                    ->label('Answer Key & Student Pick')
+                    ->state(function (QuestionReport $record) {
+                        $q = $record->question;
+                        if (! $q) return '—';
+                        $options = $q->options ?? collect();
+                        $correctOpt = $options->firstWhere('is_correct', true);
+                        $correctIdx = $correctOpt ? $options->search(fn ($o) => $o->id === $correctOpt->id) : false;
+                        $keyLetter = $correctIdx !== false ? chr(65 + $correctIdx) : '?';
+                        $keyBody = $correctOpt ? Str::limit(strip_tags((string) $correctOpt->body), 45) : 'No key set';
+
+                        $chosenId = $record->attempt?->answers()->where('question_id', $record->question_id)->value('selected_option_id');
+                        $chosenOpt = $chosenId ? $options->firstWhere('id', $chosenId) : null;
+                        $chosenIdx = $chosenOpt ? $options->search(fn ($o) => $o->id === $chosenOpt->id) : false;
+                        $chosenLetter = $chosenIdx !== false ? chr(65 + $chosenIdx) : null;
+
+                        $html = "<div style='font-size:12px;display:flex;flex-direction:column;gap:4px;'>";
+                        $html .= "<div style='font-weight:600;color:#047857;background:#ecfdf5;padding:2px 6px;border-radius:4px;border:1px solid #a7f3d0;display:inline-block;'>✓ Key: ({$keyLetter}) " . e($keyBody) . "</div>";
+                        
+                        if ($chosenOpt) {
+                            $isMatch = $chosenId === ($correctOpt?->id);
+                            $textColor = $isMatch ? '#047857' : '#b91c1c';
+                            $bgColor = $isMatch ? '#ecfdf5' : '#fef2f2';
+                            $borderColor = $isMatch ? '#a7f3d0' : '#fecaca';
+                            $chosenBody = Str::limit(strip_tags((string) $chosenOpt->body), 35);
+                            $html .= "<div style='color:{$textColor};background:{$bgColor};padding:2px 6px;border-radius:4px;border:1px solid {$borderColor};display:inline-block;font-size:11px;'>👤 Student: ({$chosenLetter}) " . e($chosenBody) . "</div>";
+                        }
+                        $html .= "</div>";
+
+                        return $html;
+                    })
+                    ->html()
+                    ->wrap(),
                 TextColumn::make('details')->label('Student says')->wrap()->limit(140)->placeholder('No details')->searchable(),
                 TextColumn::make('same_question_count')->label('Open reports')->badge()->color(fn ($state) => $state > 1 ? 'danger' : 'gray')
                     ->tooltip('Open reports on this same question, from all students')->sortable(),
@@ -124,6 +157,26 @@ class QuestionReportResource extends Resource
                             ->default(fn (QuestionReport $record) => strip_tags((string) ($record->question?->body ?? '')))
                             ->rows(2)
                             ->disabled(),
+                        Textarea::make('answer_details')
+                            ->label('Options, Correct Key & Student Choice')
+                            ->default(function (QuestionReport $record) {
+                                $q = $record->question;
+                                if (! $q) return 'No question data';
+                                $options = $q->options ?? collect();
+                                $chosenId = $record->attempt?->answers()->where('question_id', $record->question_id)->value('selected_option_id');
+                                $lines = [];
+                                foreach ($options as $idx => $opt) {
+                                    $letter = chr(65 + $idx);
+                                    $tags = [];
+                                    if ($opt->is_correct) $tags[] = '✓ CORRECT KEY';
+                                    if ($opt->id === $chosenId) $tags[] = '👤 STUDENT PICK';
+                                    $tagStr = ! empty($tags) ? ' [' . implode(', ', $tags) . ']' : '';
+                                    $lines[] = "({$letter}) " . strip_tags((string) $opt->body) . $tagStr;
+                                }
+                                return implode("\n", $lines);
+                            })
+                            ->rows(4)
+                            ->disabled(),
                         TextInput::make('report_reason')
                             ->label('Student Report Reason')
                             ->default(fn (QuestionReport $record) => $record->reason->getLabel().($record->details ? " — \"{$record->details}\"" : ''))
@@ -147,12 +200,25 @@ class QuestionReportResource extends Resource
                         $qBody = strip_tags((string) ($record->question?->body ?? ''));
                         $reason = $record->reason->getLabel().($record->details ? " — \"{$record->details}\"" : '');
 
+                        $optionsText = '';
+                        $options = $record->question?->options ?? collect();
+                        $chosenId = $record->attempt?->answers()->where('question_id', $record->question_id)->value('selected_option_id');
+                        foreach ($options as $idx => $opt) {
+                            $letter = chr(65 + $idx);
+                            $tags = [];
+                            if ($opt->is_correct) $tags[] = '✓ CORRECT KEY';
+                            if ($opt->id === $chosenId) $tags[] = '👤 STUDENT PICK';
+                            $tagStr = ! empty($tags) ? ' [' . implode(', ', $tags) . ']' : '';
+                            $optionsText .= "({$letter}) " . strip_tags((string) $opt->body) . "{$tagStr}\n";
+                        }
+
                         $emailBody = "A question change notification was initiated in the LMS Dashboard:\n\n"
                             ."Question ID: #{$record->question_id}\n"
                             ."Test / Subject: {$qTitle}\n"
                             ."Raised By Student: {$studentInfo}\n"
                             ."Student Report Reason: {$reason}\n\n"
                             ."Question Body:\n{$qBody}\n\n"
+                            ."Answer Options & Key:\n{$optionsText}\n"
                             ."Changes Made by {$adminEmail}:\n{$changes}\n\n"
                             ."Timestamp: ".now()->format('Y-m-d H:i:s')." UTC\n"
                             ."---\n"
@@ -233,9 +299,12 @@ class QuestionReportResource extends Resource
                             $student = ($rep->user?->name ?: 'Student #'.$rep->user_id).' ('.($rep->user?->email ?: '—').')';
                             $qText = Str::limit(strip_tags((string) ($rep->question?->body ?? '')), 140);
                             $reason = $rep->reason->getLabel();
+                            $correctOpt = $rep->question?->options?->firstWhere('is_correct', true);
+                            $keyText = $correctOpt ? strip_tags((string) $correctOpt->body) : 'Not set';
                             $questionsList .= "{$num}. Question #{$rep->question_id} ({$rep->test?->title})\n"
                                 ."   Raised by: {$student} [Reason: {$reason}]\n"
-                                ."   Question: {$qText}\n\n";
+                                ."   Question: {$qText}\n"
+                                ."   Answer Key: {$keyText}\n\n";
 
                             if ($data['mark_as_resolved'] ?? false) {
                                 $rep->update(['status' => ReportStatus::Resolved]);
@@ -324,15 +393,19 @@ class QuestionReportResource extends Resource
         $question = $record->question()->with('options')->first();
         $options = $question?->options->values() ?? collect();
         $chosenId = $record->attempt?->answers()->where('question_id', $record->question_id)->value('selected_option_id');
-        $chosen = $chosenId ? $options->search(fn ($option) => $option->id === $chosenId) : false;
+        $chosenIndex = $chosenId ? $options->search(fn ($option) => $option->id === $chosenId) : false;
+        $correctIndex = $options->search(fn ($option) => (bool) $option->is_correct);
 
         return view('filament.question-report', [
             'report' => $record,
+            'question' => $question,
             'body' => $question?->body,
-            'options' => $options->mapWithKeys(fn ($option, $i) => [$i + 1 => $option->body])->all(),
-            'correct' => 1 + (int) $options->search(fn ($option) => $option->is_correct),
+            'optionsList' => $options,
+            'correctIndex' => $correctIndex !== false ? $correctIndex : null,
+            'chosenIndex' => $chosenIndex !== false ? $chosenIndex : null,
+            'correctOptionId' => $correctIndex !== false ? $options[$correctIndex]->id : null,
+            'chosenOptionId' => $chosenId,
             'explanation' => $question?->explanation,
-            'chosen' => $chosen === false ? null : $chosen + 1,
         ]);
     }
 
