@@ -368,6 +368,30 @@
         .mmn-wa-btn:hover {
             background: #1eb956;
         }
+        .mmn-wa-link-btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            font-weight: 700;
+            color: #008069;
+            text-decoration: none;
+            padding: 8px 12px;
+            border-radius: 8px;
+            background: rgba(0, 168, 132, 0.12);
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+        .dark .mmn-wa-link-btn {
+            color: #25d366;
+            background: rgba(37, 211, 102, 0.15);
+        }
+        .mmn-wa-link-btn:hover {
+            background: rgba(0, 168, 132, 0.22);
+        }
+        .dark .mmn-wa-link-btn:hover {
+            background: rgba(37, 211, 102, 0.25);
+        }
 
         .mmn-messages-box {
             flex: 1;
@@ -720,6 +744,20 @@
             background: #1e293b;
             border-top-color: #334155;
         }
+        .mmn-select {
+            font-size: 12px;
+            padding: 5px 10px;
+            border-radius: 6px;
+            border: 1px solid #cbd5e1;
+            background: #ffffff;
+            color: #1e293b;
+            outline: none;
+        }
+        .dark .mmn-select {
+            background: #1e293b;
+            border-color: #334155;
+            color: #f8fafc;
+        }
     </style>
 
     @php
@@ -933,7 +971,7 @@
                                 href="{{ $waDirectUrl }}"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: #008069; text-decoration: none; padding: 8px 12px; border-radius: 8px; background: rgba(0, 168, 132, 0.12); white-space: nowrap;"
+                                class="mmn-wa-link-btn"
                                 title="Direct WhatsApp App Link"
                             >
                                 📱 App Link
@@ -1185,7 +1223,7 @@
                 <div class="mmn-email-footer">
                     <div style="display: flex; align-items: center; gap: 8px;">
                         <span style="font-size: 12px; color: #64748b; font-weight: 600;">Status:</span>
-                        <select wire:model="emailStatus" style="font-size: 12px; padding: 5px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+                        <select wire:model="emailStatus" class="mmn-select">
                             <option value="resolved">Mark Resolved</option>
                             <option value="in_progress">In Progress</option>
                             <option value="open">Keep Open</option>

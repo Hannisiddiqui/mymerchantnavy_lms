@@ -156,7 +156,7 @@ export default function SubjectPage() {
                     >
                       <span
                         className={cn(
-                          "grid size-8.5 shrink-0 place-items-center rounded-lg border transition-colors",
+                          "grid size-9 shrink-0 place-items-center rounded-lg border transition-colors",
                           item.type === "pdf" || item.type === "note"
                             ? "bg-amber-50 text-amber-600 border-amber-200/60 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/40"
                             : item.type === "practice_test"

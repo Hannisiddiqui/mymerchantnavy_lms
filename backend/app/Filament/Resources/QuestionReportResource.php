@@ -291,7 +291,109 @@ class QuestionReportResource extends Resource
                         ->action(fn (QuestionReport $record) => app(QuestionReportService::class)->reopen($record)),
                 ]),
             ])
-            ->toolbarActions([
+            ->headerActions([
+                Action::make('bulkEmailAllOpen')
+                    ->label('Bulk Email Open Reports')
+                    ->icon('heroicon-o-paper-airplane')
+                    ->color('info')
+                    ->modalHeading('Bulk Email All Open Question Reports')
+                    ->modalDescription('Autofetches all currently open student reports and emails a comprehensive change notification to the mentioned address.')
+                    ->modalWidth('2xl')
+                    ->schema([
+                        TextInput::make('recipient_email')
+                            ->label('Recipient Email Address')
+                            ->default(fn () => Setting::get('audit_notification_emails', 'support.mymerchantnavy@gmail.com'))
+                            ->required(),
+                        Textarea::make('bulk_changes_summary')
+                            ->label('Summary of Changes Made')
+                            ->placeholder('e.g. Corrected questions across Open Reports; updated answer options, fixed typos, verified explanations with curriculum faculty.')
+                            ->rows(3)
+                            ->required(),
+                        Toggle::make('mark_as_resolved')
+                            ->label('Mark all open reports as resolved')
+                            ->default(true),
+                    ])
+                    ->action(function (array $data) {
+                        $records = QuestionReport::where('status', ReportStatus::Open)->with(['user', 'question.options', 'test'])->get();
+                        if ($records->isEmpty()) {
+                            Notification::make()->title('No open reports to email')->warning()->send();
+                            return;
+                        }
+                        $admin = Auth::guard('admin')->user();
+                        $adminEmail = $admin?->email ?? 'admin';
+                        $recipient = $data['recipient_email'];
+                        $summary = $data['bulk_changes_summary'];
+                        $count = $records->count();
+
+                        $questionsList = '';
+                        foreach ($records as $index => $rep) {
+                            $num = $index + 1;
+                            $student = ($rep->user?->name ?: 'Student #'.$rep->user_id).' ('.($rep->user?->email ?: '—').')';
+                            $qText = Str::limit(strip_tags((string) ($rep->question?->body ?? '')), 140);
+                            $reason = $rep->reason instanceof ReportReason ? $rep->reason->getLabel() : ($rep->reason ?? 'Report');
+                            $correctOpt = $rep->question?->options?->firstWhere('is_correct', true);
+                            $keyText = $correctOpt ? strip_tags((string) $correctOpt->body) : 'Not set';
+                            $questionsList .= "{$num}. Question #{$rep->question_id} ({$rep->test?->title})\n"
+                                ."   Raised by: {$student} [Reason: {$reason}]\n"
+                                ."   Question: {$qText}\n"
+                                ."   Answer Key: {$keyText}\n\n";
+
+                            if ($data['mark_as_resolved'] ?? false) {
+                                $rep->update(['status' => ReportStatus::Resolved]);
+                            }
+                        }
+
+                        $bulkData = [
+                            'count' => $count,
+                            'adminName' => $admin?->name ?? 'Academic Admin',
+                            'adminEmail' => $adminEmail,
+                            'ipAddress' => request()->ip() ?? 'Unknown',
+                            'summary' => $summary,
+                            'questionsList' => $questionsList,
+                            'timestamp' => now()->format('Y-m-d H:i:s'),
+                        ];
+
+                        $emails = array_filter(array_map('trim', preg_split('/[,\s;]+/', (string) $recipient)));
+                        $validEmails = array_values(array_filter($emails, fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL)));
+                        if (empty($validEmails)) {
+                            $validEmails = ['support.mymerchantnavy@gmail.com'];
+                        }
+
+                        try {
+                            Mail::send('emails.bulk-question-correction', $bulkData, function ($msg) use ($validEmails, $count) {
+                                $msg->to($validEmails)->subject("[Bulk Update] {$count} Questions Modified by Academic Admin");
+                            });
+                        } catch (\Throwable $e) {
+                            report($e);
+                            Notification::make()
+                                ->title('Failed to Dispatch Bulk Email')
+                                ->body('Error: ' . $e->getMessage())
+                                ->danger()
+                                ->send();
+
+                            return;
+                        }
+
+                        ActivityLog::record(
+                            event: 'question.bulk_reports_emailed',
+                            description: "Admin {$adminEmail} sent bulk change notification for {$count} questions to {$recipient}.",
+                            properties: [
+                                'count' => $count,
+                                'recipient' => $recipient,
+                                'summary' => $summary,
+                                'report_ids' => $records->pluck('id')->all(),
+                            ],
+                            admin: $admin
+                        );
+
+                        Notification::make()
+                            ->title("Bulk Change Email Sent ({$count} reports)")
+                            ->body("Dispatched summary to {$recipient}.")
+                            ->success()
+                            ->send();
+                    }),
+            ])
+            ->bulkActions([
                 BulkAction::make('bulkEmailChanges')
                     ->label('Bulk Email Changes (Selected)')
                     ->icon('heroicon-o-paper-airplane')
@@ -325,7 +427,7 @@ class QuestionReportResource extends Resource
                             $num = $index + 1;
                             $student = ($rep->user?->name ?: 'Student #'.$rep->user_id).' ('.($rep->user?->email ?: '—').')';
                             $qText = Str::limit(strip_tags((string) ($rep->question?->body ?? '')), 140);
-                            $reason = $rep->reason->getLabel();
+                            $reason = $rep->reason instanceof ReportReason ? $rep->reason->getLabel() : ($rep->reason ?? 'Report');
                             $correctOpt = $rep->question?->options?->firstWhere('is_correct', true);
                             $keyText = $correctOpt ? strip_tags((string) $correctOpt->body) : 'Not set';
                             $questionsList .= "{$num}. Question #{$rep->question_id} ({$rep->test?->title})\n"

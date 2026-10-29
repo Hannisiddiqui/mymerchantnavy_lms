@@ -222,10 +222,10 @@ export default function LearnPage() {
                     >
                       <span className="flex items-center gap-2.5 min-w-0 pr-2">
                         <span
-                          className={`inline-flex items-center justify-center size-5.5 rounded-full text-[11px] font-bold shrink-0 ${
+                          className={`inline-flex items-center justify-center size-5 rounded-full text-[10px] font-bold shrink-0 ${
                             isOpen
                               ? "bg-blue-600 text-white"
-                              : "bg-[#334155] text-white dark:bg-slate-700 dark:text-slate-200"
+                              : "bg-slate-600 text-white dark:bg-slate-700 dark:text-slate-200"
                           }`}
                         >
                           {num}
@@ -305,9 +305,9 @@ export default function LearnPage() {
 
                               {/* Checkbox indicator */}
                               {c.completed ? (
-                                <CircleCheck className="size-4.5 shrink-0 text-emerald-600" />
+                                <CircleCheck className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
                               ) : (
-                                <Circle className="size-4.5 shrink-0 text-slate-300 dark:text-slate-600" />
+                                <Circle className="size-4 shrink-0 text-slate-300 dark:text-slate-600" />
                               )}
                             </Link>
                           );

@@ -300,3 +300,4 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
     </div>
   );
 }
+

@@ -322,12 +322,12 @@ export function SupportChatbot() {
 
       {/* Chat Window Modal */}
       {isOpen && (
-        <div className="fixed bottom-4 right-4 z-50 flex h-[620px] max-h-[92vh] w-[420px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4">
+        <div className="fixed bottom-4 right-4 z-50 flex h-[620px] max-h-[92vh] w-[420px] max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-line bg-white shadow-2xl transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 dark:border-slate-800 dark:bg-slate-900">
           
           {/* Header */}
           {step === "whatsapp_chat" ? (
             /* Authentic WhatsApp In-Chat Header */
-            <div className="flex items-center justify-between bg-[#075e54] px-4 py-3 text-white shadow-md">
+            <div className="flex items-center justify-between bg-[#075e54] px-4 py-3 text-white shadow-md shrink-0">
               <div className="flex items-center gap-2.5">
                 <button
                   onClick={resetToMenu}
@@ -372,7 +372,7 @@ export function SupportChatbot() {
             </div>
           ) : (
             /* Standard LMS Support Header */
-            <div className="flex items-center justify-between bg-gradient-to-r from-navy-900 via-navy-800 to-brand-800 px-5 py-4 text-white shadow-md">
+            <div className="flex items-center justify-between bg-gradient-to-r from-navy-900 via-navy-800 to-brand-800 px-5 py-4 text-white shadow-md shrink-0">
               <div className="flex items-center gap-3">
                 <div className="relative flex size-10 items-center justify-center rounded-full bg-white/15 ring-2 ring-white/30 backdrop-blur-sm">
                   <Bot className="size-5 text-white" />
@@ -409,7 +409,7 @@ export function SupportChatbot() {
           <div 
             ref={chatScrollRef}
             className={`flex-1 overflow-y-auto p-4 space-y-3.5 text-sm ${
-              step === "whatsapp_chat" ? "bg-[#efeae2]" : "bg-slate-50"
+              step === "whatsapp_chat" ? "bg-[#efeae2] dark:bg-[#0b141a]" : "bg-slate-50 dark:bg-slate-900/90"
             }`}
           >
             {/* IN-CHAT WHATSAPP SCREEN (No external redirect) */}
@@ -419,16 +419,16 @@ export function SupportChatbot() {
                 <div className="flex justify-center pb-1">
                   <button
                     onClick={resetToMenu}
-                    className="inline-flex items-center gap-1.5 rounded-full bg-white/90 border border-slate-300 px-3.5 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-white transition"
+                    className="inline-flex items-center gap-1.5 rounded-full bg-white/90 border border-slate-300 px-3.5 py-1 text-xs font-semibold text-slate-700 shadow-sm hover:bg-white transition dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200 dark:hover:bg-slate-700"
                   >
-                    <ArrowLeft className="size-3 text-slate-500" />
+                    <ArrowLeft className="size-3 text-slate-500 dark:text-slate-400" />
                     Back to raise another issue
                   </button>
                 </div>
 
                 {/* Date stamp pill */}
                 <div className="flex justify-center">
-                  <span className="rounded-lg bg-white/80 px-2.5 py-0.5 text-[10px] font-bold text-slate-600 shadow-sm uppercase tracking-wide">
+                  <span className="rounded-lg bg-white/80 px-2.5 py-0.5 text-[10px] font-bold text-slate-600 shadow-sm uppercase tracking-wide dark:bg-slate-800 dark:text-slate-300">
                     WhatsApp Chat • Today
                   </span>
                 </div>
@@ -444,12 +444,12 @@ export function SupportChatbot() {
                       <div
                         className={`max-w-[85%] rounded-2xl px-3.5 py-2.5 shadow-sm text-xs leading-relaxed ${
                           isStudent
-                            ? "bg-[#d9fdd3] text-slate-900 rounded-tr-sm border border-[#c1e8ba]"
-                            : "bg-white text-slate-900 rounded-tl-sm border border-slate-200/80"
+                            ? "bg-[#d9fdd3] text-slate-900 rounded-tr-sm border border-[#c1e8ba] dark:bg-[#005c4b] dark:text-emerald-50 dark:border-emerald-700/50"
+                            : "bg-white text-slate-900 rounded-tl-sm border border-slate-200/80 dark:bg-[#202c33] dark:text-slate-100 dark:border-slate-700"
                         }`}
                       >
                         <p className="whitespace-pre-wrap">{m.text}</p>
-                        <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-slate-500">
+                        <div className="mt-1 flex items-center justify-end gap-1 text-[10px] text-slate-500 dark:text-slate-400">
                           <span>{m.time}</span>
                           {isStudent && <CheckCheck className="size-3 text-[#53bdeb]" />}
                         </div>
@@ -463,12 +463,12 @@ export function SupportChatbot() {
               <>
                 {/* Bot Greeting Bubble */}
                 <div className="flex items-start gap-2.5">
-                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold text-xs border border-brand-200">
+                  <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold text-xs border border-brand-200 dark:bg-brand-950/60 dark:text-brand-300 dark:border-brand-800">
                     <Bot className="size-4" />
                   </div>
                   <div className="space-y-2 max-w-[85%]">
-                    <div className="rounded-2xl rounded-tl-sm bg-white p-3.5 text-slate-800 shadow-sm border border-slate-200/80 leading-relaxed">
-                      <p className="font-semibold text-slate-900 mb-1">Hello! 👋</p>
+                    <div className="rounded-2xl rounded-tl-sm bg-white p-3.5 text-slate-800 shadow-sm border border-slate-200/80 leading-relaxed dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
+                      <p className="font-semibold text-slate-900 dark:text-white mb-1">Hello! 👋</p>
                       <p>Welcome to <strong>My Merchant Navy Support</strong>. How can we help you today? Please choose an issue below to get started:</p>
                     </div>
                   </div>
@@ -479,17 +479,17 @@ export function SupportChatbot() {
                   <div className="space-y-2 pl-10 pr-1 animate-in fade-in slide-in-from-bottom-2 duration-200">
                     {/* Faculty Replies Callout if any */}
                     {repliedQueries.length > 0 && (
-                      <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 space-y-2 shadow-xs">
-                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
-                          <CheckCircle2 className="size-4 text-emerald-600" />
+                      <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 space-y-2 shadow-xs dark:border-emerald-800/40 dark:bg-emerald-950/20">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800 dark:text-emerald-300">
+                          <CheckCircle2 className="size-4 text-emerald-600 dark:text-emerald-400" />
                           Faculty Answers to your doubts:
                         </div>
                         {repliedQueries.slice(0, 2).map((rq: any) => (
-                          <div key={rq.id} className="rounded-lg bg-white p-2.5 text-xs space-y-1 border border-emerald-100 shadow-xs">
-                            <div className="text-[10px] font-bold text-slate-500 uppercase">{rq.category} • You asked:</div>
-                            <p className="text-slate-700 italic text-[11px] line-clamp-2">"{rq.message}"</p>
-                            <div className="pt-1.5 border-t border-slate-100 text-emerald-950 font-medium">
-                              <span className="font-bold text-emerald-700">Answer: </span>
+                          <div key={rq.id} className="rounded-lg bg-white p-2.5 text-xs space-y-1 border border-emerald-100 shadow-xs dark:bg-slate-800 dark:border-slate-700">
+                            <div className="text-[10px] font-bold text-slate-500 uppercase dark:text-slate-400">{rq.category} • You asked:</div>
+                            <p className="text-slate-700 italic text-[11px] line-clamp-2 dark:text-slate-300">"{rq.message}"</p>
+                            <div className="pt-1.5 border-t border-slate-100 text-emerald-950 font-medium dark:border-slate-700 dark:text-emerald-300">
+                              <span className="font-bold text-emerald-700 dark:text-emerald-400">Answer: </span>
                               {rq.admin_reply}
                             </div>
                           </div>
@@ -497,7 +497,7 @@ export function SupportChatbot() {
                       </div>
                     )}
 
-                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
+                    <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2 dark:text-slate-400">
                       Select your inquiry or issue:
                     </p>
                     {CATEGORIES.map((cat) => {
@@ -507,22 +507,22 @@ export function SupportChatbot() {
                         <button
                           key={cat.id}
                           onClick={() => handleSelectCategory(cat)}
-                          className={`group flex w-full items-start gap-3 rounded-xl border p-3 text-left shadow-sm transition-all duration-200 hover:shadow-md active:scale-[0.99] ${
+                          className={`group flex w-full items-start gap-3 rounded-xl border p-3 text-left shadow-xs transition-all duration-200 hover:shadow-md active:scale-[0.99] ${
                             isWa 
-                              ? "border-emerald-200 bg-emerald-50/50 hover:border-emerald-500 hover:bg-emerald-50" 
-                              : "border-line bg-white hover:border-brand-400 hover:bg-brand-50/40"
+                              ? "border-emerald-200 bg-emerald-50/50 hover:border-emerald-500 hover:bg-emerald-50 dark:border-emerald-800/40 dark:bg-emerald-950/20 dark:hover:bg-emerald-950/40" 
+                              : "border-line bg-white hover:border-brand-400 hover:bg-brand-50/40 dark:border-slate-800 dark:bg-slate-800/80 dark:hover:bg-slate-800"
                           }`}
                         >
                           <div className={`flex size-8 shrink-0 items-center justify-center rounded-lg transition-colors ${
                             isWa 
-                              ? "bg-emerald-100 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white" 
-                              : "bg-slate-100 text-slate-700 group-hover:bg-brand-600 group-hover:text-white"
+                              ? "bg-emerald-100 text-emerald-700 group-hover:bg-emerald-600 group-hover:text-white dark:bg-emerald-900/50 dark:text-emerald-300" 
+                              : "bg-slate-100 text-slate-700 group-hover:bg-brand-600 group-hover:text-white dark:bg-slate-700 dark:text-slate-200"
                           }`}>
                             <Icon className="size-4" />
                           </div>
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between">
-                              <h4 className="text-sm font-semibold text-slate-900 group-hover:text-brand-700 transition-colors">
+                              <h4 className="text-sm font-semibold text-slate-900 group-hover:text-brand-700 transition-colors dark:text-slate-100 dark:group-hover:text-sky-300">
                                 {cat.title}
                               </h4>
                               {isWa && (
@@ -531,7 +531,7 @@ export function SupportChatbot() {
                                 </span>
                               )}
                             </div>
-                            <p className="text-xs text-slate-500 line-clamp-1 mt-0.5">
+                            <p className="text-xs text-slate-500 line-clamp-1 mt-0.5 dark:text-slate-400">
                               {cat.description}
                             </p>
                           </div>
@@ -544,7 +544,7 @@ export function SupportChatbot() {
                 {/* User Selected Category Bubble */}
                 {step !== "menu" && selectedCategory && (
                   <div className="flex justify-end">
-                    <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-gradient-to-r from-navy-900 to-brand-700 px-4 py-2 text-white shadow-sm font-medium text-xs">
+                    <div className="max-w-[80%] rounded-2xl rounded-tr-sm bg-gradient-to-r from-navy-900 to-brand-700 px-4 py-2 text-white shadow-xs font-medium text-xs">
                       {selectedCategory.title}
                     </div>
                   </div>
@@ -554,66 +554,66 @@ export function SupportChatbot() {
                 {step === "form" && selectedCategory && (
                   <>
                     <div className="flex items-start gap-2.5">
-                      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold text-xs border border-brand-200">
+                      <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-brand-100 text-brand-700 font-semibold text-xs border border-brand-200 dark:bg-brand-950/60 dark:text-brand-300 dark:border-brand-800">
                         <Bot className="size-4" />
                       </div>
-                      <div className="rounded-2xl rounded-tl-sm bg-white p-3.5 text-slate-800 shadow-sm border border-slate-200/80 leading-relaxed max-w-[88%]">
+                      <div className="rounded-2xl rounded-tl-sm bg-white p-3.5 text-slate-800 shadow-sm border border-slate-200/80 leading-relaxed max-w-[88%] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
                         <p>
                           Please fill in your details below. You can chat on WhatsApp inside this bot or submit via Email:
                         </p>
                       </div>
                     </div>
 
-                    <div className="ml-10 rounded-2xl border border-line bg-white p-4 shadow-sm space-y-3">
+                    <div className="ml-10 rounded-2xl border border-line bg-white p-4 shadow-sm space-y-3 dark:border-slate-700 dark:bg-slate-800/80">
                       {errorMsg && (
-                        <div className="rounded-lg bg-rose-50 border border-rose-200 p-2 text-xs text-rose-700">
+                        <div className="rounded-lg bg-rose-50 border border-rose-200 p-2 text-xs text-rose-700 dark:bg-rose-950/40 dark:border-rose-800 dark:text-rose-300">
                           {errorMsg}
                         </div>
                       )}
 
                       <div className="grid grid-cols-1 gap-2.5">
                         <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1">Your Name</label>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Your Name</label>
                           <input
                             type="text"
                             value={name}
                             onChange={(e) => setName(e.target.value)}
                             placeholder="e.g. Rahul Sharma"
-                            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                            className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:bg-slate-900 dark:border-slate-700 dark:text-white dark:placeholder-slate-400"
                           />
                         </div>
 
                         <div className="grid grid-cols-2 gap-2">
                           <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Email</label>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Email</label>
                             <input
                               type="email"
                               value={email}
                               onChange={(e) => setEmail(e.target.value)}
                               placeholder="student@example.com"
-                              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:bg-slate-900 dark:border-slate-700 dark:text-white dark:placeholder-slate-400"
                             />
                           </div>
                           <div>
-                            <label className="block text-xs font-semibold text-slate-700 mb-1">Phone / WhatsApp</label>
+                            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Phone / WhatsApp</label>
                             <input
                               type="tel"
                               value={phone}
                               onChange={(e) => setPhone(e.target.value)}
                               placeholder="e.g. 9876543210"
-                              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                              className="w-full rounded-lg border border-slate-200 px-3 py-1.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:bg-slate-900 dark:border-slate-700 dark:text-white dark:placeholder-slate-400"
                             />
                           </div>
                         </div>
 
                         <div>
-                          <label className="block text-xs font-semibold text-slate-700 mb-1">Describe Your Issue / Question</label>
+                          <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">Describe Your Issue / Question</label>
                           <textarea
                             rows={3}
                             value={message}
                             onChange={(e) => setMessage(e.target.value)}
                             placeholder="Describe what issue you are facing..."
-                            className="w-full rounded-lg border border-slate-200 p-2.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500"
+                            className="w-full rounded-lg border border-slate-200 p-2.5 text-xs text-slate-900 focus:border-brand-500 focus:outline-none focus:ring-1 focus:ring-brand-500 dark:bg-slate-900 dark:border-slate-700 dark:text-white dark:placeholder-slate-400"
                           />
                         </div>
                       </div>
@@ -626,7 +626,7 @@ export function SupportChatbot() {
                             setWhatsappInput(message);
                             setStep("whatsapp_chat");
                           }}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#075e54] px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-[#0c7064] hover:shadow-md active:scale-[0.99]"
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#075e54] px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-[#0c7064] hover:shadow-md active:scale-[0.99]"
                         >
                           <Phone className="size-4" />
                           Chat on WhatsApp Inside Bot
@@ -636,7 +636,7 @@ export function SupportChatbot() {
                           type="button"
                           disabled={submitting}
                           onClick={handleSendEmail}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:bg-brand-700 hover:shadow-md active:scale-[0.99] disabled:opacity-60"
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-brand-600 px-4 py-2.5 text-xs font-bold text-white shadow-xs transition-all hover:bg-brand-700 hover:shadow-md active:scale-[0.99] disabled:opacity-60"
                         >
                           {submitting ? (
                             <>
@@ -656,7 +656,7 @@ export function SupportChatbot() {
                         <button
                           type="button"
                           onClick={resetToMenu}
-                          className="flex items-center gap-1 text-xs text-slate-500 hover:text-brand-600 transition-colors"
+                          className="flex items-center gap-1 text-xs text-slate-500 hover:text-brand-600 transition-colors dark:text-slate-400 dark:hover:text-white"
                         >
                           <ArrowLeft className="size-3" />
                           Back to raise other issues
@@ -669,18 +669,18 @@ export function SupportChatbot() {
                 {/* STEP 3: Submitted Confirmation Screen */}
                 {step === "submitted" && (
                   <div className="flex items-start gap-2.5">
-                    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 font-semibold text-xs border border-emerald-200">
+                    <div className="flex size-8 shrink-0 items-center justify-center rounded-full bg-emerald-100 text-emerald-600 font-semibold text-xs border border-emerald-200 dark:bg-emerald-950/60 dark:text-emerald-400 dark:border-emerald-800">
                       <CheckCircle2 className="size-4" />
                     </div>
-                    <div className="rounded-2xl rounded-tl-sm bg-white p-4 text-slate-800 shadow-sm border border-emerald-100 space-y-2.5 max-w-[88%]">
-                      <div className="flex items-center gap-1.5 text-emerald-700 font-bold text-sm">
+                    <div className="rounded-2xl rounded-tl-sm bg-white p-4 text-slate-800 shadow-sm border border-emerald-100 space-y-2.5 max-w-[88%] dark:bg-slate-800 dark:border-slate-700 dark:text-slate-200">
+                      <div className="flex items-center gap-1.5 text-emerald-700 dark:text-emerald-400 font-bold text-sm">
                         <CheckCircle2 className="size-4" />
                         Query Submitted Successfully!
                       </div>
-                      <p className="text-xs text-slate-600 leading-relaxed">
-                        Thank you, <strong>{name || "Student"}</strong>. Your query has been delivered directly to our academic faculty desk at <span className="font-semibold text-navy-900">{config.support_email}</span>.
+                      <p className="text-xs text-slate-600 dark:text-slate-300 leading-relaxed">
+                        Thank you, <strong>{name || "Student"}</strong>. Your query has been delivered directly to our academic faculty desk at <span className="font-semibold text-navy-900 dark:text-white">{config.support_email}</span>.
                       </p>
-                      <p className="text-xs text-slate-500 leading-relaxed">
+                      <p className="text-xs text-slate-500 dark:text-slate-400 leading-relaxed">
                         We will reply directly to your email shortly. You can also chat with our counselor right here:
                       </p>
                       
@@ -690,7 +690,7 @@ export function SupportChatbot() {
                             setWhatsappInput(`Following up on query: ${message}`);
                             setStep("whatsapp_chat");
                           }}
-                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#075e54] px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-[#0c7064] transition-all"
+                          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[#075e54] px-4 py-2 text-xs font-bold text-white shadow-xs hover:bg-[#0c7064] transition-all"
                         >
                           <Phone className="size-3.5" />
                           Chat with Counselor on WhatsApp
@@ -698,7 +698,7 @@ export function SupportChatbot() {
 
                         <button
                           onClick={resetToMenu}
-                          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-all"
+                          className="flex w-full items-center justify-center gap-1.5 rounded-xl border border-slate-200 bg-slate-50 px-4 py-2 text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-all dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
                         >
                           <ArrowLeft className="size-3.5" />
                           Back to Raise Another Issue
@@ -714,7 +714,7 @@ export function SupportChatbot() {
           {/* Chat Footer / Input area */}
           {step === "whatsapp_chat" ? (
             /* WhatsApp Input Bar inside Chatbot */
-            <div className="border-t border-slate-200 bg-[#f0f2f5] p-2.5">
+            <div className="border-t border-slate-200 bg-[#f0f2f5] p-2.5 shrink-0 dark:border-slate-800 dark:bg-[#1f2c34]">
               <div className="flex items-center gap-2">
                 <input
                   type="text"
@@ -727,29 +727,29 @@ export function SupportChatbot() {
                     }
                   }}
                   placeholder="Type your WhatsApp message..."
-                  className="flex-1 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500"
+                  className="flex-1 rounded-full border border-slate-300 bg-white px-4 py-2 text-xs text-slate-900 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 dark:border-slate-700 dark:bg-[#2a3942] dark:text-white dark:placeholder-slate-400"
                 />
                 <button
                   onClick={handleSendInChatWhatsApp}
                   disabled={submitting || !whatsappInput.trim()}
-                  className="flex size-9 items-center justify-center rounded-full bg-[#075e54] text-white shadow-sm hover:bg-[#0c7064] active:scale-95 transition disabled:opacity-50"
+                  className="flex size-9 items-center justify-center rounded-full bg-[#075e54] text-white shadow-xs hover:bg-[#0c7064] active:scale-95 transition disabled:opacity-50"
                   title="Send message"
                 >
                   {submitting ? <Loader2 className="size-4 animate-spin" /> : <Send className="size-4" />}
                 </button>
               </div>
 
-              <div className="flex items-center justify-between mt-2 px-1 text-[11px] text-slate-500">
+              <div className="flex items-center justify-between mt-2 px-1 text-[11px] text-slate-500 dark:text-slate-400">
                 <button
                   onClick={resetToMenu}
-                  className="inline-flex items-center gap-1 font-semibold text-slate-600 hover:text-slate-900"
+                  className="inline-flex items-center gap-1 font-semibold text-slate-600 hover:text-slate-900 dark:text-slate-300 dark:hover:text-white"
                 >
                   <ArrowLeft className="size-3" />
                   Raise another issue
                 </button>
                 <button
                   onClick={() => openExternalWhatsApp()}
-                  className="inline-flex items-center gap-1 text-[10px] text-emerald-700 hover:underline"
+                  className="inline-flex items-center gap-1 text-[10px] text-emerald-700 hover:underline dark:text-emerald-400 dark:hover:text-emerald-300"
                   title="Open external WhatsApp app"
                 >
                   Open WhatsApp App
@@ -759,12 +759,12 @@ export function SupportChatbot() {
             </div>
           ) : (
             /* Standard LMS Footer */
-            <div className="border-t border-slate-100 bg-white px-4 py-2 text-center flex items-center justify-between text-[11px] text-slate-400">
+            <div className="border-t border-slate-100 bg-white px-4 py-2 text-center flex items-center justify-between text-[11px] text-slate-400 shrink-0 dark:border-slate-800 dark:bg-slate-900 dark:text-slate-500">
               <span>My Merchant Navy Support Desk</span>
               {step !== "menu" && (
                 <button
                   onClick={resetToMenu}
-                  className="text-brand-600 hover:underline font-semibold"
+                  className="text-brand-600 hover:underline font-semibold dark:text-brand-400"
                 >
                   Raise another issue
                 </button>
