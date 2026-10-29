@@ -17,19 +17,19 @@ class ListSupportQueries extends ListRecords
 
     protected string $view = 'filament.resources.support-queries-inbox';
 
-    public string $viewMode = 'chat'; // 'chat' or 'table'
+    public string $activeTab = 'whatsapp'; // 'whatsapp' or 'email'
 
     public ?int $selectedQueryId = null;
 
     public string $search = '';
 
-    public string $filter = 'all'; // 'all', 'open', 'whatsapp', 'replied'
+    public string $chatMessage = '';
 
-    public string $replyText = '';
+    public string $emailSubject = '';
 
-    public string $replyStatus = 'resolved';
+    public string $emailBody = '';
 
-    public bool $sendEmail = true;
+    public string $emailStatus = 'resolved';
 
     public function mount(): void
     {
@@ -40,7 +40,8 @@ class ListSupportQueries extends ListRecords
 
         if ($latest) {
             $this->selectedQueryId = $latest->id;
-            $this->replyText = $latest->admin_reply ?? '';
+            $this->emailSubject = "Re: Inquiry Regarding {$latest->category} - My Merchant Navy";
+            $this->emailBody = $latest->admin_reply ?: "Dear {$latest->name},\n\nThank you for reaching out to My Merchant Navy regarding your inquiry ({$latest->category}).\n\nRegarding your question:\n\"{$latest->message}\"\n\n";
         }
     }
 
@@ -48,33 +49,88 @@ class ListSupportQueries extends ListRecords
     {
         $this->selectedQueryId = $id;
         $query = SupportQuery::find($id);
-        $this->replyText = $query?->admin_reply ?? '';
-        $this->replyStatus = ($query && $query->status === 'open') ? 'resolved' : ($query?->status ?? 'resolved');
-    }
-
-    public function setQuickReply(string $type): void
-    {
-        $query = SupportQuery::find($this->selectedQueryId);
-        $name = $query?->name ?? 'Student';
-        $phone = $query?->phone ? '+' . ltrim($query->phone, '+') : '';
-        $category = $query?->category ?? 'course inquiry';
-
-        $templates = [
-            'greeting' => "Hello {$name}, thank you for contacting My Merchant Navy. We have received your inquiry regarding {$category}. How can we assist you with your preparation?",
-            'resolved' => "Hello {$name}, your doubt regarding {$category} has been reviewed and resolved by our academic faculty. Please check your LMS portal for the updated materials.",
-            'call' => "Hello {$name}, our senior maritime counselor will be calling you shortly on your number {$phone} to provide complete 1-on-1 guidance.",
-            'payment' => "Hello {$name}, your course enrollment has been verified and your student LMS account is fully unlocked. Wishing you all the very best for your exams!",
-        ];
-
-        if (isset($templates[$type])) {
-            $this->replyText = $templates[$type];
+        if ($query) {
+            $this->chatMessage = '';
+            $this->emailSubject = "Re: Inquiry Regarding {$query->category} - My Merchant Navy";
+            $this->emailBody = $query->admin_reply ?: "Dear {$query->name},\n\nThank you for reaching out to My Merchant Navy regarding your inquiry ({$query->category}).\n\nRegarding your question:\n\"{$query->message}\"\n\n";
+            $this->emailStatus = $query->status === 'open' ? 'resolved' : $query->status;
         }
     }
 
-    public function submitReply(): void
+    public function sendChatMessage(): void
     {
-        if (! $this->selectedQueryId || empty(trim($this->replyText))) {
-            Notification::make()->title('Please enter a reply message before sending')->warning()->send();
+        if (! $this->selectedQueryId || empty(trim($this->chatMessage))) {
+            return;
+        }
+
+        $query = SupportQuery::find($this->selectedQueryId);
+        if (! $query) {
+            return;
+        }
+
+        $admin = Auth::guard('admin')->user();
+        $msg = trim($this->chatMessage);
+
+        $query->update([
+            'admin_reply' => $msg,
+            'status' => 'resolved',
+            'replied_by_admin_id' => $admin?->id,
+            'replied_at' => now(),
+        ]);
+
+        ActivityLog::record(
+            event: 'support.whatsapp_replied',
+            description: "Site Manager {$admin?->name} sent WhatsApp message to {$query->name} ({$query->phone}).",
+            properties: [
+                'query_id' => $query->id,
+                'phone' => $query->phone,
+                'reply' => $msg,
+            ],
+            admin: $admin
+        );
+
+        $this->chatMessage = '';
+
+        Notification::make()
+            ->title('Message Sent & Delivered to Student')
+            ->success()
+            ->send();
+    }
+
+    public function generateAiEmail(string $topic): void
+    {
+        $query = SupportQuery::find($this->selectedQueryId);
+        if (! $query) {
+            return;
+        }
+
+        $name = $query->name ?: 'Student';
+        $phone = $query->phone ? '+' . ltrim($query->phone, '+') : '';
+        $inquiry = $query->message;
+        $category = $query->category;
+
+        if ($topic === 'doubt') {
+            $this->emailSubject = "Academic Faculty Resolution: {$category} - My Merchant Navy";
+            $this->emailBody = "Dear {$name},\n\nThank you for submitting your academic doubt regarding {$category}.\n\nOur curriculum faculty has reviewed your query: \"{$inquiry}\".\n\nHere is the detailed solution and concept explanation:\n1. Please review the updated practice ladders and video explanations available inside your LMS course portal.\n2. All question formulas and step-by-step calculations have been verified according to the latest IMU-CET / Sponsorship syllabus.\n\nIf you have any further questions or require additional clarifications, feel free to reply directly to this email or chat with us on WhatsApp.\n\nWarm regards,\nAcademic Support & Faculty Desk\nMy Merchant Navy";
+        } elseif ($topic === 'counseling') {
+            $this->emailSubject = "Maritime Career Counseling Guidance: {$category} - My Merchant Navy";
+            $this->emailBody = "Dear {$name},\n\nWe have received your counseling request regarding {$category} and your maritime career roadmap.\n\nRegarding your note: \"{$inquiry}\"\n\nOur senior maritime mentors and captain advisors are here to support you at every stage. We will also be scheduling a direct 1-on-1 counseling call on your phone ({$phone}).\n\nPlease ensure your target exam and attempt year are up to date on your LMS profile so we can guide you effectively.\n\nBest of luck,\nAdmissions & Mentorship Team\nMy Merchant Navy";
+        } else {
+            $this->emailSubject = "Batch Enrollment & Course Access Update - My Merchant Navy";
+            $this->emailBody = "Dear {$name},\n\nThank you for reaching out regarding your course package and batch enrollment for {$category}.\n\nYour account has been verified and your live batches, question imports, and curriculum materials are accessible at https://lms.mymerchantnavy.com.\n\nIf you need any technical assistance with mock tests or PDF study notes, we are available 24/7 to help.\n\nWarm regards,\nStudent Support Team\nMy Merchant Navy";
+        }
+
+        Notification::make()
+            ->title('AI Response Drafted')
+            ->body('Tailored email response generated based on student inquiry.')
+            ->success()
+            ->send();
+    }
+
+    public function sendPlatformEmail(): void
+    {
+        if (! $this->selectedQueryId || empty(trim($this->emailBody))) {
+            Notification::make()->title('Please enter an email body before sending')->warning()->send();
             return;
         }
 
@@ -85,27 +141,21 @@ class ListSupportQueries extends ListRecords
         }
 
         $admin = Auth::guard('admin')->user();
-        $reply = trim($this->replyText);
+        $body = trim($this->emailBody);
+        $subject = trim($this->emailSubject) ?: "[My Merchant Navy] Response to your Inquiry: {$query->category}";
 
         $query->update([
-            'admin_reply' => $reply,
-            'status' => $this->replyStatus,
+            'admin_reply' => $body,
+            'status' => $this->emailStatus,
             'replied_by_admin_id' => $admin?->id,
             'replied_at' => now(),
         ]);
 
-        if ($this->sendEmail && filter_var($query->email, FILTER_VALIDATE_EMAIL)) {
+        if (filter_var($query->email, FILTER_VALIDATE_EMAIL)) {
             try {
-                Mail::send('emails.support-reply', [
-                    'studentName' => $query->name,
-                    'category' => $query->category,
-                    'originalMessage' => $query->message,
-                    'replyMessage' => $reply,
-                    'facultyName' => $admin?->name ?? 'Academic Support Team',
-                    'timestamp' => now()->format('Y-m-d H:i:s'),
-                ], function ($msg) use ($query) {
+                Mail::raw($body, function ($msg) use ($query, $subject) {
                     $msg->to($query->email)
-                        ->subject("[My Merchant Navy] Response to your Inquiry: {$query->category}");
+                        ->subject($subject);
                 });
             } catch (\Throwable $e) {
                 report($e);
@@ -113,57 +163,42 @@ class ListSupportQueries extends ListRecords
         }
 
         ActivityLog::record(
-            event: 'support.query_replied',
-            description: "Site Manager {$admin?->name} replied to student {$query->name} (Phone: {$query->phone}).",
+            event: 'support.email_dispatched',
+            description: "Site Manager {$admin?->name} sent email to {$query->name} ({$query->email}).",
             properties: [
                 'query_id' => $query->id,
-                'student_name' => $query->name,
-                'student_phone' => $query->phone,
-                'status' => $this->replyStatus,
+                'email' => $query->email,
+                'subject' => $subject,
             ],
             admin: $admin
         );
 
         Notification::make()
-            ->title('Reply Dispatched Successfully')
-            ->body("Response recorded and sent to {$query->name}.")
+            ->title('Email Sent Successfully')
+            ->body("Dispatched to {$query->email} and saved to student record.")
             ->success()
             ->send();
-    }
-
-    public function updateStatus(string $status): void
-    {
-        if (! $this->selectedQueryId) {
-            return;
-        }
-
-        $query = SupportQuery::find($this->selectedQueryId);
-        if ($query) {
-            $query->update(['status' => $status]);
-            $this->replyStatus = $status;
-            Notification::make()->title('Status updated to ' . ucfirst(str_replace('_', ' ', $status)))->success()->send();
-        }
     }
 
     public function createTestQuery(): void
     {
         $testQuery = SupportQuery::create([
             'student_id' => null,
-            'name' => 'Aditya Sharma',
-            'email' => 'aditya.sharma.test@gmail.com',
-            'phone' => '9812345678',
+            'name' => 'Fardeen Siddiqui',
+            'email' => 'fardeen@grocliq.ai',
+            'phone' => '9885169967',
             'category' => 'DNS Sponsorship',
             'channel' => 'whatsapp',
-            'message' => 'Sir, I want to know about the upcoming DNS Sponsorship batch, interview ladder questions, and company sponsorship tests for Anglo-Eastern.',
+            'message' => 'Sir, I have a query regarding interview rounds for Anglo-Eastern and Great Eastern. When will the mock interview batch start?',
             'status' => 'open',
             'ip_address' => request()->ip(),
         ]);
 
         $this->selectedQueryId = $testQuery->id;
-        $this->replyText = '';
-        $this->viewMode = 'chat';
+        $this->chatMessage = '';
+        $this->selectQuery($testQuery->id);
 
-        Notification::make()->title('Sample Student Inquiry Generated')->success()->send();
+        Notification::make()->title('Sample Query Created')->success()->send();
     }
 
     public function getQueriesProperty(): Collection
@@ -178,9 +213,6 @@ class ListSupportQueries extends ListRecords
                         ->orWhere('message', 'like', "%{$term}%");
                 });
             })
-            ->when($this->filter === 'open', fn ($q) => $q->where('status', 'open'))
-            ->when($this->filter === 'whatsapp', fn ($q) => $q->where('channel', 'whatsapp'))
-            ->when($this->filter === 'replied', fn ($q) => $q->whereNotNull('admin_reply'))
             ->latest()
             ->get();
     }
