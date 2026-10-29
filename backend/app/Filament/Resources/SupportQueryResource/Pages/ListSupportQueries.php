@@ -27,7 +27,7 @@ class ListSupportQueries extends ListRecords
 
     public string $chatMessage = '';
 
-    // Editable email fields (can be typed manually or auto-filled from selected query)
+    // Editable email fields
     public string $recipientEmail = '';
 
     public string $recipientName = '';
@@ -236,27 +236,6 @@ class ListSupportQueries extends ListRecords
             ->body("Dispatched via Brevo to {$recipient}.")
             ->success()
             ->send();
-    }
-
-    public function createTestQuery(): void
-    {
-        $testQuery = SupportQuery::create([
-            'student_id' => null,
-            'name' => 'Fardeen Siddiqui',
-            'email' => 'fardeen@grocliq.ai',
-            'phone' => '9910361271',
-            'category' => 'DNS Sponsorship',
-            'channel' => 'whatsapp',
-            'message' => 'Sir, I have a query regarding interview rounds for Anglo-Eastern and Great Eastern. When will the mock interview batch start?',
-            'status' => 'open',
-            'ip_address' => request()->ip(),
-        ]);
-
-        $this->selectedQueryId = $testQuery->id;
-        $this->chatMessage = '';
-        $this->selectQuery($testQuery->id);
-
-        Notification::make()->title('Sample Query Created')->success()->send();
     }
 
     public function getQueriesProperty(): Collection

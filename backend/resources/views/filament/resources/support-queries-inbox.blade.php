@@ -19,7 +19,7 @@
 
         /* 1. Leftmost Icon Rail (WhatsApp Web Style) */
         .mmn-icon-rail {
-            width: 64px;
+            width: 60px;
             background: #f0f2f5;
             display: flex;
             flex-direction: column;
@@ -42,8 +42,8 @@
         }
         .mmn-rail-btn {
             position: relative;
-            width: 44px;
-            height: 44px;
+            width: 42px;
+            height: 42px;
             border-radius: 12px;
             display: flex;
             align-items: center;
@@ -105,7 +105,7 @@
 
         /* 2. Conversations Sidebar */
         .mmn-list-pane {
-            width: 340px;
+            width: 330px;
             background: #ffffff;
             border-right: 1px solid #e9edef;
             display: flex;
@@ -291,7 +291,7 @@
             color: #8696a0;
         }
 
-        /* 3. Main Chat Viewport (WhatsApp Web) */
+        /* 3. Main Chat Viewport */
         .mmn-chat-pane {
             flex: 1;
             display: flex;
@@ -306,12 +306,13 @@
             background-image: radial-gradient(#1f2c34 0.8px, transparent 0.8px);
         }
         .mmn-chat-header {
-            padding: 10px 18px;
+            padding: 12px 18px;
             background: #f0f2f5;
             border-bottom: 1px solid #e9edef;
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 16px;
             shrink: 0;
         }
         .dark .mmn-chat-header {
@@ -322,14 +323,14 @@
             display: flex;
             align-items: center;
             gap: 12px;
+            min-width: 0;
+            flex: 1;
         }
         .mmn-chat-phone-title {
             font-size: 16px;
             font-weight: 800;
             color: #111b21;
-            display: flex;
-            align-items: center;
-            gap: 8px;
+            white-space: nowrap;
         }
         .dark .mmn-chat-phone-title {
             color: #e9edef;
@@ -337,6 +338,9 @@
         .mmn-chat-subtitle {
             font-size: 12px;
             color: #667781;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
         }
         .dark .mmn-chat-subtitle {
             color: #8696a0;
@@ -345,6 +349,7 @@
             display: flex;
             align-items: center;
             gap: 8px;
+            shrink: 0;
         }
         .mmn-wa-btn {
             display: inline-flex;
@@ -352,11 +357,12 @@
             gap: 6px;
             background: #25d366;
             color: #ffffff;
-            font-size: 12px;
+            font-size: 13px;
             font-weight: 700;
             padding: 8px 14px;
             border-radius: 8px;
             text-decoration: none;
+            white-space: nowrap;
             transition: background 0.15s;
         }
         .mmn-wa-btn:hover {
@@ -474,7 +480,7 @@
             background: #ffffff;
             border: 1px solid #d1d5db;
             color: #374151;
-            padding: 3px 8px;
+            padding: 4px 10px;
             border-radius: 12px;
             font-size: 11px;
             font-weight: 600;
@@ -534,7 +540,7 @@
             border: none;
             border-radius: 8px;
             padding: 10px 16px;
-            font-size: 14px;
+            font-size: 13px;
             color: #111b21;
             outline: none;
         }
@@ -723,7 +729,7 @@
     @endphp
 
     <div class="mmn-comm-wrapper">
-        {{-- 1. LEFT ICON RAIL (WhatsApp Web Signature Rail) --}}
+        {{-- 1. LEFT ICON RAIL --}}
         <div class="mmn-icon-rail">
             <div class="mmn-rail-top">
                 {{-- WhatsApp Icon Button --}}
@@ -765,27 +771,17 @@
         <div class="mmn-list-pane">
             <div class="mmn-list-header">
                 <div class="mmn-list-title">
-                    <span>{{ $activeTab === 'whatsapp' ? 'WhatsApp Chats' : 'Student Inquiries' }}</span>
-                    <div style="display: flex; gap: 4px;">
-                        @if ($activeTab === 'email')
-                            <button
-                                type="button"
-                                wire:click="newEmailCompose"
-                                style="font-size: 11px; background: #2563eb; color: #fff; padding: 4px 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: 700;"
-                                title="Compose email to any student address"
-                            >
-                                + New Mail
-                            </button>
-                        @endif
+                    <span>{{ $activeTab === 'whatsapp' ? 'Student Chats' : 'Student Inquiries' }}</span>
+                    @if ($activeTab === 'email')
                         <button
                             type="button"
-                            wire:click="createTestQuery"
-                            style="font-size: 11px; background: #00a884; color: #fff; padding: 4px 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: 700;"
-                            title="Generate test student inquiry"
+                            wire:click="newEmailCompose"
+                            style="font-size: 11px; background: #2563eb; color: #fff; padding: 4px 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: 700;"
+                            title="Compose email to any student address"
                         >
-                            + New Query
+                            + New Mail
                         </button>
-                    </div>
+                    @endif
                 </div>
 
                 <div class="mmn-search-box">
@@ -796,7 +792,7 @@
                     <input
                         type="text"
                         wire:model.live.debounce.300ms="search"
-                        placeholder="Search name, mobile number..."
+                        placeholder="Search student name, phone..."
                         class="mmn-search-input"
                     />
                 </div>
@@ -871,15 +867,8 @@
                         <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 10px; opacity: 0.6;">
                             <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
                         </svg>
-                        <p style="font-weight: 600; margin: 0 0 4px;">No support queries found</p>
-                        <p style="font-size: 11px; margin: 0 0 12px; color: #667781;">Student doubts and WhatsApp inquiries will appear here.</p>
-                        <button
-                            type="button"
-                            wire:click="createTestQuery"
-                            style="background: #00a884; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer;"
-                        >
-                            + Generate Sample Query
-                        </button>
+                        <p style="font-weight: 700; margin: 0 0 4px; color: #111b21;">No support inquiries found</p>
+                        <p style="font-size: 12px; margin: 0; color: #667781;">Student doubts and WhatsApp queries raised via LMS will appear here.</p>
                     </div>
                 @endforelse
             </div>
@@ -906,18 +895,22 @@
                         $waDirectUrl = "https://wa.me/{$cleanPhone}?text=" . urlencode("Hello {$activeQuery->name}, this is from My Merchant Navy regarding your inquiry ({$activeQuery->category}).");
                     @endphp
 
-                    {{-- WhatsApp Header --}}
+                    {{-- WhatsApp Header with Zero Wrapping & Clean Alignments --}}
                     <div class="mmn-chat-header">
                         <div class="mmn-chat-student-info">
-                            <div class="mmn-convo-avatar" style="width: 42px; height: 42px;">
+                            <div class="mmn-convo-avatar" style="width: 44px; height: 44px; font-size: 17px; shrink: 0;">
                                 {{ strtoupper(substr($activeQuery->name ?: 'S', 0, 1)) }}
                             </div>
-                            <div>
-                                <div class="mmn-chat-phone-title">
-                                    <span>{{ $headerPhone }}</span>
-                                    <span style="font-size: 11px; background: rgba(0, 168, 132, 0.15); color: #00a884; padding: 2px 8px; border-radius: 4px; font-weight: 700;">{{ $activeQuery->category }}</span>
+                            <div style="min-width: 0;">
+                                <div style="display: flex; align-items: center; gap: 8px; flex-wrap: nowrap;">
+                                    <span class="mmn-chat-phone-title">
+                                        {{ $headerPhone }}
+                                    </span>
+                                    <span style="font-size: 11px; background: rgba(0, 168, 132, 0.15); color: #008069; padding: 3px 8px; border-radius: 6px; font-weight: 700; white-space: nowrap; max-width: 220px; overflow: hidden; text-overflow: ellipsis;">
+                                        {{ $activeQuery->category }}
+                                    </span>
                                 </div>
-                                <div class="mmn-chat-subtitle">
+                                <div class="mmn-chat-subtitle" style="margin-top: 2px;">
                                     {{ $activeQuery->name }} · {{ $activeQuery->email }} · Student Aspirant
                                 </div>
                             </div>
@@ -934,14 +927,14 @@
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                                     <path d="M12.004 2c-5.523 0-10 4.477-10 10 0 1.767.458 3.428 1.258 4.873l-1.332 4.864 4.985-1.307c1.401.765 3.007 1.2 4.708 1.2 5.523 0 10-4.477 10-10s-4.477-10-10-10z"/>
                                 </svg>
-                                Chat on WhatsApp Web
+                                <span>Chat on WhatsApp Web</span>
                             </a>
                             <a
                                 href="{{ $waDirectUrl }}"
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: #00a884; text-decoration: none; padding: 6px 10px; border-radius: 6px; background: rgba(0, 168, 132, 0.1);"
-                                title="Direct WhatsApp link"
+                                style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; color: #008069; text-decoration: none; padding: 8px 12px; border-radius: 8px; background: rgba(0, 168, 132, 0.12); white-space: nowrap;"
+                                title="Direct WhatsApp App Link"
                             >
                                 📱 App Link
                             </a>
@@ -950,7 +943,7 @@
 
                     {{-- WhatsApp Messages Viewport --}}
                     <div class="mmn-messages-box">
-                        {{-- Security Encryption Notice --}}
+                        {{-- Security Notice --}}
                         <div class="mmn-security-notice">
                             🔒 Messages are synced securely with LMS Support. Student asked via LMS Chatbot.
                         </div>
@@ -996,7 +989,7 @@
                             wire:click="insertChatSnippet('Hello {{ $activeQuery->name }}, your academic doubt has been reviewed by our faculty. Please check your LMS portal for the step-by-step solution.')"
                             class="mmn-snippet-btn"
                         >
-                            💡 Concept Solved
+                            💡 Doubt Solved
                         </button>
                         <button
                             type="button"
@@ -1017,7 +1010,7 @@
                             wire:click="insertChatSnippet('Hello {{ $activeQuery->name }}, we have sent a detailed official resolution to your email ({{ $activeQuery->email }}). Please check your inbox.')"
                             class="mmn-snippet-btn"
                         >
-                            ✉️ Check Email
+                            ✉️ Email Sent
                         </button>
                     </div>
 
@@ -1046,7 +1039,7 @@
                             type="text"
                             wire:model="chatMessage"
                             wire:keydown.enter="sendChatMessage"
-                            placeholder="Type a message to reply to {{ $activeQuery->name }} on WhatsApp/App (Press Enter to send)..."
+                            placeholder="Type a message to reply on WhatsApp (Press Enter to send)..."
                             class="mmn-chat-input"
                         />
 
@@ -1063,24 +1056,17 @@
                         </button>
                     </div>
                 @else
-                    {{-- Empty State (WhatsApp Web Style) --}}
+                    {{-- Clean Empty State --}}
                     <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; color: #8696a0;">
-                        <div style="width: 80px; height: 80px; border-radius: 50%; background: rgba(0, 168, 132, 0.15); display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
-                            <svg viewBox="0 0 24 24" width="44" height="44" fill="#00a884">
+                        <div style="width: 72px; height: 72px; border-radius: 50%; background: rgba(0, 168, 132, 0.12); display: flex; align-items: center; justify-content: center; margin-bottom: 16px;">
+                            <svg viewBox="0 0 24 24" width="38" height="38" fill="#00a884">
                                 <path d="M12.004 2c-5.523 0-10 4.477-10 10 0 1.767.458 3.428 1.258 4.873l-1.332 4.864 4.985-1.307c1.401.765 3.007 1.2 4.708 1.2 5.523 0 10-4.477 10-10s-4.477-10-10-10zm5.836 14.199c-.244.688-1.218 1.266-1.996 1.434-.531.114-1.226.206-3.557-.759-2.981-1.233-4.9-4.269-5.048-4.468-.146-.199-1.21-1.611-1.21-3.072 0-1.462.766-2.18 1.037-2.476.273-.298.595-.373.794-.373.199 0 .398.002.571.011.185.009.431-.07.674.512.244.586.832 2.03.905 2.179.073.149.122.323.024.522-.098.199-.147.323-.294.497-.147.174-.31.39-.443.523-.147.147-.302.308-.13.604.172.298.766 1.263 1.644 2.045 1.13 1.008 2.083 1.32 2.381 1.468.298.149.472.124.646-.075.174-.199.744-.868.943-1.166.199-.298.398-.249.671-.149.273.099 1.733.817 2.031.966.298.149.497.224.571.348.075.124.075.724-.169 1.412z"/>
                             </svg>
                         </div>
-                        <h3 style="font-size: 20px; font-weight: 800; color: #111b21; margin: 0 0 8px;">My Merchant Navy Student Communications</h3>
-                        <p style="font-size: 13px; max-width: 420px; line-height: 1.5; margin: 0 0 20px;">
+                        <h3 style="font-size: 18px; font-weight: 800; color: #111b21; margin: 0 0 6px;">My Merchant Navy Student Communications</h3>
+                        <p style="font-size: 13px; max-width: 400px; line-height: 1.5; margin: 0; color: #64748b;">
                             Select an incoming student inquiry from the left to view their verified mobile number, chat in-dashboard, or reply via WhatsApp Web.
                         </p>
-                        <button
-                            type="button"
-                            wire:click="createTestQuery"
-                            style="background: #00a884; color: #ffffff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;"
-                        >
-                            + Generate Test Student Inquiry
-                        </button>
                     </div>
                 @endif
             </div>
