@@ -9,9 +9,11 @@ use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\Builder;
+use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\Repeater;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TagsInput;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
@@ -40,6 +42,16 @@ class CustomPageResource extends Resource
     protected static ?string $modelLabel = 'Custom Page';
 
     protected static ?string $pluralModelLabel = 'Custom Pages';
+
+    public static function canViewAny(): bool
+    {
+        $admin = auth('admin')->user();
+        if (! $admin) {
+            return false;
+        }
+
+        return $admin->isSuperAdmin() || $admin->hasPermission('manage_page_builder');
+    }
 
     public static function form(Schema $schema): Schema
     {
@@ -246,6 +258,130 @@ class CustomPageResource extends Resource
                                         ->rows(2)
                                         ->required(),
                                 ])->columns(2),
+
+                            Builder\Block::make('media_image')
+                                ->label('Photo / Graphic (Upload or URL)')
+                                ->icon('heroicon-o-photo')
+                                ->schema([
+                                    FileUpload::make('image_file')
+                                        ->label('Upload Image from Computer')
+                                        ->image()
+                                        ->directory('pages')
+                                        ->disk('public')
+                                        ->helperText('PNG, JPG, or WEBP up to 5MB.'),
+                                    TextInput::make('image_url')
+                                        ->label('Or Image URL (Unsplash / CDN / External Link)')
+                                        ->url()
+                                        ->placeholder('https://...'),
+                                    TextInput::make('caption')
+                                        ->label('Image Caption (Optional)')
+                                        ->placeholder('e.g. Navigation Bridge Practical Training'),
+                                    Select::make('alignment')
+                                        ->label('Layout Alignment')
+                                        ->options([
+                                            'center' => 'Center',
+                                            'full' => 'Full Width',
+                                            'left' => 'Float Left',
+                                            'right' => 'Float Right',
+                                        ])
+                                        ->default('center'),
+                                ])->columns(2),
+
+                            Builder\Block::make('split_content')
+                                ->label('Split Layout (Image + Text)')
+                                ->icon('heroicon-o-view-columns')
+                                ->schema([
+                                    TextInput::make('heading')
+                                        ->label('Section Heading')
+                                        ->required(),
+                                    Select::make('image_position')
+                                        ->label('Image Position')
+                                        ->options([
+                                            'left' => 'Image on Left, Text on Right',
+                                            'right' => 'Text on Left, Image on Right',
+                                        ])
+                                        ->default('left'),
+                                    FileUpload::make('image_file')
+                                        ->label('Upload Image')
+                                        ->image()
+                                        ->directory('pages')
+                                        ->disk('public'),
+                                    TextInput::make('image_url')
+                                        ->label('Or Image URL')
+                                        ->url(),
+                                    RichEditor::make('body')
+                                        ->label('Section Description & Highlights')
+                                        ->columnSpanFull(),
+                                    TextInput::make('button_text')
+                                        ->label('CTA Button Text')
+                                        ->placeholder('e.g. Learn More'),
+                                    TextInput::make('button_url')
+                                        ->label('CTA Button URL')
+                                        ->placeholder('/batches'),
+                                ])->columns(2),
+
+                            Builder\Block::make('stats_numbers')
+                                ->label('Achievement Numbers & Statistics')
+                                ->icon('heroicon-o-chart-bar')
+                                ->schema([
+                                    TextInput::make('section_title')
+                                        ->label('Section Heading')
+                                        ->default('Excellence in Maritime Education'),
+                                    Repeater::make('stats')
+                                        ->label('Statistics Counters')
+                                        ->schema([
+                                            TextInput::make('value')
+                                                ->label('Stat Value (e.g. 5,000+, 98.4%)')
+                                                ->required(),
+                                            TextInput::make('label')
+                                                ->label('Stat Label (e.g. Qualified Cadets)')
+                                                ->required(),
+                                            TextInput::make('description')
+                                                ->label('Subtext (Optional)'),
+                                        ])
+                                        ->columns(3),
+                                ]),
+
+                            Builder\Block::make('testimonials')
+                                ->label('Student Testimonials & Reviews')
+                                ->icon('heroicon-o-chat-bubble-bottom-center-text')
+                                ->schema([
+                                    TextInput::make('section_title')
+                                        ->label('Section Heading')
+                                        ->default('Student Success Stories'),
+                                    Repeater::make('reviews')
+                                        ->label('Testimonial Cards')
+                                        ->schema([
+                                            TextInput::make('name')
+                                                ->label('Student Name')
+                                                ->required(),
+                                            TextInput::make('rank')
+                                                ->label('Rank / Batch (e.g. IMU-CET AIR 4)'),
+                                            Textarea::make('feedback')
+                                                ->label('Review Text')
+                                                ->required()
+                                                ->rows(2),
+                                            TextInput::make('avatar_url')
+                                                ->label('Avatar Photo URL (Optional)')
+                                                ->url(),
+                                        ])
+                                        ->columns(2),
+                                ]),
+
+                            Builder\Block::make('video_embed')
+                                ->label('Video Embed (YouTube / Vimeo / MP4)')
+                                ->icon('heroicon-o-video-camera')
+                                ->schema([
+                                    TextInput::make('video_url')
+                                        ->label('YouTube, Vimeo or MP4 URL')
+                                        ->required()
+                                        ->placeholder('https://www.youtube.com/watch?v=...'),
+                                    TextInput::make('title')
+                                        ->label('Video Title'),
+                                    Textarea::make('caption')
+                                        ->label('Overview / Notes')
+                                        ->rows(2),
+                                ])->columns(2),
                         ]),
                 ]),
 
@@ -319,3 +455,4 @@ class CustomPageResource extends Resource
         ];
     }
 }
+

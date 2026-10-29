@@ -48,6 +48,16 @@ class QuestionReportResource extends Resource
 
     protected static string|\UnitEnum|null $navigationGroup = 'Reports';
 
+    public static function canViewAny(): bool
+    {
+        $admin = auth('admin')->user();
+        if (! $admin) {
+            return false;
+        }
+
+        return $admin->isSuperAdmin() || $admin->hasPermission('manage_reports');
+    }
+
     protected static ?int $navigationSort = 2;
 
     public static function canCreate(): bool

@@ -43,6 +43,16 @@ class StudentResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'email';
 
+    public static function canViewAny(): bool
+    {
+        $admin = auth('admin')->user();
+        if (! $admin) {
+            return false;
+        }
+
+        return $admin->isSuperAdmin() || $admin->hasPermission('manage_students');
+    }
+
     public static function canDelete(Model $record): bool
     {
         return auth('admin')->user()?->isSuperAdmin() ?? false;

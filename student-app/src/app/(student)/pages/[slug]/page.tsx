@@ -96,6 +96,16 @@ function RenderBlock({ block }: { block: CustomPageBlock }) {
       return <CtaBoxBlock data={block.data} />;
     case "alert_notice":
       return <AlertNoticeBlock data={block.data} />;
+    case "media_image":
+      return <MediaImageBlock data={block.data} />;
+    case "split_content":
+      return <SplitContentBlock data={block.data} />;
+    case "stats_numbers":
+      return <StatsNumbersBlock data={block.data} />;
+    case "testimonials":
+      return <TestimonialsBlock data={block.data} />;
+    case "video_embed":
+      return <VideoEmbedBlock data={block.data} />;
     default:
       return null;
   }
@@ -323,3 +333,170 @@ function AlertNoticeBlock({ data }: { data: Record<string, any> }) {
     </div>
   );
 }
+
+/** 7. Media / Image Block (Upload from Computer or URL) */
+function MediaImageBlock({ data }: { data: Record<string, any> }) {
+  const src = data.image_file ? `https://api.mymerchantnavy.com/storage/${data.image_file}` : data.image_url;
+  if (!src) return null;
+
+  const align = data.alignment || "center";
+  const alignClass =
+    align === "left"
+      ? "mr-auto max-w-xl"
+      : align === "right"
+      ? "ml-auto max-w-xl"
+      : align === "full"
+      ? "w-full"
+      : "mx-auto max-w-3xl";
+
+  return (
+    <figure className={`space-y-2 ${alignClass}`}>
+      <div className="overflow-hidden rounded-2xl border border-line bg-card shadow-sm dark:border-slate-800">
+        <img
+          src={src}
+          alt={data.caption || "Page media"}
+          className="h-auto w-full object-cover transition duration-300 hover:scale-[1.01]"
+          loading="lazy"
+        />
+      </div>
+      {data.caption && (
+        <figcaption className="text-center text-xs text-slate-500 dark:text-slate-400 italic">
+          {data.caption}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
+/** 8. Split Content Layout (Image + Text) */
+function SplitContentBlock({ data }: { data: Record<string, any> }) {
+  const src = data.image_file ? `https://api.mymerchantnavy.com/storage/${data.image_file}` : data.image_url;
+  const isRight = data.image_position === "right";
+
+  return (
+    <div className={`grid grid-cols-1 items-center gap-8 lg:grid-cols-2 ${isRight ? "lg:flex-row-reverse" : ""}`}>
+      {src && (
+        <div className={`overflow-hidden rounded-2xl border border-line bg-card shadow-md dark:border-slate-800 ${isRight ? "lg:order-2" : "lg:order-1"}`}>
+          <img src={src} alt={data.heading || "Section image"} className="h-full w-full object-cover max-h-96" loading="lazy" />
+        </div>
+      )}
+      <div className={`space-y-4 ${isRight ? "lg:order-1" : "lg:order-2"}`}>
+        <h2 className="text-xl sm:text-2xl font-extrabold text-navy-900 dark:text-white leading-snug">
+          {data.heading}
+        </h2>
+        {data.body && (
+          <div
+            className="prose prose-slate max-w-none text-xs sm:text-sm dark:prose-invert"
+            dangerouslySetInnerHTML={{ __html: data.body }}
+          />
+        )}
+        {data.button_text && data.button_url && (
+          <div className="pt-2">
+            <Link
+              href={data.button_url}
+              className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-brand-700 transition"
+            >
+              {data.button_text}
+              <ArrowRight className="size-4" />
+            </Link>
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** 9. Numbers & Statistics Counters */
+function StatsNumbersBlock({ data }: { data: Record<string, any> }) {
+  const stats = Array.isArray(data.stats) ? data.stats : [];
+
+  return (
+    <div className="space-y-4">
+      {data.section_title && (
+        <h2 className="text-lg font-bold text-navy-900 dark:text-white text-center">{data.section_title}</h2>
+      )}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {stats.map((s: any, idx: number) => (
+          <div key={idx} className="rounded-2xl border border-line bg-card p-6 text-center shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <div className="text-3xl sm:text-4xl font-extrabold text-brand-600 dark:text-brand-400 tracking-tight">
+              {s.value}
+            </div>
+            <div className="mt-2 text-sm font-bold text-navy-900 dark:text-white">{s.label}</div>
+            {s.description && (
+              <div className="mt-1 text-xs text-slate-500 dark:text-slate-400">{s.description}</div>
+            )}
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** 10. Testimonials / Student Reviews */
+function TestimonialsBlock({ data }: { data: Record<string, any> }) {
+  const reviews = Array.isArray(data.reviews) ? data.reviews : [];
+
+  return (
+    <div className="space-y-4">
+      {data.section_title && (
+        <h2 className="text-lg font-bold text-navy-900 dark:text-white">{data.section_title}</h2>
+      )}
+      <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
+        {reviews.map((r: any, idx: number) => (
+          <div key={idx} className="flex flex-col justify-between rounded-2xl border border-line bg-card p-5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            <p className="text-xs sm:text-sm text-slate-600 dark:text-slate-300 italic leading-relaxed">
+              "{r.feedback}"
+            </p>
+            <div className="mt-4 pt-3 border-t border-line dark:border-slate-800 flex items-center gap-3">
+              {r.avatar_url ? (
+                <img src={r.avatar_url} alt={r.name} className="size-9 rounded-full object-cover" />
+              ) : (
+                <div className="flex size-9 items-center justify-center rounded-full bg-brand-100 text-brand-800 font-bold text-xs dark:bg-brand-950 dark:text-brand-300">
+                  {r.name?.charAt(0) || "S"}
+                </div>
+              )}
+              <div>
+                <div className="text-xs font-bold text-navy-900 dark:text-white">{r.name}</div>
+                {r.rank && <div className="text-[11px] text-brand-600 dark:text-brand-400 font-medium">{r.rank}</div>}
+              </div>
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+/** 11. Video Embed Block */
+function VideoEmbedBlock({ data }: { data: Record<string, any> }) {
+  if (!data.video_url) return null;
+
+  // Convert YouTube watch URL to embed URL if needed
+  let embedUrl = data.video_url;
+  if (embedUrl.includes("youtube.com/watch?v=")) {
+    embedUrl = embedUrl.replace("watch?v=", "embed/");
+  } else if (embedUrl.includes("youtu.be/")) {
+    embedUrl = embedUrl.replace("youtu.be/", "www.youtube.com/embed/");
+  }
+
+  return (
+    <div className="space-y-3 mx-auto max-w-4xl">
+      {data.title && (
+        <h2 className="text-lg font-bold text-navy-900 dark:text-white">{data.title}</h2>
+      )}
+      <div className="relative aspect-video w-full overflow-hidden rounded-2xl border border-line bg-black shadow-md dark:border-slate-800">
+        <iframe
+          src={embedUrl}
+          title={data.title || "Video presentation"}
+          className="absolute inset-0 h-full w-full border-0"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+          allowFullScreen
+        />
+      </div>
+      {data.caption && (
+        <p className="text-xs text-slate-500 dark:text-slate-400 text-center">{data.caption}</p>
+      )}
+    </div>
+  );
+}
+

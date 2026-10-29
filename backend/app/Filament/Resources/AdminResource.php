@@ -7,9 +7,11 @@ use App\Filament\Resources\AdminResource\Pages;
 use App\Models\Admin;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\EditAction;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
 use Filament\Resources\Resource;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Schema;
 use Filament\Tables\Columns\TextColumn;
 use Filament\Tables\Table;
@@ -26,9 +28,14 @@ class AdminResource extends Resource
 
     protected static ?string $navigationLabel = 'Admins';
 
+    public static function canViewAny(): bool
+    {
+        return auth('admin')->user()?->isSuperAdmin() ?? false;
+    }
+
     public static function canCreate(): bool
     {
-        return true;
+        return auth('admin')->user()?->isSuperAdmin() ?? false;
     }
 
     public static function canEdit(Model $record): bool
@@ -77,6 +84,7 @@ class AdminResource extends Resource
 
                     return [
                         AdminRole::Admin->value => 'Admin (Manage courses, tests, reports)',
+                        AdminRole::SiteManager->value => 'Site Manager (Student Support & WhatsApp Chat Manager)',
                         AdminRole::Manager->value => 'Manager (Content and question editor)',
                         AdminRole::Support->value => 'Support (Student assistance)',
                     ];
@@ -106,6 +114,27 @@ class AdminResource extends Resource
                 ->minLength(8)
                 ->dehydrated(fn (?string $state) => filled($state))
                 ->helperText(fn (string $operation) => $operation === 'edit' ? 'Leave empty to keep the current password.' : null),
+
+            Section::make('Granular Permissions Control (Super Admin Exclusive)')
+                ->description('Check or uncheck exact access capabilities for this administrator.')
+                ->visible(fn () => auth('admin')->user()?->isSuperAdmin())
+                ->schema([
+                    CheckboxList::make('permissions')
+                        ->label('Assigned Permissions')
+                        ->options([
+                            'manage_courses' => 'Courses & Curriculum (Create, edit, organize courses)',
+                            'manage_tests' => 'Tests & Question Bank (Create & edit mock tests)',
+                            'manage_batches' => 'Batches & Store (Create and put batches live)',
+                            'manage_page_builder' => 'Page Builder (Design & publish custom student pages)',
+                            'manage_students' => 'Students & Enrollments (Inspect students, manual enrollment)',
+                            'manage_reports' => 'Question Reports (Review and fix reported questions)',
+                            'manage_support_chat' => 'Support Chat & WhatsApp Queries (Direct student reply & issue management)',
+                            'can_publish_without_approval' => 'Direct Publish / Auto-Live (Changes publish immediately without Super Admin approval)',
+                            'receive_change_emails' => 'Receive Change Notification Emails',
+                        ])
+                        ->columns(2)
+                        ->helperText('Super Admin always holds full permissions. For all other admins, select which modules and powers they have access to.'),
+                ])->columnSpanFull(),
         ])->columns(2);
     }
 

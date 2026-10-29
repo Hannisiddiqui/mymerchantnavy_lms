@@ -33,3 +33,4 @@ export async function list(): Promise<CustomPageListItem[]> {
 export async function get(slug: string): Promise<CustomPageDetail> {
   return request<CustomPageDetail>(`/custom-pages/${slug}`);
 }
+

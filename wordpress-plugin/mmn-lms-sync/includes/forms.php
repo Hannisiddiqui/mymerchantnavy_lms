@@ -18,18 +18,20 @@ const MMN_LMS_CODE_MINUTES = 15;
 function mmn_lms_form_message($code)
 {
     $messages = [
-        'fields'   => 'Please fill in your name, a valid email address, your mobile number and a password.',
-        'password' => 'Your password must be at least 8 characters.',
-        'exists'   => 'This email is already registered. Please log in instead.',
-        'wait'     => 'Too many attempts. Please try again in a while.',
-        'failed'   => 'We could not create your account. Please try again.',
-        'nonce'    => 'The page expired. Please reload it and try again.',
-        'mailfail' => 'We could not send the code. Please check the email address and try again.',
-        'expired'  => 'That code has expired. Please start again.',
-        'badcode'  => 'That code is not right. Please check your email and try again.',
-        'toomany'  => 'Too many wrong codes. Please start again.',
-        'cooldown' => 'Please wait a minute before asking for another code.',
-        'resent'   => 'A new code has been sent.',
+        'fields'            => 'All fields are compulsory. Please fill in your name, email, 10-digit mobile number, and password.',
+        'invalid_phone'     => 'Please enter a valid 10-digit Indian mobile number (e.g. 9876543210).',
+        'password'          => 'Your password must be at least 8 characters.',
+        'exists'            => 'An account with this email address already exists. Please continue to checkout or sign in.',
+        'exists_wrong_pass' => 'An account with this email address already exists. Please enter your correct password to continue.',
+        'wait'              => 'Too many attempts. Please try again in a while.',
+        'failed'            => 'We could not complete your registration. Please try again.',
+        'nonce'             => 'The page expired. Please reload it and try again.',
+        'mailfail'          => 'We could not send the verification code. Please check your email address and try again.',
+        'expired'           => 'That verification code has expired. Please request a new one.',
+        'badcode'           => 'That verification code is incorrect. Please check your email and try again.',
+        'toomany'           => 'Too many wrong attempts. Please start again.',
+        'cooldown'          => 'Please wait a minute before requesting another code.',
+        'resent'            => 'A new verification code has been sent to your email.',
     ];
 
     return isset($messages[$code]) ? $messages[$code] : '';
@@ -63,36 +65,67 @@ function mmn_lms_mask_email($email)
     return preg_replace('/(?<=.).(?=[^@]*@)/', '*', $email);
 }
 
-/** Step 1. Returns ['pid' => ..., 'email' => masked] or ['error' => code]. */
+/** Step 1. Returns ['pid' => ..., 'email' => masked], ['logged_in' => true], or ['error' => code]. */
 function mmn_lms_registration_begin($name, $email, $phone, $pass, $next = '')
 {
     $ip    = isset($_SERVER['REMOTE_ADDR']) ? $_SERVER['REMOTE_ADDR'] : '';
     $key   = 'mmn_reg_' . md5($ip);
     $tries = (int) get_transient($key);
-    if ($tries >= 10) {
+    if ($tries >= 20) {
         return ['error' => 'wait'];
     }
     set_transient($key, $tries + 1, HOUR_IN_SECONDS);
 
-    $name  = sanitize_text_field($name);
-    $email = sanitize_email($email);
-    $phone = preg_replace('/[^0-9+]/', '', (string) $phone);
+    $name  = sanitize_text_field(trim((string) $name));
+    $email = sanitize_email(trim((string) $email));
+    $pass  = (string) $pass;
 
-    if ($name === '' || ! is_email($email) || strlen(preg_replace('/\D/', '', $phone)) < 10) {
+    // Strictly validate Indian mobile number (10 digits starting with 6, 7, 8, or 9)
+    $clean_phone = preg_replace('/\D/', '', (string) $phone);
+    if (strlen($clean_phone) === 12 && substr($clean_phone, 0, 2) === '91') {
+        $clean_phone = substr($clean_phone, 2);
+    } elseif (strlen($clean_phone) === 11 && substr($clean_phone, 0, 1) === '0') {
+        $clean_phone = substr($clean_phone, 1);
+    }
+
+    // All fields are strictly compulsory
+    if ($name === '' || ! is_email($email) || empty($pass) || empty($clean_phone)) {
         return ['error' => 'fields'];
     }
-    if (strlen((string) $pass) < 8) {
+    if (! preg_match('/^[6-9]\d{9}$/', $clean_phone)) {
+        return ['error' => 'invalid_phone'];
+    }
+    if (strlen($pass) < 8) {
         return ['error' => 'password'];
     }
+
+    // If an account already exists for this email
     if (email_exists($email)) {
-        return ['error' => 'exists'];
+        // Authenticate the user if they entered their existing password
+        $auth_user = wp_authenticate($email, $pass);
+        if (! is_wp_error($auth_user)) {
+            wp_set_current_user($auth_user->ID);
+            wp_set_auth_cookie($auth_user->ID, true);
+
+            return ['logged_in' => true, 'user_id' => $auth_user->ID, 'next' => $next];
+        }
+
+        return ['error' => 'exists_wrong_pass'];
     }
 
+    $phone_formatted = '+91' . $clean_phone;
     $code = (string) random_int(100000, 999999);
     $pid  = strtolower(wp_generate_password(24, false));
     set_transient('mmn_pending_' . $pid, [
-        'name' => $name, 'email' => $email, 'phone' => $phone, 'pass' => wp_hash_password($pass),
-        'code' => mmn_lms_code_hash($code), 'tries' => 0, 'sends' => 1, 'sent' => time(), 'next' => $next,
+        'name'  => $name,
+        'email' => $email,
+        'phone' => $phone_formatted,
+        'pass'  => wp_hash_password($pass),
+        'code'  => mmn_lms_code_hash($code),
+        'tries' => 0,
+        'sends' => 1,
+        'sent'  => time(),
+        'next'  => $next,
     ], MMN_LMS_CODE_MINUTES * MINUTE_IN_SECONDS);
 
     if (! mmn_lms_send_code($email, $code)) {
@@ -189,23 +222,39 @@ function mmn_lms_post($key)
     return isset($_POST[$key]) ? wp_unslash($_POST[$key]) : '';
 }
 
-add_action('wp_ajax_nopriv_mmn_reg_start', function () {
-    if (mmn_lms_post('website') !== '') { // the hidden field only bots fill in
+function mmn_lms_handle_ajax_reg_start()
+{
+    // Hidden bot honeypot (empty for real users, bots fill it)
+    if (mmn_lms_post('mmn_hp') !== '') {
         mmn_lms_ajax_fail('failed');
     }
-    $result = mmn_lms_registration_begin(mmn_lms_post('name'), mmn_lms_post('email'), mmn_lms_post('phone'), mmn_lms_post('password'));
+    $result = mmn_lms_registration_begin(
+        mmn_lms_post('name'),
+        mmn_lms_post('email'),
+        mmn_lms_post('phone'),
+        mmn_lms_post('password'),
+        mmn_lms_post('next')
+    );
     isset($result['error']) ? mmn_lms_ajax_fail($result['error']) : wp_send_json_success($result);
-});
+}
+add_action('wp_ajax_nopriv_mmn_reg_start', 'mmn_lms_handle_ajax_reg_start');
+add_action('wp_ajax_mmn_reg_start', 'mmn_lms_handle_ajax_reg_start');
 
-add_action('wp_ajax_nopriv_mmn_reg_resend', function () {
+function mmn_lms_handle_ajax_reg_resend()
+{
     $result = mmn_lms_registration_resend(sanitize_key(mmn_lms_post('pid')));
     isset($result['error']) ? mmn_lms_ajax_fail($result['error']) : wp_send_json_success(['message' => mmn_lms_form_message('resent')]);
-});
+}
+add_action('wp_ajax_nopriv_mmn_reg_resend', 'mmn_lms_handle_ajax_reg_resend');
+add_action('wp_ajax_mmn_reg_resend', 'mmn_lms_handle_ajax_reg_resend');
 
-add_action('wp_ajax_nopriv_mmn_reg_verify', function () {
+function mmn_lms_handle_ajax_reg_verify()
+{
     $result = mmn_lms_registration_finish(sanitize_key(mmn_lms_post('pid')), mmn_lms_post('code'));
     isset($result['error']) ? mmn_lms_ajax_fail($result['error']) : wp_send_json_success(['ok' => true]);
-});
+}
+add_action('wp_ajax_nopriv_mmn_reg_verify', 'mmn_lms_handle_ajax_reg_verify');
+add_action('wp_ajax_mmn_reg_verify', 'mmn_lms_handle_ajax_reg_verify');
 
 /** After the popup has logged the student in, the page asks for a fresh security token (the old one belonged to a visitor). */
 add_action('wp_ajax_mmn_nonce', function () {
@@ -254,17 +303,16 @@ function mmn_lms_register_shortcode($atts)
             <input type="hidden" name="action" value="mmn_register">
             <input type="hidden" name="next" value="<?php echo esc_attr($next); ?>">
             <?php wp_nonce_field('mmn_register', 'mmn_nonce'); ?>
-            <div class="mmn-hp"><label>Leave this empty <input type="text" name="website" tabindex="-1" autocomplete="off"></label></div>
+            <div class="mmn-hp" style="display:none !important;"><label>Leave empty <input type="text" name="mmn_hp" tabindex="-1" autocomplete="off"></label></div>
             <label for="mmn_name">Full name</label>
             <input id="mmn_name" type="text" name="name" required autocomplete="name">
             <label for="mmn_email">Email address</label>
             <input id="mmn_email" type="email" name="email" required autocomplete="email">
-            <label for="mmn_phone">Mobile number</label>
-            <input id="mmn_phone" type="tel" name="phone" required autocomplete="tel">
-            <label for="mmn_pass">Password</label>
+            <label for="mmn_phone">Mobile number (10 digits)</label>
+            <input id="mmn_phone" type="tel" name="phone" required maxlength="10" inputmode="numeric" pattern="[6-9][0-9]{9}" placeholder="9876543210" autocomplete="tel">
+            <label for="mmn_pass">Password (8+ characters)</label>
             <input id="mmn_pass" type="password" name="password" required minlength="8" autocomplete="new-password">
             <button type="submit">Send me a verification code</button>
-            <p>Already registered? <a href="<?php echo esc_url(wp_login_url($next)); ?>">Log in</a></p>
         </form>
         <?php
     }
@@ -296,7 +344,7 @@ function mmn_lms_handle_register()
     if (! isset($_POST['mmn_nonce']) || ! wp_verify_nonce($_POST['mmn_nonce'], 'mmn_register')) {
         mmn_lms_register_back('nonce', $next);
     }
-    if (mmn_lms_post('website') !== '') {
+    if (mmn_lms_post('mmn_hp') !== '') {
         wp_safe_redirect(home_url('/'));
         exit;
     }

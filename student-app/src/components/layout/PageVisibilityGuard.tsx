@@ -118,3 +118,4 @@ export function PageVisibilityGuard({ children }: { children: React.ReactNode })
 
   return <>{children}</>;
 }
+

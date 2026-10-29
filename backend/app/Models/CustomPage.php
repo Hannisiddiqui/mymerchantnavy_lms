@@ -39,3 +39,4 @@ class CustomPage extends Model
         });
     }
 }
+

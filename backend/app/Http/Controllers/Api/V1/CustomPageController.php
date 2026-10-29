@@ -46,3 +46,4 @@ class CustomPageController extends Controller
         return response()->json(['data' => $page]);
     }
 }
+

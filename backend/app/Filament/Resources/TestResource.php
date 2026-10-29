@@ -33,6 +33,16 @@ class TestResource extends Resource
 
     protected static ?int $navigationSort = 2;
 
+    public static function canViewAny(): bool
+    {
+        $admin = auth('admin')->user();
+        if (! $admin) {
+            return false;
+        }
+
+        return $admin->isSuperAdmin() || $admin->hasPermission('manage_tests');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

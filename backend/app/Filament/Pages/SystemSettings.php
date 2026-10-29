@@ -41,6 +41,8 @@ class SystemSettings extends Page
         $this->form->fill([
             'audit_notifications_enabled' => filter_var(Setting::get('audit_notifications_enabled', true), FILTER_VALIDATE_BOOLEAN),
             'audit_notification_emails' => Setting::get('audit_notification_emails', 'support.mymerchantnavy@gmail.com'),
+            'require_change_approval' => filter_var(Setting::get('require_change_approval', false), FILTER_VALIDATE_BOOLEAN),
+            'change_notification_email' => Setting::get('change_notification_email', 'support.mymerchantnavy@gmail.com'),
             'support_email' => Setting::get('support_email', 'support.mymerchantnavy@gmail.com'),
             'support_whatsapp_number' => Setting::get('support_whatsapp_number', '919911223344'),
         ]);
@@ -61,9 +63,24 @@ class SystemSettings extends Page
 
                         TextInput::make('audit_notification_emails')
                             ->label('Alert Recipient Email Address(es)')
-                            ->helperText('Multiple emails may be separated with commas (e.g. support.mymerchantnavy@gmail.com, admin@mymerchantnavy.com).')
+                            ->helperText('Enter the email address(es) where changes should be sent. Separate multiple addresses with commas.')
                             ->required(),
                     ]),
+
+                Section::make('Content Change Pre-Approval Workflow (Super Admin Control)')
+                    ->description('Require staff or editors to submit proposed changes for Super Admin approval before going live.')
+                    ->schema([
+                        Toggle::make('require_change_approval')
+                            ->label('Require Super Admin Pre-Approval for Editor Changes')
+                            ->helperText('When turned on, changes submitted by admins or editors require Super Admin approval. Super Admin can grant individual staff the "Direct Publish" permission to bypass approval.')
+                            ->default(false),
+
+                        TextInput::make('change_notification_email')
+                            ->label('Super Admin Change Approval Notification Email')
+                            ->helperText('Email address where pending change review requests will be dispatched.')
+                            ->default('support.mymerchantnavy@gmail.com')
+                            ->email(),
+                    ])->columns(2),
 
                 Section::make('Student Support & Query Routing')
                     ->description('Configure where student chatbot queries, doubts, and WhatsApp requests are delivered.')
@@ -88,6 +105,8 @@ class SystemSettings extends Page
 
         Setting::set('audit_notifications_enabled', $formData['audit_notifications_enabled'] ? '1' : '0', 'Enable or disable change notification emails.');
         Setting::set('audit_notification_emails', $formData['audit_notification_emails'], 'Recipient emails for audit change alerts.');
+        Setting::set('require_change_approval', $formData['require_change_approval'] ? '1' : '0', 'Require Super Admin approval for editor changes.');
+        Setting::set('change_notification_email', $formData['change_notification_email'] ?? 'support.mymerchantnavy@gmail.com', 'Super Admin approval recipient email.');
         Setting::set('support_email', $formData['support_email'], 'Support email address for student queries.');
         Setting::set('support_whatsapp_number', $formData['support_whatsapp_number'], 'WhatsApp support number for direct student chats.');
 
@@ -97,6 +116,8 @@ class SystemSettings extends Page
             properties: [
                 'audit_notifications_enabled' => (bool) $formData['audit_notifications_enabled'],
                 'audit_notification_emails' => $formData['audit_notification_emails'],
+                'require_change_approval' => (bool) $formData['require_change_approval'],
+                'change_notification_email' => $formData['change_notification_email'],
                 'support_email' => $formData['support_email'],
                 'support_whatsapp_number' => $formData['support_whatsapp_number'],
             ],

@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api\V1;
 use App\Http\Controllers\Controller;
 use App\Models\ActivityLog;
 use App\Models\Setting;
+use App\Models\SupportQuery;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
@@ -44,6 +45,25 @@ class SupportController extends Controller
         ];
     }
 
+    /** Return history of student's queries and manager responses for the in-app chatbot. */
+    public function myQueries(Request $request): JsonResponse
+    {
+        $user = $request->user('sanctum');
+        $email = $user?->email ?: $request->query('email');
+
+        if (! $email) {
+            return response()->json(['data' => []]);
+        }
+
+        $queries = SupportQuery::where('email', $email)
+            ->orWhere('student_id', $user?->id)
+            ->orderBy('id', 'desc')
+            ->limit(10)
+            ->get();
+
+        return response()->json(['data' => $queries]);
+    }
+
     /** Handle queries submitted via student chatbot. */
     public function sendQuery(Request $request): JsonResponse
     {
@@ -52,16 +72,32 @@ class SupportController extends Controller
             'email' => ['required', 'email', 'max:255'],
             'phone' => ['nullable', 'string', 'max:50'],
             'category' => ['nullable', 'string', 'max:100'],
+            'channel' => ['nullable', 'string', 'max:50'],
             'message' => ['required', 'string', 'min:5', 'max:3000'],
         ]);
 
+        $user = $request->user('sanctum');
         $recipient = Setting::get('support_email', 'support.mymerchantnavy@gmail.com');
         $category = $data['category'] ?: 'General Inquiry';
+        $channel = $data['channel'] ?: 'web_chat';
         $name = $data['name'];
         $email = $data['email'];
         $phone = $data['phone'] ?: 'Not provided';
         $msg = $data['message'];
         $cleanPhone = preg_replace('/\D/', '', (string) $phone);
+
+        // Store query in database for Site Manager and Admin Inbox
+        $queryRecord = SupportQuery::create([
+            'student_id' => $user?->id,
+            'name' => $name,
+            'email' => $email,
+            'phone' => $phone !== 'Not provided' ? $phone : null,
+            'category' => $category,
+            'channel' => $channel,
+            'message' => $msg,
+            'status' => 'open',
+            'ip_address' => $request->ip(),
+        ]);
 
         $viewData = [
             'name' => $name,
@@ -75,9 +111,16 @@ class SupportController extends Controller
             'timestamp' => now()->format('Y-m-d H:i:s'),
         ];
 
+        // Sanitize recipient email(s)
+        $emails = array_filter(array_map('trim', preg_split('/[,\s;]+/', (string) $recipient)));
+        $validEmails = array_values(array_filter($emails, fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL)));
+        if (empty($validEmails)) {
+            $validEmails = ['support.mymerchantnavy@gmail.com'];
+        }
+
         try {
-            Mail::send('emails.student-support-query', $viewData, function ($mail) use ($recipient, $name, $category, $email) {
-                $mail->to($recipient)
+            Mail::send('emails.student-support-query', $viewData, function ($mail) use ($validEmails, $name, $category, $email) {
+                $mail->to($validEmails)
                     ->replyTo($email, $name)
                     ->subject("[MMN Student Query] {$category} from {$name}");
             });
@@ -89,17 +132,20 @@ class SupportController extends Controller
             event: 'student.support_query',
             description: "Student {$name} ({$email}) submitted {$category} via in-app chatbot.",
             properties: [
+                'query_id' => $queryRecord->id,
                 'name' => $name,
                 'email' => $email,
                 'phone' => $phone,
                 'category' => $category,
+                'channel' => $channel,
                 'message' => $msg,
             ]
         );
 
         return response()->json([
             'ok' => true,
-            'message' => 'Thank you! Your query has been delivered to our academic faculty. We will reply to your email shortly.',
+            'query_id' => $queryRecord->id,
+            'message' => 'Thank you! Your query has been received by our site support team. We will review and reply directly to your chat and email.',
         ]);
     }
 }

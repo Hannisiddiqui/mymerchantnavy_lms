@@ -144,6 +144,12 @@ class WordPressLink
         $go = $data['g'] ?? null;
         $go = is_string($go) && preg_match('#^/[A-Za-z0-9_/-]{0,100}$#', $go) && ! str_contains($go, '//') ? $go : null;
 
-        return $email ? ['email' => $email, 'verified' => ($data['v'] ?? false) === true, 'go' => $go] : null;
+        return $email ? [
+            'email' => $email,
+            'name' => isset($data['n']) && is_string($data['n']) ? trim($data['n']) : null,
+            'phone' => isset($data['p']) && is_string($data['p']) ? trim($data['p']) : null,
+            'verified' => ($data['v'] ?? false) === true,
+            'go' => $go,
+        ] : null;
     }
 }

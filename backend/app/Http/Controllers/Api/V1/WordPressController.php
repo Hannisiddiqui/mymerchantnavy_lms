@@ -61,7 +61,12 @@ class WordPressController extends Controller
         $claims = $this->link->claimsFromToken($token);
         abort_unless($claims, 401, 'This sign-in link has expired. Please log in with your email.');
 
-        $user = $this->link->student($claims['email'], verified: $claims['verified']);
+        $user = $this->link->student(
+            email: $claims['email'],
+            name: $claims['name'] ?? null,
+            phone: $claims['phone'] ?? null,
+            verified: $claims['verified']
+        );
         abort_unless($user->is_active, 403, 'Your account is disabled. Please contact support.');
         // A link from a WordPress account whose email was NOT verified there (an old or other kind of registration) must
         // never open an account whose owner has proved the address; only the emailed code does that.

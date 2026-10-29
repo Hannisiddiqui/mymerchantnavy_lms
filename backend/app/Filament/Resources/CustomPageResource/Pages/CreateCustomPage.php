@@ -26,3 +26,4 @@ class CreateCustomPage extends CreateRecord
         );
     }
 }
+

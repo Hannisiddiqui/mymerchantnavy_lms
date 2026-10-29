@@ -106,6 +106,7 @@ export function SupportChatbot() {
   const [errorMsg, setErrorMsg] = useState("");
   
   const [whatsappMessages, setWhatsappMessages] = useState<ChatMessage[]>([]);
+  const [repliedQueries, setRepliedQueries] = useState<any[]>([]);
 
   const chatScrollRef = useRef<HTMLDivElement>(null);
 
@@ -144,6 +145,20 @@ export function SupportChatbot() {
         } catch {}
       });
   }, []);
+
+  // Fetch answered queries whenever chatbot opens
+  useEffect(() => {
+    if (isOpen && email) {
+      fetch(`${apiBaseUrl()}/support/my-queries?email=${encodeURIComponent(email)}`)
+        .then((r) => (r.ok ? r.json() : null))
+        .then((data) => {
+          if (data?.data && Array.isArray(data.data)) {
+            setRepliedQueries(data.data.filter((q: any) => Boolean(q.admin_reply)));
+          }
+        })
+        .catch(() => {});
+    }
+  }, [isOpen, email]);
 
   // Initialize WhatsApp in-chat message stream
   useEffect(() => {
@@ -222,6 +237,7 @@ export function SupportChatbot() {
           email: email || "student@mymerchantnavy.com",
           phone: phone || config.support_whatsapp_number,
           category: selectedCategory?.title || "WhatsApp Support Query",
+          channel: "whatsapp",
           message: text,
         }),
       });
@@ -264,6 +280,7 @@ export function SupportChatbot() {
           email, 
           phone, 
           category: selectedCategory?.title || "Support Query", 
+          channel: "web_chat",
           message 
         }),
       });
@@ -460,6 +477,26 @@ export function SupportChatbot() {
                 {/* STEP 1: Main Menu Categories */}
                 {step === "menu" && (
                   <div className="space-y-2 pl-10 pr-1 animate-in fade-in slide-in-from-bottom-2 duration-200">
+                    {/* Faculty Replies Callout if any */}
+                    {repliedQueries.length > 0 && (
+                      <div className="mb-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-3 space-y-2 shadow-xs">
+                        <div className="flex items-center gap-1.5 text-xs font-bold text-emerald-800">
+                          <CheckCircle2 className="size-4 text-emerald-600" />
+                          Faculty Answers to your doubts:
+                        </div>
+                        {repliedQueries.slice(0, 2).map((rq: any) => (
+                          <div key={rq.id} className="rounded-lg bg-white p-2.5 text-xs space-y-1 border border-emerald-100 shadow-xs">
+                            <div className="text-[10px] font-bold text-slate-500 uppercase">{rq.category} • You asked:</div>
+                            <p className="text-slate-700 italic text-[11px] line-clamp-2">"{rq.message}"</p>
+                            <div className="pt-1.5 border-t border-slate-100 text-emerald-950 font-medium">
+                              <span className="font-bold text-emerald-700">Answer: </span>
+                              {rq.admin_reply}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
                     <p className="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">
                       Select your inquiry or issue:
                     </p>

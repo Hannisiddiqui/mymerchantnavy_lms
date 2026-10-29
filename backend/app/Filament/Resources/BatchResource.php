@@ -39,6 +39,16 @@ class BatchResource extends Resource
 
     protected static ?string $modelLabel = 'Batch';
 
+    public static function canViewAny(): bool
+    {
+        $admin = auth('admin')->user();
+        if (! $admin) {
+            return false;
+        }
+
+        return $admin->isSuperAdmin() || $admin->hasPermission('manage_batches');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

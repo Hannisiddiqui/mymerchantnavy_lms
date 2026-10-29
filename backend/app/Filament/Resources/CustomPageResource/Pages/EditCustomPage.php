@@ -34,3 +34,4 @@ class EditCustomPage extends EditRecord
         );
     }
 }
+
