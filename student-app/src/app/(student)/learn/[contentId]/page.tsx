@@ -8,7 +8,7 @@ import * as api from "@/lib/api";
 import type { ContentItem } from "@/types";
 import { useApi } from "@/lib/use-api";
 import { ContentRow } from "@/components/course/ContentRow";
-import { contentTypes } from "@/components/course/contentTypes";
+import { contentMeta, contentTypes } from "@/components/course/contentTypes";
 import { AssignmentView } from "@/components/content/AssignmentView";
 import { LiveClassView } from "@/components/content/LiveClassView";
 import { ProtectedPdfViewer } from "@/components/content/ProtectedPdfViewer";
