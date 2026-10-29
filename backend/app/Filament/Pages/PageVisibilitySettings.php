@@ -125,3 +125,4 @@ class PageVisibilitySettings extends Page
             ->send();
     }
 }
+

@@ -13,3 +13,4 @@ export * as results from "./results";
 export * as performance from "./performance";
 export * as notes from "./notes";
 export * as notifications from "./notifications";
+export * as customPages from "./customPages";

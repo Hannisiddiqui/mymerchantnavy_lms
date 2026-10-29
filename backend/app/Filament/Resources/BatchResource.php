@@ -65,17 +65,33 @@ class BatchResource extends Resource
 
                     Select::make('target_exam')
                         ->label('Target Exam / Category')
-                        ->options([
-                            'IMU-CET' => 'IMU-CET',
-                            'DNS Sponsorship' => 'DNS Sponsorship Exam & Interview',
-                            'G.P. Rating' => 'G.P. Rating Complete Course',
-                            'B.Tech Marine' => 'B.Tech Marine Engineering',
-                            'ETO Rating' => 'Electro-Technical Officer (ETO)',
-                            'Company Sponsorship' => 'Company Sponsorship Exam',
-                            'Class 12th' => 'Class 12th Foundation',
-                        ])
+                        ->options(function () {
+                            $saved = \App\Models\Setting::get('batch_custom_categories');
+                            $cats = $saved ? json_decode($saved, true) : null;
+                            if (! is_array($cats) || empty($cats)) {
+                                $cats = ['IMU-CET', 'DNS Sponsorship', 'G.P. Rating', 'B.Tech Marine', 'ETO Rating', 'Company Sponsorship'];
+                            }
+                            $cats = array_values(array_filter($cats, fn ($c) => $c !== 'All Batches'));
+                            $existing = Batch::distinct()->pluck('target_exam')->filter()->all();
+                            $all = array_unique(array_merge($cats, $existing));
+
+                            return array_combine($all, $all);
+                        })
+                        ->createOptionUsing(function (string $data): string {
+                            // Automatically save new category into custom categories list
+                            $saved = \App\Models\Setting::get('batch_custom_categories');
+                            $cats = $saved ? json_decode($saved, true) : [];
+                            if (! is_array($cats)) $cats = [];
+                            if (! in_array($data, $cats)) {
+                                $cats[] = $data;
+                                \App\Models\Setting::set('batch_custom_categories', json_encode(array_values(array_filter($cats))));
+                            }
+
+                            return $data;
+                        })
                         ->searchable()
-                        ->required(),
+                        ->required()
+                        ->helperText('Select an existing category or type any custom category to add it on the fly.'),
 
                     TextInput::make('image_url')
                         ->label('Batch Thumbnail / Banner Image URL')

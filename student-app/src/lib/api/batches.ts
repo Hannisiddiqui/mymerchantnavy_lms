@@ -101,6 +101,28 @@ export async function list(targetExam?: string): Promise<BatchItem[]> {
   return request<BatchItem[]>(`/batches${query}`);
 }
 
+export interface BatchConfig {
+  show_categories: boolean;
+  categories: string[];
+}
+
+export async function getConfig(): Promise<BatchConfig> {
+  if (USE_MOCK) {
+    return {
+      show_categories: true,
+      categories: ["All Batches", "IMU-CET", "DNS Sponsorship", "G.P. Rating", "B.Tech Marine"],
+    };
+  }
+  try {
+    return await request<BatchConfig>("/batches/config");
+  } catch {
+    return {
+      show_categories: true,
+      categories: ["All Batches", "IMU-CET", "DNS Sponsorship", "G.P. Rating", "B.Tech Marine"],
+    };
+  }
+}
+
 export async function get(slug: string): Promise<BatchItem> {
   if (USE_MOCK) {
     await mockDelay();

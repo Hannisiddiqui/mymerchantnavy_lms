@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\V1\AuthController;
 use App\Http\Controllers\Api\V1\BatchController;
 use App\Http\Controllers\Api\V1\ContentController;
 use App\Http\Controllers\Api\V1\CourseController;
+use App\Http\Controllers\Api\V1\CustomPageController;
 use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PdfPageController;
@@ -26,8 +27,13 @@ use Illuminate\Support\Facades\Route;
 
 Route::prefix('v1')->group(function () {
     // ---- Student Batches Store (PhysicsWallah-style) ----
+    Route::get('batches/config', [BatchController::class, 'config']);
     Route::get('batches', [BatchController::class, 'index']);
     Route::get('batches/{slug}', [BatchController::class, 'show']);
+
+    // ---- In-Built Custom Pages & Builder ----
+    Route::get('custom-pages', [CustomPageController::class, 'index']);
+    Route::get('custom-pages/{slug}', [CustomPageController::class, 'show']);
 
     // ---- Student Support & Chatbot ----
     Route::get('support/config', [SupportController::class, 'config']);

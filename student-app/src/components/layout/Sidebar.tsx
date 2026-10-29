@@ -2,12 +2,47 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
-import { LifeBuoy, LogOut, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
+import {
+  BookOpen,
+  FileText,
+  GraduationCap,
+  LifeBuoy,
+  LogOut,
+  Newspaper,
+  PanelLeftClose,
+  PanelLeftOpen,
+  ShieldCheck,
+  Sparkles,
+  Star,
+  Trophy,
+  X,
+} from "lucide-react";
 import * as api from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { brand, sidebarNav } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/ui/Logo";
+
+function getPageIcon(iconName?: string) {
+  switch (iconName) {
+    case "heroicon-o-academic-cap":
+      return GraduationCap;
+    case "heroicon-o-book-open":
+      return BookOpen;
+    case "heroicon-o-shield-check":
+      return ShieldCheck;
+    case "heroicon-o-star":
+      return Star;
+    case "heroicon-o-trophy":
+      return Trophy;
+    case "heroicon-o-newspaper":
+      return Newspaper;
+    case "heroicon-o-sparkles":
+      return Sparkles;
+    default:
+      return FileText;
+  }
+}
 
 /**
  * Left navigation. Menu items come from `sidebarNav` in lib/config.ts.
@@ -27,6 +62,7 @@ export function Sidebar({
   const pathname = usePathname();
   const router = useRouter();
   const { data: visibility } = useApi(() => api.pageVisibility.get(), []);
+  const { data: customPages } = useApi(() => api.customPages.list(), []);
 
   async function logout() {
     await api.auth.logout();
@@ -48,18 +84,20 @@ export function Sidebar({
     return true;
   });
 
+  const sidebarPages = (customPages || []).filter((p) => p.show_in_sidebar);
+
   return (
     <>
       <div className={cn("fixed inset-0 z-30 bg-navy-950/50 lg:hidden", open ? "block" : "hidden")} onClick={onClose} />
 
       <aside
         className={cn(
-          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-navy-900 text-slate-300 transition-all duration-200 lg:translate-x-0",
+          "fixed inset-y-0 left-0 z-40 flex w-64 flex-col bg-navy-900 text-slate-300 transition-all duration-200 lg:translate-x-0 overflow-y-auto scrollbar-none",
           collapsed ? "lg:w-[4.5rem]" : "lg:w-64",
           open ? "translate-x-0" : "-translate-x-full",
         )}
       >
-        <div className={cn("flex h-16 items-center justify-between px-5", collapsed && "lg:justify-center lg:px-0")}>
+        <div className={cn("flex h-16 shrink-0 items-center justify-between px-5", collapsed && "lg:justify-center lg:px-0")}>
           <Link href="/my-courses" onClick={onClose} className={label}>
             <Logo tone="light" className="h-9" />
           </Link>
@@ -98,6 +136,44 @@ export function Sidebar({
             );
           })}
         </nav>
+
+        {sidebarPages.length > 0 && (
+          <div className="mt-6">
+            <p className={cn("px-6 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500", label)}>Resources</p>
+            <nav className="mt-2 flex flex-col gap-1 px-3">
+              {sidebarPages.map((pg) => {
+                const href = `/pages/${pg.slug}`;
+                const active = pathname === href;
+                const IconComp = getPageIcon(pg.icon);
+
+                return (
+                  <Link
+                    key={pg.id}
+                    href={href}
+                    onClick={onClose}
+                    title={collapsed ? pg.title : undefined}
+                    className={cn(
+                      "group relative flex items-center justify-between rounded-xl px-3 py-2 text-xs font-semibold transition",
+                      collapsed && "lg:justify-center",
+                      active ? "bg-white/10 text-white" : "hover:bg-white/5 hover:text-white",
+                    )}
+                  >
+                    <div className="flex items-center gap-3 truncate">
+                      {active && <span className="absolute inset-y-1.5 left-0 w-1 rounded-r-full bg-brand-500" />}
+                      <IconComp className={cn("size-4 shrink-0", active ? "text-brand-200" : "text-slate-400 group-hover:text-slate-200")} />
+                      <span className={cn("truncate", label)}>{pg.title}</span>
+                    </div>
+                    {pg.badge_text && (
+                      <span className={cn("rounded bg-brand-500/20 px-1.5 py-0.5 text-[9px] font-bold text-brand-300", label)}>
+                        {pg.badge_text}
+                      </span>
+                    )}
+                  </Link>
+                );
+              })}
+            </nav>
+          </div>
+        )}
 
         <div className="mt-auto space-y-3 p-4">
           <div className={cn("rounded-xl bg-white/5 p-4 ring-1 ring-white/10", label)}>

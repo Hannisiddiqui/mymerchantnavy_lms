@@ -10,6 +10,26 @@ use Illuminate\Http\Request;
 class BatchController extends Controller
 {
     /**
+     * Get batch store display settings and custom categories.
+     */
+    public function config(): JsonResponse
+    {
+        $showCategories = \App\Models\Setting::get('batch_page_show_categories', '1') !== '0';
+        $savedCats = \App\Models\Setting::get('batch_custom_categories');
+        $categories = $savedCats ? json_decode($savedCats, true) : null;
+        if (! is_array($categories) || empty($categories)) {
+            $categories = ['All Batches', 'IMU-CET', 'DNS Sponsorship', 'G.P. Rating', 'B.Tech Marine'];
+        }
+
+        return response()->json([
+            'data' => [
+                'show_categories' => $showCategories,
+                'categories' => $categories,
+            ],
+        ]);
+    }
+
+    /**
      * List all live batches for student LMS.
      */
     public function index(Request $request): JsonResponse

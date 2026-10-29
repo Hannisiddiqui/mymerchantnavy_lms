@@ -10,20 +10,18 @@ import { Badge } from "@/components/ui/Badge";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ErrorState, PageSkeleton } from "@/components/ui/States";
 
-const EXAM_FILTERS = [
-  "All Batches",
-  "IMU-CET",
-  "DNS Sponsorship",
-  "G.P. Rating",
-  "B.Tech Marine",
-];
-
 export default function BatchesPage() {
   const [selectedFilter, setSelectedFilter] = useState("All Batches");
+  const { data: config } = useApi(() => api.batches.getConfig(), []);
   const { data: batches, loading, error, reload } = useApi(
     () => api.batches.list(selectedFilter === "All Batches" ? undefined : selectedFilter),
     [selectedFilter]
   );
+
+  const showCategories = config?.show_categories ?? true;
+  const categoriesList = config?.categories && config.categories.length > 0
+    ? config.categories
+    : ["All Batches", "IMU-CET", "DNS Sponsorship", "G.P. Rating", "B.Tech Marine"];
 
   if (loading) return <PageSkeleton />;
   if (error || !batches) return <ErrorState message={error ?? "Could not load batches"} onRetry={reload} />;
@@ -46,26 +44,28 @@ export default function BatchesPage() {
         }
       />
 
-      {/* Filter Tabs / Categories */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
-        {EXAM_FILTERS.map((cat) => {
-          const active = selectedFilter === cat;
-          return (
-            <button
-              key={cat}
-              type="button"
-              onClick={() => setSelectedFilter(cat)}
-              className={`shrink-0 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
-                active
-                  ? "bg-navy-900 text-white shadow-sm dark:bg-brand-600 dark:text-white ring-2 ring-navy-900/10 dark:ring-brand-500/30"
-                  : "bg-white text-slate-700 hover:bg-slate-100 hover:text-navy-900 border border-line dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800"
-              }`}
-            >
-              {cat}
-            </button>
-          );
-        })}
-      </div>
+      {/* Filter Tabs / Categories (Toggled from Admin Panel) */}
+      {showCategories && (
+        <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+          {categoriesList.map((cat) => {
+            const active = selectedFilter === cat;
+            return (
+              <button
+                key={cat}
+                type="button"
+                onClick={() => setSelectedFilter(cat)}
+                className={`shrink-0 rounded-xl px-4 py-2 text-xs font-bold transition-all ${
+                  active
+                    ? "bg-navy-900 text-white shadow-sm dark:bg-brand-600 dark:text-white ring-2 ring-navy-900/10 dark:ring-brand-500/30"
+                    : "bg-white text-slate-700 hover:bg-slate-100 hover:text-navy-900 border border-line dark:bg-slate-900 dark:text-slate-300 dark:border-slate-800 dark:hover:bg-slate-800"
+                }`}
+              >
+                {cat}
+              </button>
+            );
+          })}
+        </div>
+      )}
 
       {/* Batches Grid */}
       {batches.length === 0 ? (

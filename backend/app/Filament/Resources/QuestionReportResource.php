@@ -229,12 +229,25 @@ class QuestionReportResource extends Resource
                             'dashboardUrl' => 'https://api.mymerchantnavy.com/admin/question-reports',
                         ];
 
+                        $emails = array_filter(array_map('trim', preg_split('/[,\s;]+/', (string) $recipient)));
+                        $validEmails = array_values(array_filter($emails, fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL)));
+                        if (empty($validEmails)) {
+                            $validEmails = ['support.mymerchantnavy@gmail.com'];
+                        }
+
                         try {
-                            Mail::send('emails.question-correction', $viewData, function ($msg) use ($recipient, $record) {
-                                $msg->to($recipient)->subject("[Question Update] Question #{$record->question_id} Modified by Academic Admin");
+                            Mail::send('emails.question-correction', $viewData, function ($msg) use ($validEmails, $record) {
+                                $msg->to($validEmails)->subject("[Question Update] Question #{$record->question_id} Modified by Academic Admin");
                             });
                         } catch (\Throwable $e) {
                             report($e);
+                            Notification::make()
+                                ->title('Failed to Dispatch Email')
+                                ->body('Error: ' . $e->getMessage())
+                                ->danger()
+                                ->send();
+
+                            return;
                         }
 
                         if ($data['mark_as_resolved'] ?? false) {
@@ -325,12 +338,25 @@ class QuestionReportResource extends Resource
                             'timestamp' => now()->format('Y-m-d H:i:s'),
                         ];
 
+                        $emails = array_filter(array_map('trim', preg_split('/[,\s;]+/', (string) $recipient)));
+                        $validEmails = array_values(array_filter($emails, fn ($e) => filter_var($e, FILTER_VALIDATE_EMAIL)));
+                        if (empty($validEmails)) {
+                            $validEmails = ['support.mymerchantnavy@gmail.com'];
+                        }
+
                         try {
-                            Mail::send('emails.bulk-question-correction', $bulkData, function ($msg) use ($recipient, $count) {
-                                $msg->to($recipient)->subject("[Bulk Update] {$count} Questions Modified by Academic Admin");
+                            Mail::send('emails.bulk-question-correction', $bulkData, function ($msg) use ($validEmails, $count) {
+                                $msg->to($validEmails)->subject("[Bulk Update] {$count} Questions Modified by Academic Admin");
                             });
                         } catch (\Throwable $e) {
                             report($e);
+                            Notification::make()
+                                ->title('Failed to Dispatch Bulk Email')
+                                ->body('Error: ' . $e->getMessage())
+                                ->danger()
+                                ->send();
+
+                            return;
                         }
 
                         ActivityLog::record(
