@@ -17,7 +17,7 @@ class ListSupportQueries extends ListRecords
 
     protected string $view = 'filament.resources.support-queries-inbox';
 
-    public string $activeTab = 'whatsapp'; // 'whatsapp' or 'email'
+    public ?string $activeTab = 'whatsapp'; // 'whatsapp' or 'email'
 
     public ?int $selectedQueryId = null;
 
