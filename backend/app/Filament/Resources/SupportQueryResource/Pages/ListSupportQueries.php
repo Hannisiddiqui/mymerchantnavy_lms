@@ -23,6 +23,8 @@ class ListSupportQueries extends ListRecords
 
     public string $search = '';
 
+    public string $statusFilter = 'all'; // 'all', 'open', 'resolved'
+
     public string $chatMessage = '';
 
     public string $emailSubject = '';
@@ -57,6 +59,11 @@ class ListSupportQueries extends ListRecords
         }
     }
 
+    public function setStatusFilter(string $status): void
+    {
+        $this->statusFilter = $status;
+    }
+
     public function sendChatMessage(): void
     {
         if (! $this->selectedQueryId || empty(trim($this->chatMessage))) {
@@ -71,8 +78,12 @@ class ListSupportQueries extends ListRecords
         $admin = Auth::guard('admin')->user();
         $msg = trim($this->chatMessage);
 
+        $newReply = filled($query->admin_reply)
+            ? $query->admin_reply . "\n\n" . $msg
+            : $msg;
+
         $query->update([
-            'admin_reply' => $msg,
+            'admin_reply' => $newReply,
             'status' => 'resolved',
             'replied_by_admin_id' => $admin?->id,
             'replied_at' => now(),
@@ -186,7 +197,7 @@ class ListSupportQueries extends ListRecords
             'student_id' => null,
             'name' => 'Fardeen Siddiqui',
             'email' => 'fardeen@grocliq.ai',
-            'phone' => '9885169967',
+            'phone' => '9910361271',
             'category' => 'DNS Sponsorship',
             'channel' => 'whatsapp',
             'message' => 'Sir, I have a query regarding interview rounds for Anglo-Eastern and Great Eastern. When will the mock interview batch start?',
@@ -204,6 +215,8 @@ class ListSupportQueries extends ListRecords
     public function getQueriesProperty(): Collection
     {
         return SupportQuery::query()
+            ->when($this->statusFilter === 'open', fn ($q) => $q->where('status', 'open'))
+            ->when($this->statusFilter === 'resolved', fn ($q) => $q->where('status', 'resolved'))
             ->when($this->search, function ($q) {
                 $term = trim($this->search);
                 $q->where(function ($sub) use ($term) {

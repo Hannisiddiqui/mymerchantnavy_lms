@@ -2,7 +2,9 @@
     <style>
         .mmn-comm-wrapper {
             display: flex;
-            height: 780px;
+            height: calc(100vh - 170px);
+            min-height: 720px;
+            max-height: 860px;
             background: #ffffff;
             border: 1px solid #d1d5db;
             border-radius: 16px;
@@ -15,23 +17,27 @@
             border-color: #222e35;
         }
 
-        /* 1. Leftmost Icon Rail (WhatsApp Web Style) */
+        /* 1. Leftmost Icon Rail (WhatsApp Web Signature Rail) */
         .mmn-icon-rail {
             width: 64px;
-            background: #202c33;
+            background: #f0f2f5;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: space-between;
             padding: 16px 0;
             shrink: 0;
-            border-right: 1px solid #2a3942;
+            border-right: 1px solid #d1d5db;
+        }
+        .dark .mmn-icon-rail {
+            background: #202c33;
+            border-right-color: #2a3942;
         }
         .mmn-rail-top {
             display: flex;
             flex-direction: column;
             align-items: center;
-            gap: 16px;
+            gap: 14px;
             width: 100%;
         }
         .mmn-rail-btn {
@@ -43,17 +49,28 @@
             align-items: center;
             justify-content: center;
             background: transparent;
-            color: #aebac1;
+            color: #54656f;
             border: none;
             cursor: pointer;
             transition: all 0.2s ease;
         }
+        .dark .mmn-rail-btn {
+            color: #aebac1;
+        }
         .mmn-rail-btn:hover {
+            background: rgba(0, 0, 0, 0.06);
+            color: #111b21;
+        }
+        .dark .mmn-rail-btn:hover {
             background: rgba(255, 255, 255, 0.08);
             color: #ffffff;
         }
         .mmn-rail-btn.active {
-            background: rgba(0, 168, 132, 0.2);
+            background: #d9fdd3;
+            color: #008069;
+        }
+        .dark .mmn-rail-btn.active {
+            background: rgba(0, 168, 132, 0.25);
             color: #00a884;
         }
         .mmn-rail-badge {
@@ -83,9 +100,10 @@
             display: flex;
             align-items: center;
             justify-content: center;
+            cursor: pointer;
         }
 
-        /* 2. Conversations / Messages Sidebar */
+        /* 2. Conversations Sidebar */
         .mmn-list-pane {
             width: 340px;
             background: #ffffff;
@@ -99,7 +117,7 @@
             border-right-color: #222e35;
         }
         .mmn-list-header {
-            padding: 16px;
+            padding: 14px 16px 10px;
             background: #f0f2f5;
             border-bottom: 1px solid #e9edef;
         }
@@ -114,13 +132,14 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 12px;
+            margin-bottom: 10px;
         }
         .dark .mmn-list-title {
             color: #e9edef;
         }
         .mmn-search-box {
             position: relative;
+            margin-bottom: 8px;
         }
         .mmn-search-input {
             width: 100%;
@@ -144,6 +163,46 @@
             width: 16px;
             height: 16px;
             color: #8696a0;
+        }
+
+        /* Filter Chips (All, Unread/Open, Resolved) */
+        .mmn-filter-chips {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow-x: auto;
+            padding-bottom: 4px;
+        }
+        .mmn-chip {
+            border: none;
+            background: #ffffff;
+            color: #54656f;
+            font-size: 12px;
+            font-weight: 600;
+            padding: 4px 10px;
+            border-radius: 14px;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s ease;
+        }
+        .dark .mmn-chip {
+            background: #111b21;
+            color: #8696a0;
+        }
+        .mmn-chip:hover {
+            background: #e9edef;
+        }
+        .dark .mmn-chip:hover {
+            background: #2a3942;
+        }
+        .mmn-chip.active {
+            background: #d9fdd3;
+            color: #008069;
+            font-weight: 700;
+        }
+        .dark .mmn-chip.active {
+            background: rgba(0, 168, 132, 0.25);
+            color: #00a884;
         }
 
         .mmn-convo-list {
@@ -232,7 +291,7 @@
             color: #8696a0;
         }
 
-        /* 3. Main Chat Viewport (WhatsApp Web Pattern) */
+        /* 3. Main Chat Viewport (Authentic WhatsApp Web) */
         .mmn-chat-pane {
             flex: 1;
             display: flex;
@@ -310,7 +369,39 @@
             overflow-y: auto;
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 12px;
+        }
+        .mmn-date-divider {
+            align-self: center;
+            background: #ffffff;
+            color: #54656f;
+            font-size: 11px;
+            font-weight: 700;
+            padding: 4px 12px;
+            border-radius: 8px;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.06);
+            text-transform: uppercase;
+        }
+        .dark .mmn-date-divider {
+            background: #182229;
+            color: #8696a0;
+        }
+        .mmn-security-notice {
+            align-self: center;
+            background: #ffeecd;
+            color: #54656f;
+            font-size: 11px;
+            padding: 6px 14px;
+            border-radius: 8px;
+            max-width: 80%;
+            text-align: center;
+            box-shadow: 0 1px 2px rgba(0,0,0,0.05);
+            margin-bottom: 6px;
+        }
+        .dark .mmn-security-notice {
+            background: #182229;
+            color: #f1b955;
+            border: 1px solid #323d44;
         }
         .mmn-bubble-in {
             align-self: flex-start;
@@ -365,24 +456,47 @@
         }
 
         .mmn-chat-input-bar {
-            padding: 12px 16px;
+            padding: 10px 16px;
             background: #f0f2f5;
             border-top: 1px solid #e9edef;
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
             shrink: 0;
         }
         .dark .mmn-chat-input-bar {
             background: #202c33;
             border-top-color: #222e35;
         }
+        .mmn-icon-action-btn {
+            background: transparent;
+            border: none;
+            color: #54656f;
+            cursor: pointer;
+            padding: 6px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: background 0.15s;
+        }
+        .dark .mmn-icon-action-btn {
+            color: #aebac1;
+        }
+        .mmn-icon-action-btn:hover {
+            background: rgba(0, 0, 0, 0.05);
+            color: #111b21;
+        }
+        .dark .mmn-icon-action-btn:hover {
+            background: rgba(255, 255, 255, 0.08);
+            color: #ffffff;
+        }
         .mmn-chat-input {
             flex: 1;
             background: #ffffff;
             border: none;
             border-radius: 8px;
-            padding: 11px 16px;
+            padding: 10px 16px;
             font-size: 14px;
             color: #111b21;
             outline: none;
@@ -392,8 +506,8 @@
             color: #e9edef;
         }
         .mmn-send-btn {
-            width: 42px;
-            height: 42px;
+            width: 40px;
+            height: 40px;
             border-radius: 50%;
             background: #00a884;
             color: #ffffff;
@@ -614,12 +728,45 @@
                         class="mmn-search-input"
                     />
                 </div>
+
+                {{-- Status Filter Chips --}}
+                <div class="mmn-filter-chips">
+                    <button
+                        type="button"
+                        wire:click="setStatusFilter('all')"
+                        class="mmn-chip {{ $statusFilter === 'all' ? 'active' : '' }}"
+                    >
+                        All ({{ $stats['total'] }})
+                    </button>
+                    <button
+                        type="button"
+                        wire:click="setStatusFilter('open')"
+                        class="mmn-chip {{ $statusFilter === 'open' ? 'active' : '' }}"
+                    >
+                        Open ({{ $stats['open'] }})
+                    </button>
+                    <button
+                        type="button"
+                        wire:click="setStatusFilter('resolved')"
+                        class="mmn-chip {{ $statusFilter === 'resolved' ? 'active' : '' }}"
+                    >
+                        Resolved ({{ $stats['resolved'] }})
+                    </button>
+                </div>
             </div>
 
             <div class="mmn-convo-list">
                 @forelse ($queries as $item)
                     @php
                         $isSelected = $selectedQueryId === $item->id;
+                        $rawPhone = preg_replace('/\D/', '', (string) $item->phone);
+                        if (strlen($rawPhone) === 10) {
+                            $displayPhone = '+91 ' . substr($rawPhone, 0, 5) . ' ' . substr($rawPhone, 5);
+                        } elseif (strlen($rawPhone) === 12 && str_starts_with($rawPhone, '91')) {
+                            $displayPhone = '+91 ' . substr($rawPhone, 2, 5) . ' ' . substr($rawPhone, 7);
+                        } else {
+                            $displayPhone = $item->phone ? '+' . ltrim($item->phone, '+') : 'No phone';
+                        }
                     @endphp
                     <div
                         wire:key="chat-list-{{ $item->id }}"
@@ -635,16 +782,32 @@
                                 <span class="mmn-convo-time">{{ $item->created_at?->format('h:i A') }}</span>
                             </div>
                             <div class="mmn-convo-phone">
-                                <span>📱 {{ $item->phone ? '+' . ltrim($item->phone, '+') : 'No phone' }}</span>
+                                <span>📱 {{ $displayPhone }}</span>
                             </div>
                             <div class="mmn-convo-msg">
-                                {{ $item->message }}
+                                @if (filled($item->admin_reply))
+                                    <span style="color: #53bdeb; font-weight: 700; margin-right: 2px;">✓✓</span>
+                                    {{ $item->admin_reply }}
+                                @else
+                                    {{ $item->message }}
+                                @endif
                             </div>
                         </div>
                     </div>
                 @empty
-                    <div style="padding: 32px 16px; text-align: center; color: #8696a0; font-size: 13px;">
-                        No queries found.
+                    <div style="padding: 40px 16px; text-align: center; color: #8696a0; font-size: 13px;">
+                        <svg viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="1.5" style="margin: 0 auto 10px; opacity: 0.6;">
+                            <path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/>
+                        </svg>
+                        <p style="font-weight: 600; margin: 0 0 4px;">No support queries found</p>
+                        <p style="font-size: 11px; margin: 0 0 12px; color: #667781;">Student doubts and WhatsApp inquiries will appear here.</p>
+                        <button
+                            type="button"
+                            wire:click="createTestQuery"
+                            style="background: #00a884; color: #fff; border: none; border-radius: 6px; padding: 6px 14px; font-size: 12px; font-weight: 700; cursor: pointer;"
+                        >
+                            + Generate Sample Query
+                        </button>
                     </div>
                 @endforelse
             </div>
@@ -660,22 +823,29 @@
                         if (! str_starts_with($cleanPhone, '91') && strlen($cleanPhone) === 10) {
                             $cleanPhone = '91' . $cleanPhone;
                         }
+                        if (strlen($cleanPhone) === 10) {
+                            $headerPhone = '+91 ' . substr($cleanPhone, 0, 5) . ' ' . substr($cleanPhone, 5);
+                        } elseif (strlen($cleanPhone) === 12 && str_starts_with($cleanPhone, '91')) {
+                            $headerPhone = '+91 ' . substr($cleanPhone, 2, 5) . ' ' . substr($cleanPhone, 7);
+                        } else {
+                            $headerPhone = $activeQuery->phone ? '+' . ltrim($activeQuery->phone, '+') : $activeQuery->name;
+                        }
                         $waWebUrl = "https://web.whatsapp.com/send?phone={$cleanPhone}&text=" . urlencode("Hello {$activeQuery->name}, this is from My Merchant Navy regarding your inquiry ({$activeQuery->category}). How can we assist you?");
                     @endphp
 
                     {{-- WhatsApp Header --}}
                     <div class="mmn-chat-header">
                         <div class="mmn-chat-student-info">
-                            <div class="mmn-convo-avatar" style="width: 40px; height: 40px;">
+                            <div class="mmn-convo-avatar" style="width: 42px; height: 42px;">
                                 {{ strtoupper(substr($activeQuery->name ?: 'S', 0, 1)) }}
                             </div>
                             <div>
                                 <div class="mmn-chat-phone-title">
-                                    <span>{{ $activeQuery->phone ? '+' . ltrim($activeQuery->phone, '+') : $activeQuery->name }}</span>
-                                    <span style="font-size: 11px; background: rgba(0, 168, 132, 0.15); color: #00a884; padding: 2px 6px; border-radius: 4px;">{{ $activeQuery->category }}</span>
+                                    <span>{{ $headerPhone }}</span>
+                                    <span style="font-size: 11px; background: rgba(0, 168, 132, 0.15); color: #00a884; padding: 2px 8px; border-radius: 4px; font-weight: 700;">{{ $activeQuery->category }}</span>
                                 </div>
                                 <div class="mmn-chat-subtitle">
-                                    {{ $activeQuery->name }} · {{ $activeQuery->email }}
+                                    {{ $activeQuery->name }} · {{ $activeQuery->email }} · Student Aspirant
                                 </div>
                             </div>
                         </div>
@@ -698,9 +868,18 @@
 
                     {{-- WhatsApp Messages Viewport --}}
                     <div class="mmn-messages-box">
+                        {{-- Date Divider & Security Encryption Notice --}}
+                        <div class="mmn-security-notice">
+                            🔒 Messages are synced securely with LMS. Student inquiry received via My Merchant Navy Chatbot.
+                        </div>
+
+                        <div class="mmn-date-divider">
+                            {{ $activeQuery->created_at?->isToday() ? 'Today' : $activeQuery->created_at?->format('M d, Y') }}
+                        </div>
+
                         {{-- Inbound Student Message --}}
                         <div class="mmn-bubble-in">
-                            <div class="mmn-bubble-sender">{{ $activeQuery->name }} ({{ $activeQuery->phone }})</div>
+                            <div class="mmn-bubble-sender">{{ $activeQuery->name }} ({{ $headerPhone }})</div>
                             <div class="mmn-bubble-text">{{ $activeQuery->message }}</div>
                             <div class="mmn-bubble-meta">
                                 <span>{{ $activeQuery->created_at?->format('h:i A') }}</span>
@@ -714,7 +893,7 @@
                                 <div class="mmn-bubble-text">{{ $activeQuery->admin_reply }}</div>
                                 <div class="mmn-bubble-meta">
                                     <span>{{ $activeQuery->replied_at?->format('h:i A') }}</span>
-                                    <span style="color: #53bdeb; font-weight: 800;">✓✓</span>
+                                    <span style="color: #53bdeb; font-weight: 800; font-size: 12px;">✓✓</span>
                                 </div>
                             </div>
                         @endif
@@ -722,6 +901,25 @@
 
                     {{-- WhatsApp In-Dashboard Input Bar --}}
                     <div class="mmn-chat-input-bar">
+                        {{-- Attachment '+' Button --}}
+                        <button type="button" class="mmn-icon-action-btn" title="Add Attachment / Image">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                                <line x1="12" y1="5" x2="12" y2="19"></line>
+                                <line x1="5" y1="12" x2="19" y2="12"></line>
+                            </svg>
+                        </button>
+
+                        {{-- Emoji Button --}}
+                        <button type="button" class="mmn-icon-action-btn" title="Insert Emoji">
+                            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                                <path d="M8 14s1.5 2 4 2 4-2 4-2"></path>
+                                <line x1="9" y1="9" x2="9.01" y2="9"></line>
+                                <line x1="15" y1="9" x2="15.01" y2="9"></line>
+                            </svg>
+                        </button>
+
+                        {{-- Main Message Text Box --}}
                         <input
                             type="text"
                             wire:model="chatMessage"
@@ -729,11 +927,13 @@
                             placeholder="Type a message to reply to {{ $activeQuery->name }} on WhatsApp/App..."
                             class="mmn-chat-input"
                         />
+
+                        {{-- Green Circular Send Button --}}
                         <button
                             type="button"
                             wire:click="sendChatMessage"
                             class="mmn-send-btn"
-                            title="Send reply"
+                            title="Send reply (Enter)"
                         >
                             <svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor">
                                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
@@ -741,8 +941,24 @@
                         </button>
                     </div>
                 @else
-                    <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: #8696a0; font-size: 14px;">
-                        Select a chat from the left to view messages and reply.
+                    {{-- Empty State (WhatsApp Web Style) --}}
+                    <div style="flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 40px; text-align: center; color: #8696a0;">
+                        <div style="width: 80px; height: 80px; border-radius: 50%; background: rgba(0, 168, 132, 0.15); display: flex; align-items: center; justify-content: center; margin-bottom: 20px;">
+                            <svg viewBox="0 0 24 24" width="44" height="44" fill="#00a884">
+                                <path d="M12.004 2c-5.523 0-10 4.477-10 10 0 1.767.458 3.428 1.258 4.873l-1.332 4.864 4.985-1.307c1.401.765 3.007 1.2 4.708 1.2 5.523 0 10-4.477 10-10s-4.477-10-10-10zm5.836 14.199c-.244.688-1.218 1.266-1.996 1.434-.531.114-1.226.206-3.557-.759-2.981-1.233-4.9-4.269-5.048-4.468-.146-.199-1.21-1.611-1.21-3.072 0-1.462.766-2.18 1.037-2.476.273-.298.595-.373.794-.373.199 0 .398.002.571.011.185.009.431-.07.674.512.244.586.832 2.03.905 2.179.073.149.122.323.024.522-.098.199-.147.323-.294.497-.147.174-.31.39-.443.523-.147.147-.302.308-.13.604.172.298.766 1.263 1.644 2.045 1.13 1.008 2.083 1.32 2.381 1.468.298.149.472.124.646-.075.174-.199.744-.868.943-1.166.199-.298.398-.249.671-.149.273.099 1.733.817 2.031.966.298.149.497.224.571.348.075.124.075.724-.169 1.412z"/>
+                            </svg>
+                        </div>
+                        <h3 style="font-size: 20px; font-weight: 800; color: #111b21; margin: 0 0 8px;">My Merchant Navy Student Communications</h3>
+                        <p style="font-size: 13px; max-width: 420px; line-height: 1.5; margin: 0 0 20px;">
+                            Select an incoming student inquiry from the left to view their verified mobile number, chat in-dashboard, or reply via WhatsApp Web.
+                        </p>
+                        <button
+                            type="button"
+                            wire:click="createTestQuery"
+                            style="background: #00a884; color: #ffffff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer;"
+                        >
+                            + Generate Test Student Inquiry
+                        </button>
                     </div>
                 @endif
             </div>
@@ -825,7 +1041,7 @@
                             wire:click="sendPlatformEmail"
                             style="background: #2563eb; color: #ffffff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;"
                         >
-                            <span>Send Email to Student</span>
+                            <span>Send Email via Brevo to Student</span>
                             <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                                 <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
                             </svg>
