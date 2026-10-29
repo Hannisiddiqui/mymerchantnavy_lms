@@ -42,8 +42,9 @@ class BatchController extends Controller
             ->orderBy('id', 'desc');
 
         if ($targetExam = $request->query('target_exam')) {
-            if ($targetExam !== 'all' && $targetExam !== 'All Batches') {
-                $query->where('target_exam', $targetExam);
+            $cleanExam = trim((string) $targetExam);
+            if (! in_array(strtolower($cleanExam), ['all', 'all batches', ''], true)) {
+                $query->whereRaw('LOWER(target_exam) = ?', [strtolower($cleanExam)]);
             }
         }
 

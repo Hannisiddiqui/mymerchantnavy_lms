@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -61,8 +62,18 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { data: visibility } = useApi(() => api.pageVisibility.get(), []);
+  const [visibility, setVisibility] = useState(api.pageVisibility.getCached);
   const { data: customPages } = useApi(() => api.customPages.list(), []);
+
+  useEffect(() => {
+    let mounted = true;
+    api.pageVisibility.get().then((data) => {
+      if (mounted) setVisibility(data);
+    });
+    return () => {
+      mounted = false;
+    };
+  }, []);
 
   async function logout() {
     await api.auth.logout();

@@ -38,6 +38,7 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   let res: Response;
   try {
     res = await fetch(`${apiBaseUrl()}${path}`, {
+      cache: "no-store",
       ...init,
       headers: {
         Accept: "application/json",

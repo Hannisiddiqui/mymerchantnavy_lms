@@ -326,6 +326,7 @@ function mmn_lms_front_script()
                     email: email,
                     phone: phone,
                     password: pass,
+                    product: opts.product || '',
                     mmn_hp: q('.mmn-hp-field') ? q('.mmn-hp-field').value : ''
                 }).then(function (d) {
                     busy(btn, false);
@@ -333,14 +334,40 @@ function mmn_lms_front_script()
                         showErr(s1, (d.data && d.data.message) || 'Something went wrong. Please try again.');
                         return;
                     }
-                    if (d.data && d.data.logged_in) {
-                        // Account already existed and user authenticated with password:
-                        return post({ action: 'mmn_nonce' }).then(function (n) {
-                            cfg.nonce = n.data;
-                            cfg.loggedIn = true;
-                            closePopup();
-                            opts.done();
-                        });
+                    if (d.data && d.data.already_purchased) {
+                        closePopup();
+                        alert(d.data.message || 'You already own this course! Taking you to your LMS courses...');
+                        window.location.href = d.data.redirect || 'https://lms.mymerchantnavy.com/my-courses';
+                        return;
+                    }
+                    if (d.data && (d.data.account_exists || d.data.logged_in)) {
+                        // User account already exists on LMS or WordPress. Let them pay immediately!
+                        showErr(s1, '');
+                        var noticeBox = s1.querySelector('.mmn-exists-box');
+                        if (!noticeBox) {
+                            noticeBox = document.createElement('div');
+                            noticeBox.className = 'mmn-exists-box';
+                            noticeBox.style.cssText = 'background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:12px 14px;border-radius:10px;margin-top:14px;font-size:13px;line-height:1.45;';
+                            s1.appendChild(noticeBox);
+                        }
+                        noticeBox.innerHTML = '<div style="font-weight:700;margin-bottom:4px;">Account already exists</div>' +
+                            '<div>An account is already registered with <strong>' + esc(email) + '</strong>. Click below to proceed directly to secure payment.</div>' +
+                            '<button type="button" class="mmn-go mmn-direct-pay" style="margin-top:10px;background:#15803d;">Proceed to Payment &rarr;</button>';
+                        btn.style.display = 'none';
+                        noticeBox.querySelector('.mmn-direct-pay').onclick = function () {
+                            var payBtn = this;
+                            busy(payBtn, true, 'Opening payment…');
+                            post({ action: 'mmn_nonce' }).then(function (n) {
+                                cfg.nonce = n.data;
+                                cfg.loggedIn = true;
+                                closePopup();
+                                opts.done();
+                            }).catch(function () {
+                                busy(payBtn, false);
+                                alert('Could not initiate payment. Please try again.');
+                            });
+                        };
+                        return;
                     }
                     pid = d.data.pid;
                     q('.mmn-sent').innerHTML = 'We emailed a 6-digit code to <strong>' + esc(d.data.email) + '</strong>.';

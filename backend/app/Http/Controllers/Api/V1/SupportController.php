@@ -29,7 +29,7 @@ class SupportController extends Controller
     {
         return response()->json([
             'data' => $this->getPageVisibilitySettings(),
-        ]);
+        ])->header('Cache-Control', 'no-cache, no-store, must-revalidate');
     }
 
     private function getPageVisibilitySettings(): array

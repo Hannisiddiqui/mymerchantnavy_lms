@@ -27,6 +27,11 @@ class ListSupportQueries extends ListRecords
 
     public string $chatMessage = '';
 
+    // Editable email fields (can be typed manually or auto-filled from selected query)
+    public string $recipientEmail = '';
+
+    public string $recipientName = '';
+
     public string $emailSubject = '';
 
     public string $emailBody = '';
@@ -41,9 +46,9 @@ class ListSupportQueries extends ListRecords
             ?? SupportQuery::latest()->first();
 
         if ($latest) {
-            $this->selectedQueryId = $latest->id;
-            $this->emailSubject = "Re: Inquiry Regarding {$latest->category} - My Merchant Navy";
-            $this->emailBody = $latest->admin_reply ?: "Dear {$latest->name},\n\nThank you for reaching out to My Merchant Navy regarding your inquiry ({$latest->category}).\n\nRegarding your question:\n\"{$latest->message}\"\n\n";
+            $this->selectQuery($latest->id);
+        } else {
+            $this->newEmailCompose();
         }
     }
 
@@ -53,10 +58,22 @@ class ListSupportQueries extends ListRecords
         $query = SupportQuery::find($id);
         if ($query) {
             $this->chatMessage = '';
+            $this->recipientEmail = $query->email ?: '';
+            $this->recipientName = $query->name ?: '';
             $this->emailSubject = "Re: Inquiry Regarding {$query->category} - My Merchant Navy";
             $this->emailBody = $query->admin_reply ?: "Dear {$query->name},\n\nThank you for reaching out to My Merchant Navy regarding your inquiry ({$query->category}).\n\nRegarding your question:\n\"{$query->message}\"\n\n";
             $this->emailStatus = $query->status === 'open' ? 'resolved' : $query->status;
         }
+    }
+
+    public function newEmailCompose(): void
+    {
+        $this->selectedQueryId = null;
+        $this->recipientEmail = '';
+        $this->recipientName = '';
+        $this->emailSubject = 'My Merchant Navy - Academic & Course Enrollment Update';
+        $this->emailBody = "Dear Student,\n\nWe are writing to you from My Merchant Navy regarding your maritime exam preparation and course updates.\n\n";
+        $this->emailStatus = 'resolved';
     }
 
     public function setStatusFilter(string $status): void
@@ -91,7 +108,7 @@ class ListSupportQueries extends ListRecords
 
         ActivityLog::record(
             event: 'support.whatsapp_replied',
-            description: "Site Manager {$admin?->name} sent WhatsApp message to {$query->name} ({$query->phone}).",
+            description: "Site Manager {$admin?->name} replied on WhatsApp to {$query->name} ({$query->phone}).",
             properties: [
                 'query_id' => $query->id,
                 'phone' => $query->phone,
@@ -103,90 +120,120 @@ class ListSupportQueries extends ListRecords
         $this->chatMessage = '';
 
         Notification::make()
-            ->title('Message Sent & Delivered to Student')
+            ->title('Message Sent & Delivered')
+            ->body("Reply saved and synced to student chat record.")
             ->success()
             ->send();
     }
 
-    public function generateAiEmail(string $topic): void
+    public function insertChatSnippet(string $snippet): void
     {
-        $query = SupportQuery::find($this->selectedQueryId);
-        if (! $query) {
-            return;
-        }
+        $this->chatMessage = $snippet;
+    }
 
-        $name = $query->name ?: 'Student';
-        $phone = $query->phone ? '+' . ltrim($query->phone, '+') : '';
-        $inquiry = $query->message;
-        $category = $query->category;
+    public function applyPrebuiltTemplate(string $templateKey): void
+    {
+        $name = filled($this->recipientName) ? $this->recipientName : 'Student';
+        $email = filled($this->recipientEmail) ? $this->recipientEmail : 'your registered email';
 
-        if ($topic === 'doubt') {
-            $this->emailSubject = "Academic Faculty Resolution: {$category} - My Merchant Navy";
-            $this->emailBody = "Dear {$name},\n\nThank you for submitting your academic doubt regarding {$category}.\n\nOur curriculum faculty has reviewed your query: \"{$inquiry}\".\n\nHere is the detailed solution and concept explanation:\n1. Please review the updated practice ladders and video explanations available inside your LMS course portal.\n2. All question formulas and step-by-step calculations have been verified according to the latest IMU-CET / Sponsorship syllabus.\n\nIf you have any further questions or require additional clarifications, feel free to reply directly to this email or chat with us on WhatsApp.\n\nWarm regards,\nAcademic Support & Faculty Desk\nMy Merchant Navy";
-        } elseif ($topic === 'counseling') {
-            $this->emailSubject = "Maritime Career Counseling Guidance: {$category} - My Merchant Navy";
-            $this->emailBody = "Dear {$name},\n\nWe have received your counseling request regarding {$category} and your maritime career roadmap.\n\nRegarding your note: \"{$inquiry}\"\n\nOur senior maritime mentors and captain advisors are here to support you at every stage. We will also be scheduling a direct 1-on-1 counseling call on your phone ({$phone}).\n\nPlease ensure your target exam and attempt year are up to date on your LMS profile so we can guide you effectively.\n\nBest of luck,\nAdmissions & Mentorship Team\nMy Merchant Navy";
-        } else {
-            $this->emailSubject = "Batch Enrollment & Course Access Update - My Merchant Navy";
-            $this->emailBody = "Dear {$name},\n\nThank you for reaching out regarding your course package and batch enrollment for {$category}.\n\nYour account has been verified and your live batches, question imports, and curriculum materials are accessible at https://lms.mymerchantnavy.com.\n\nIf you need any technical assistance with mock tests or PDF study notes, we are available 24/7 to help.\n\nWarm regards,\nStudent Support Team\nMy Merchant Navy";
+        $query = $this->selectedQueryId ? SupportQuery::find($this->selectedQueryId) : null;
+        $phone = $query && $query->phone ? '+91 ' . preg_replace('/\D/', '', $query->phone) : 'your registered number';
+        $inquiry = $query && $query->message ? $query->message : 'your inquiry';
+        $category = $query && $query->category ? $query->category : 'Merchant Navy Preparation';
+
+        switch ($templateKey) {
+            case 'academic_doubt':
+                $this->emailSubject = "Academic Resolution: {$category} - My Merchant Navy Faculty";
+                $this->emailBody = "Dear {$name},\n\nThank you for reaching out to the My Merchant Navy Academic Support Desk.\n\nOur curriculum faculty has reviewed your doubt:\n\"{$inquiry}\"\n\nHere is the concept explanation and step-by-step resolution:\n1. Core Maritime Principle: All navigation, chartwork, and engineering formulas follow standard IMO / DG Shipping exam conventions.\n2. Step-by-Step Solution: Please review the updated practice ladder problems and formula sheets in your LMS course viewer.\n3. Detailed Video Solution: A comprehensive video breakdown of similar problems is available under your Mock Tests review panel.\n\nIf you need any further mathematical or conceptual clarification, please reply directly to this email or message us on WhatsApp.\n\nWarm regards,\nAcademic Support & Curriculum Faculty\nMy Merchant Navy\nhttps://lms.mymerchantnavy.com";
+                break;
+
+            case 'dns_sponsorship':
+                $this->emailSubject = "Maritime Career Roadmap & Sponsorship Guidance: {$category}";
+                $this->emailBody = "Dear {$name},\n\nWe have received your guidance request regarding shipping company sponsorships and IMU-CET admissions:\n\"{$inquiry}\"\n\nKey Strategic Recommendations from our Captain Mentors:\n1. Target Company Exams: Focus preparation on Anglo-Eastern, Synergy, Fleet Management, and Great Eastern entrance formats.\n2. Medical Standards: Ensure you fulfill DG Shipping medical fitness criteria (6/6 vision, normal color vision).\n3. Psychometric & Aptitude: Practice numerical ability and reasoning tests available in your Mock Tests section.\n\nOur senior maritime counseling mentor will be reaching out on your mobile number ({$phone}) for a 1-on-1 career briefing.\n\nBest of luck,\nAdmissions & Mentorship Team\nMy Merchant Navy";
+                break;
+
+            case 'batch_enrollment':
+                $this->emailSubject = "LMS Batch Enrollment & Course Access Activated - My Merchant Navy";
+                $this->emailBody = "Dear {$name},\n\nWelcome to My Merchant Navy! Your enrollment for {$category} has been verified and your student account is active.\n\nHow to Access Your Learning Portal:\n• Portal URL: https://lms.mymerchantnavy.com\n• Registered Email: {$email}\n• Unlocked Modules: Full syllabus video classes, chapterwise practice ladders, and all-India mock tests.\n\nStudy Plan Tip: Take the baseline diagnostic mock test first to assess your current score and target high-weightage chapters.\n\nWarm regards,\nStudent Onboarding Team\nMy Merchant Navy";
+                break;
+
+            case 'fee_payment':
+                $this->emailSubject = "Course Fee Structure & Secure Enrollment Details - My Merchant Navy";
+                $this->emailBody = "Dear {$name},\n\nThank you for your interest in enrolling in the {$category} comprehensive batch.\n\nFee & Enrollment Details:\n• Complete Course & Test Series Pass: Includes complete curriculum, mock test series, and formula notes.\n• Aspirant Discount: Applied automatically through our official enrollment link.\n• Secure Payment Gateway: Verified through Razorpay (UPI, Credit/Debit Card, Netbanking).\n• Official Enrollment Link: https://mymerchantnavy.com/pass/\n\nUpon successful payment, your LMS access is activated immediately. If you need installment assistance, let us know.\n\nWarm regards,\nAdmissions & Finance Desk\nMy Merchant Navy";
+                break;
+
+            case 'test_analysis':
+                $this->emailSubject = "Mock Test Performance Analysis & Percentile Guidance - My Merchant Navy";
+                $this->emailBody = "Dear {$name},\n\nOur academic evaluation team has reviewed your mock test performance on the My Merchant Navy LMS.\n\nPerformance Improvement Strategy:\n1. Negative Marking Control: In IMU-CET, negative marking has a significant impact on rank. Skip questions where confidence is below 70%.\n2. High-Yield Chapters: Focus extra time on Terrestrial Navigation, Vector Mathematics, and Mechanics.\n3. Detailed Solutions: Inspect incorrect answers in your 'Test Results' dashboard to identify common trap patterns.\n\nKeep practicing persistently. We are tracking your progress!\n\nAcademic Mentorship Team\nMy Merchant Navy";
+                break;
         }
 
         Notification::make()
-            ->title('AI Response Drafted')
-            ->body('Tailored email response generated based on student inquiry.')
+            ->title('Template Loaded')
+            ->body('Prebuilt message populated into composer.')
             ->success()
             ->send();
     }
 
     public function sendPlatformEmail(): void
     {
-        if (! $this->selectedQueryId || empty(trim($this->emailBody))) {
+        $recipient = trim($this->recipientEmail);
+        $body = trim($this->emailBody);
+        $subject = trim($this->emailSubject) ?: 'Response from My Merchant Navy Support';
+
+        if (empty($recipient) || ! filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
+            Notification::make()
+                ->title('Invalid Recipient Email')
+                ->body('Please enter a valid student email address in the To: field.')
+                ->danger()
+                ->send();
+            return;
+        }
+
+        if (empty($body)) {
             Notification::make()->title('Please enter an email body before sending')->warning()->send();
             return;
         }
 
-        $query = SupportQuery::find($this->selectedQueryId);
-        if (! $query) {
-            Notification::make()->title('Query not found')->danger()->send();
-            return;
+        $admin = Auth::guard('admin')->user();
+
+        // If linked to an active support query, update it
+        if ($this->selectedQueryId) {
+            $query = SupportQuery::find($this->selectedQueryId);
+            if ($query) {
+                $query->update([
+                    'admin_reply' => $body,
+                    'status' => $this->emailStatus,
+                    'replied_by_admin_id' => $admin?->id,
+                    'replied_at' => now(),
+                ]);
+            }
         }
 
-        $admin = Auth::guard('admin')->user();
-        $body = trim($this->emailBody);
-        $subject = trim($this->emailSubject) ?: "[My Merchant Navy] Response to your Inquiry: {$query->category}";
-
-        $query->update([
-            'admin_reply' => $body,
-            'status' => $this->emailStatus,
-            'replied_by_admin_id' => $admin?->id,
-            'replied_at' => now(),
-        ]);
-
-        if (filter_var($query->email, FILTER_VALIDATE_EMAIL)) {
-            try {
-                Mail::raw($body, function ($msg) use ($query, $subject) {
-                    $msg->to($query->email)
-                        ->subject($subject);
-                });
-            } catch (\Throwable $e) {
-                report($e);
-            }
+        try {
+            Mail::raw($body, function ($msg) use ($recipient, $subject) {
+                $msg->to($recipient)
+                    ->subject($subject);
+            });
+        } catch (\Throwable $e) {
+            report($e);
         }
 
         ActivityLog::record(
             event: 'support.email_dispatched',
-            description: "Site Manager {$admin?->name} sent email to {$query->name} ({$query->email}).",
+            description: "Site Manager {$admin?->name} sent email to {$recipient}.",
             properties: [
-                'query_id' => $query->id,
-                'email' => $query->email,
+                'recipient' => $recipient,
+                'name' => $this->recipientName,
                 'subject' => $subject,
+                'query_id' => $this->selectedQueryId,
             ],
             admin: $admin
         );
 
         Notification::make()
             ->title('Email Sent Successfully')
-            ->body("Dispatched to {$query->email} and saved to student record.")
+            ->body("Dispatched via Brevo to {$recipient}.")
             ->success()
             ->send();
     }

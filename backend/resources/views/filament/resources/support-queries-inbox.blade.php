@@ -4,7 +4,7 @@
             display: flex;
             height: calc(100vh - 170px);
             min-height: 720px;
-            max-height: 860px;
+            max-height: 880px;
             background: #ffffff;
             border: 1px solid #d1d5db;
             border-radius: 16px;
@@ -17,7 +17,7 @@
             border-color: #222e35;
         }
 
-        /* 1. Leftmost Icon Rail (WhatsApp Web Signature Rail) */
+        /* 1. Leftmost Icon Rail (WhatsApp Web Style) */
         .mmn-icon-rail {
             width: 64px;
             background: #f0f2f5;
@@ -126,7 +126,7 @@
             border-bottom-color: #222e35;
         }
         .mmn-list-title {
-            font-size: 18px;
+            font-size: 17px;
             font-weight: 800;
             color: #111b21;
             display: flex;
@@ -165,13 +165,13 @@
             color: #8696a0;
         }
 
-        /* Filter Chips (All, Unread/Open, Resolved) */
+        /* Filter Chips */
         .mmn-filter-chips {
             display: flex;
             align-items: center;
             gap: 6px;
             overflow-x: auto;
-            padding-bottom: 4px;
+            padding-bottom: 2px;
         }
         .mmn-chip {
             border: none;
@@ -291,7 +291,7 @@
             color: #8696a0;
         }
 
-        /* 3. Main Chat Viewport (Authentic WhatsApp Web) */
+        /* 3. Main Chat Viewport (WhatsApp Web) */
         .mmn-chat-pane {
             flex: 1;
             display: flex;
@@ -455,6 +455,43 @@
             color: #8696a0;
         }
 
+        /* Quick Chat Snippets Bar */
+        .mmn-chat-snippets {
+            padding: 6px 16px;
+            background: #f0f2f5;
+            border-top: 1px solid #e9edef;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            overflow-x: auto;
+            shrink: 0;
+        }
+        .dark .mmn-chat-snippets {
+            background: #1c272e;
+            border-top-color: #2a3942;
+        }
+        .mmn-snippet-btn {
+            background: #ffffff;
+            border: 1px solid #d1d5db;
+            color: #374151;
+            padding: 3px 8px;
+            border-radius: 12px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            white-space: nowrap;
+            transition: all 0.15s;
+        }
+        .dark .mmn-snippet-btn {
+            background: #202c33;
+            border-color: #2a3942;
+            color: #d1d5db;
+        }
+        .mmn-snippet-btn:hover {
+            background: #e9edef;
+            color: #111b21;
+        }
+
         .mmn-chat-input-bar {
             padding: 10px 16px;
             background: #f0f2f5;
@@ -524,7 +561,7 @@
             transform: scale(1.05);
         }
 
-        /* 4. Email / AI Composer Screen */
+        /* 4. Email / Prebuilt Templates Screen */
         .mmn-email-pane {
             flex: 1;
             display: flex;
@@ -562,48 +599,58 @@
         .mmn-gmail-btn:hover {
             background: #d93025;
         }
-        .mmn-ai-bar {
+
+        /* Prebuilt Templates Bar */
+        .mmn-template-bar {
             background: #f0fdf4;
             border-bottom: 1px solid #bbf7d0;
             padding: 10px 20px;
             display: flex;
             align-items: center;
-            justify-content: space-between;
             gap: 8px;
             flex-wrap: wrap;
         }
-        .dark .mmn-ai-bar {
+        .dark .mmn-template-bar {
             background: rgba(6, 78, 59, 0.2);
             border-bottom-color: #065f46;
         }
-        .mmn-ai-btn {
-            background: #00a884;
-            color: #ffffff;
-            border: none;
-            border-radius: 6px;
-            padding: 6px 12px;
+        .mmn-template-pill {
+            background: #ffffff;
+            border: 1px solid #86efac;
+            color: #166534;
+            border-radius: 16px;
+            padding: 5px 12px;
             font-size: 11px;
             font-weight: 700;
             cursor: pointer;
             display: inline-flex;
             align-items: center;
             gap: 4px;
+            transition: all 0.15s ease;
         }
-        .mmn-ai-btn:hover {
-            background: #028e70;
+        .dark .mmn-template-pill {
+            background: #1e293b;
+            border-color: #059669;
+            color: #6ee7b7;
         }
+        .mmn-template-pill:hover {
+            background: #00a884;
+            color: #ffffff;
+            border-color: #00a884;
+        }
+
         .mmn-email-form {
             padding: 20px;
             flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 12px;
             overflow-y: auto;
         }
         .mmn-form-row {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 12px;
             border-bottom: 1px solid #f1f5f9;
             padding-bottom: 8px;
         }
@@ -614,18 +661,26 @@
             font-size: 12px;
             font-weight: 700;
             color: #64748b;
-            width: 70px;
+            width: 75px;
+            shrink: 0;
         }
         .mmn-form-input {
             flex: 1;
-            border: none;
-            outline: none;
-            font-size: 14px;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            padding: 8px 12px;
+            font-size: 13px;
             color: #0f172a;
-            background: transparent;
+            background: #ffffff;
+            outline: none;
         }
         .dark .mmn-form-input {
+            background: #1e293b;
+            border-color: #334155;
             color: #f8fafc;
+        }
+        .mmn-form-input:focus {
+            border-color: #2563eb;
         }
         .mmn-textarea {
             flex: 1;
@@ -638,6 +693,7 @@
             resize: none;
             color: #0f172a;
             background: #ffffff;
+            min-height: 240px;
         }
         .dark .mmn-textarea {
             background: #1e293b;
@@ -651,6 +707,8 @@
             display: flex;
             align-items: center;
             justify-content: space-between;
+            gap: 12px;
+            flex-wrap: wrap;
         }
         .dark .mmn-email-footer {
             background: #1e293b;
@@ -665,7 +723,7 @@
     @endphp
 
     <div class="mmn-comm-wrapper">
-        {{-- 1. LEFT ICON RAIL (WhatsApp Web Style) --}}
+        {{-- 1. LEFT ICON RAIL (WhatsApp Web Signature Rail) --}}
         <div class="mmn-icon-rail">
             <div class="mmn-rail-top">
                 {{-- WhatsApp Icon Button --}}
@@ -688,7 +746,7 @@
                     type="button"
                     wire:click="$set('activeTab', 'email')"
                     class="mmn-rail-btn {{ $activeTab === 'email' ? 'active' : '' }}"
-                    title="Student Emails & AI Composer"
+                    title="Student Emails & Manual Composer"
                 >
                     <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2">
                         <path d="M4 4h16c1.1 0 2 .9 2 2v12c0 1.1-.9 2-2 2H4c-1.1 0-2-.9-2-2V6c0-1.1.9-2 2-2z"/>
@@ -708,14 +766,28 @@
             <div class="mmn-list-header">
                 <div class="mmn-list-title">
                     <span>{{ $activeTab === 'whatsapp' ? 'WhatsApp Chats' : 'Student Inquiries' }}</span>
-                    <button
-                        type="button"
-                        wire:click="createTestQuery"
-                        style="font-size: 11px; background: #00a884; color: #fff; padding: 4px 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: 700;"
-                    >
-                        + New Query
-                    </button>
+                    <div style="display: flex; gap: 4px;">
+                        @if ($activeTab === 'email')
+                            <button
+                                type="button"
+                                wire:click="newEmailCompose"
+                                style="font-size: 11px; background: #2563eb; color: #fff; padding: 4px 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: 700;"
+                                title="Compose email to any student address"
+                            >
+                                + New Mail
+                            </button>
+                        @endif
+                        <button
+                            type="button"
+                            wire:click="createTestQuery"
+                            style="font-size: 11px; background: #00a884; color: #fff; padding: 4px 8px; border-radius: 6px; border: none; cursor: pointer; font-weight: 700;"
+                            title="Generate test student inquiry"
+                        >
+                            + New Query
+                        </button>
+                    </div>
                 </div>
+
                 <div class="mmn-search-box">
                     <svg class="mmn-search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <circle cx="11" cy="11" r="8"></circle>
@@ -831,6 +903,7 @@
                             $headerPhone = $activeQuery->phone ? '+' . ltrim($activeQuery->phone, '+') : $activeQuery->name;
                         }
                         $waWebUrl = "https://web.whatsapp.com/send?phone={$cleanPhone}&text=" . urlencode("Hello {$activeQuery->name}, this is from My Merchant Navy regarding your inquiry ({$activeQuery->category}). How can we assist you?");
+                        $waDirectUrl = "https://wa.me/{$cleanPhone}?text=" . urlencode("Hello {$activeQuery->name}, this is from My Merchant Navy regarding your inquiry ({$activeQuery->category}).");
                     @endphp
 
                     {{-- WhatsApp Header --}}
@@ -861,16 +934,25 @@
                                 <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
                                     <path d="M12.004 2c-5.523 0-10 4.477-10 10 0 1.767.458 3.428 1.258 4.873l-1.332 4.864 4.985-1.307c1.401.765 3.007 1.2 4.708 1.2 5.523 0 10-4.477 10-10s-4.477-10-10-10z"/>
                                 </svg>
-                                Open WhatsApp Web
+                                Chat on WhatsApp Web
+                            </a>
+                            <a
+                                href="{{ $waDirectUrl }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                style="display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 600; color: #00a884; text-decoration: none; padding: 6px 10px; border-radius: 6px; background: rgba(0, 168, 132, 0.1);"
+                                title="Direct WhatsApp link"
+                            >
+                                📱 App Link
                             </a>
                         </div>
                     </div>
 
                     {{-- WhatsApp Messages Viewport --}}
                     <div class="mmn-messages-box">
-                        {{-- Date Divider & Security Encryption Notice --}}
+                        {{-- Security Encryption Notice --}}
                         <div class="mmn-security-notice">
-                            🔒 Messages are synced securely with LMS. Student inquiry received via My Merchant Navy Chatbot.
+                            🔒 Messages are synced securely with LMS Support. Student asked via LMS Chatbot.
                         </div>
 
                         <div class="mmn-date-divider">
@@ -886,17 +968,57 @@
                             </div>
                         </div>
 
-                        {{-- Outbound Site Manager Reply --}}
+                        {{-- Outbound Site Manager Replies --}}
                         @if (filled($activeQuery->admin_reply))
-                            <div class="mmn-bubble-out">
-                                <div class="mmn-bubble-sender" style="color: #075e54;">My Merchant Navy Faculty</div>
-                                <div class="mmn-bubble-text">{{ $activeQuery->admin_reply }}</div>
-                                <div class="mmn-bubble-meta">
-                                    <span>{{ $activeQuery->replied_at?->format('h:i A') }}</span>
-                                    <span style="color: #53bdeb; font-weight: 800; font-size: 12px;">✓✓</span>
-                                </div>
-                            </div>
+                            @php
+                                $replies = explode("\n\n", (string) $activeQuery->admin_reply);
+                            @endphp
+                            @foreach ($replies as $singleReply)
+                                @if (filled(trim($singleReply)))
+                                    <div class="mmn-bubble-out">
+                                        <div class="mmn-bubble-sender" style="color: #075e54;">My Merchant Navy Faculty</div>
+                                        <div class="mmn-bubble-text">{{ trim($singleReply) }}</div>
+                                        <div class="mmn-bubble-meta">
+                                            <span>{{ $activeQuery->replied_at?->format('h:i A') ?? now()->format('h:i A') }}</span>
+                                            <span style="color: #53bdeb; font-weight: 800; font-size: 12px;">✓✓</span>
+                                        </div>
+                                    </div>
+                                @endif
+                            @endforeach
                         @endif
+                    </div>
+
+                    {{-- Quick Chat Snippets --}}
+                    <div class="mmn-chat-snippets">
+                        <span style="font-size: 11px; font-weight: 700; color: #64748b; margin-right: 4px;">Quick:</span>
+                        <button
+                            type="button"
+                            wire:click="insertChatSnippet('Hello {{ $activeQuery->name }}, your academic doubt has been reviewed by our faculty. Please check your LMS portal for the step-by-step solution.')"
+                            class="mmn-snippet-btn"
+                        >
+                            💡 Concept Solved
+                        </button>
+                        <button
+                            type="button"
+                            wire:click="insertChatSnippet('Hello {{ $activeQuery->name }}, our senior maritime mentor is scheduling a counseling call on your phone ({{ $headerPhone }}). Are you available today?')"
+                            class="mmn-snippet-btn"
+                        >
+                            📞 Call Scheduled
+                        </button>
+                        <button
+                            type="button"
+                            wire:click="insertChatSnippet('Hello {{ $activeQuery->name }}, your batch enrollment and mock test access have been activated on https://lms.mymerchantnavy.com.')"
+                            class="mmn-snippet-btn"
+                        >
+                            📚 Batch Unlocked
+                        </button>
+                        <button
+                            type="button"
+                            wire:click="insertChatSnippet('Hello {{ $activeQuery->name }}, we have sent a detailed official resolution to your email ({{ $activeQuery->email }}). Please check your inbox.')"
+                            class="mmn-snippet-btn"
+                        >
+                            ✉️ Check Email
+                        </button>
                     </div>
 
                     {{-- WhatsApp In-Dashboard Input Bar --}}
@@ -924,7 +1046,7 @@
                             type="text"
                             wire:model="chatMessage"
                             wire:keydown.enter="sendChatMessage"
-                            placeholder="Type a message to reply to {{ $activeQuery->name }} on WhatsApp/App..."
+                            placeholder="Type a message to reply to {{ $activeQuery->name }} on WhatsApp/App (Press Enter to send)..."
                             class="mmn-chat-input"
                         />
 
@@ -963,95 +1085,148 @@
                 @endif
             </div>
         @else
-            {{-- EMAIL & AI COMPOSER SCREEN --}}
+            {{-- EMAIL & PREBUILT TEMPLATES COMPOSER SCREEN --}}
             <div class="mmn-email-pane">
-                @if ($activeQuery)
-                    @php
-                        $gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&to=" . urlencode($activeQuery->email) . "&su=" . urlencode("Response to your inquiry: {$activeQuery->category}") . "&body=" . urlencode("Dear {$activeQuery->name},\n\nRegarding your inquiry: \"{$activeQuery->message}\"\n\n");
-                    @endphp
+                @php
+                    $gmailUrl = "https://mail.google.com/mail/?view=cm&fs=1&to=" . urlencode($recipientEmail) . "&su=" . urlencode($emailSubject) . "&body=" . urlencode($emailBody);
+                @endphp
 
-                    {{-- Email Header --}}
-                    <div class="mmn-email-header">
-                        <div>
-                            <h3 style="font-size: 16px; font-weight: 800; color: #0f172a; margin: 0;">Compose Student Email</h3>
-                            <span style="font-size: 12px; color: #64748b;">Replying to: {{ $activeQuery->name }} ({{ $activeQuery->email }})</span>
-                        </div>
-                        <a
-                            href="{{ $gmailUrl }}"
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            class="mmn-gmail-btn"
-                            title="Open Google Mail in new tab"
-                        >
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                                <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
-                            </svg>
-                            Open in Google Mail
-                        </a>
+                {{-- Email Header --}}
+                <div class="mmn-email-header">
+                    <div>
+                        <h3 style="font-size: 16px; font-weight: 800; color: #0f172a; margin: 0;">Compose Student Email</h3>
+                        <span style="font-size: 12px; color: #64748b;">
+                            @if (filled($recipientEmail))
+                                Sending to: <strong style="color: #2563eb;">{{ $recipientEmail }}</strong>
+                            @else
+                                Enter any student email address below or select an inquiry from the left.
+                            @endif
+                        </span>
                     </div>
 
-                    {{-- AI Writer Tool Bar --}}
-                    <div class="mmn-ai-bar">
-                        <div style="display: flex; align-items: center; gap: 6px;">
-                            <span style="font-size: 12px; font-weight: 700; color: #166534;">✨ AI Mail Assistant:</span>
-                            <button type="button" wire:click="generateAiEmail('doubt')" class="mmn-ai-btn">
-                                💡 Solve Doubt
-                            </button>
-                            <button type="button" wire:click="generateAiEmail('counseling')" class="mmn-ai-btn">
-                                📞 Counseling Guidance
-                            </button>
-                            <button type="button" wire:click="generateAiEmail('batch')" class="mmn-ai-btn">
-                                📚 Batch Enrollment
-                            </button>
-                        </div>
-                    </div>
-
-                    {{-- Compose Form --}}
-                    <div class="mmn-email-form">
-                        <div class="mmn-form-row">
-                            <span class="mmn-form-label">To:</span>
-                            <input type="text" value="{{ $activeQuery->name }} <{{ $activeQuery->email }}>" readonly class="mmn-form-input" style="font-weight: 600;" />
-                        </div>
-
-                        <div class="mmn-form-row">
-                            <span class="mmn-form-label">Subject:</span>
-                            <input type="text" wire:model="emailSubject" class="mmn-form-input" placeholder="Subject line..." />
-                        </div>
-
-                        <textarea
-                            wire:model="emailBody"
-                            class="mmn-textarea"
-                            placeholder="Write your email to {{ $activeQuery->name }} here or click an AI template above..."
-                        ></textarea>
-                    </div>
-
-                    {{-- Email Action Footer --}}
-                    <div class="mmn-email-footer">
-                        <div style="display: flex; align-items: center; gap: 8px;">
-                            <span style="font-size: 12px; color: #64748b;">Status:</span>
-                            <select wire:model="emailStatus" style="font-size: 12px; padding: 4px 8px; border-radius: 6px; border: 1px solid #cbd5e1;">
-                                <option value="resolved">Mark Resolved</option>
-                                <option value="in_progress">In Progress</option>
-                                <option value="open">Keep Open</option>
-                            </select>
-                        </div>
-
+                    <div style="display: flex; align-items: center; gap: 8px;">
                         <button
                             type="button"
-                            wire:click="sendPlatformEmail"
-                            style="background: #2563eb; color: #ffffff; border: none; padding: 10px 20px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px;"
+                            wire:click="newEmailCompose"
+                            style="font-size: 12px; font-weight: 700; color: #475569; background: #e2e8f0; border: none; padding: 8px 12px; border-radius: 8px; cursor: pointer;"
                         >
-                            <span>Send Email via Brevo to Student</span>
-                            <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
-                                <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
-                            </svg>
+                            + Clear & New Email
                         </button>
+
+                        @if (filled($recipientEmail))
+                            <a
+                                href="{{ $gmailUrl }}"
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                class="mmn-gmail-btn"
+                                title="Open Google Mail in new tab with pre-filled content"
+                            >
+                                <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                                    <path d="M20 4H4c-1.1 0-1.99.9-1.99 2L2 18c0 1.1.9 2 2 2h16c1.1 0 2-.9 2-2V6c0-1.1-.9-2-2-2zm0 4l-8 5-8-5V6l8 5 8-5v2z"/>
+                                </svg>
+                                Open in Google Mail
+                            </a>
+                        @endif
                     </div>
-                @else
-                    <div style="flex: 1; display: flex; align-items: center; justify-content: center; color: #8696a0; font-size: 14px;">
-                        Select a query from the left to write and send an email.
+                </div>
+
+                {{-- Beautiful Prebuilt Response Templates --}}
+                <div class="mmn-template-bar">
+                    <span style="font-size: 12px; font-weight: 800; color: #166534; margin-right: 2px;">⚡ Prebuilt Templates:</span>
+                    <button type="button" wire:click="applyPrebuiltTemplate('academic_doubt')" class="mmn-template-pill">
+                        🎓 Academic Doubt
+                    </button>
+                    <button type="button" wire:click="applyPrebuiltTemplate('dns_sponsorship')" class="mmn-template-pill">
+                        ⚓ Sponsorship Counseling
+                    </button>
+                    <button type="button" wire:click="applyPrebuiltTemplate('batch_enrollment')" class="mmn-template-pill">
+                        📦 Batch Enrollment
+                    </button>
+                    <button type="button" wire:click="applyPrebuiltTemplate('fee_payment')" class="mmn-template-pill">
+                        💳 Fee & Payment
+                    </button>
+                    <button type="button" wire:click="applyPrebuiltTemplate('test_analysis')" class="mmn-template-pill">
+                        📝 Test Analysis
+                    </button>
+                </div>
+
+                {{-- Compose Form with Manual Email Entry Option --}}
+                <div class="mmn-email-form">
+                    {{-- Editable To Field --}}
+                    <div class="mmn-form-row">
+                        <span class="mmn-form-label">To (Email):</span>
+                        <input
+                            type="email"
+                            wire:model.live.debounce.300ms="recipientEmail"
+                            placeholder="Type student email address manually (e.g. student@gmail.com)..."
+                            class="mmn-form-input"
+                            style="font-weight: 600;"
+                            required
+                        />
                     </div>
-                @endif
+
+                    {{-- Student Name Field --}}
+                    <div class="mmn-form-row">
+                        <span class="mmn-form-label">Student Name:</span>
+                        <input
+                            type="text"
+                            wire:model="recipientName"
+                            placeholder="Student Full Name (optional)..."
+                            class="mmn-form-input"
+                        />
+                    </div>
+
+                    {{-- Subject Line --}}
+                    <div class="mmn-form-row">
+                        <span class="mmn-form-label">Subject:</span>
+                        <input
+                            type="text"
+                            wire:model="emailSubject"
+                            class="mmn-form-input"
+                            placeholder="Email Subject Line..."
+                        />
+                    </div>
+
+                    {{-- Body Textarea --}}
+                    <textarea
+                        wire:model="emailBody"
+                        class="mmn-textarea"
+                        placeholder="Type your email message to the student here or choose a prebuilt response template above..."
+                    ></textarea>
+                </div>
+
+                {{-- Email Action Footer --}}
+                <div class="mmn-email-footer">
+                    <div style="display: flex; align-items: center; gap: 8px;">
+                        <span style="font-size: 12px; color: #64748b; font-weight: 600;">Status:</span>
+                        <select wire:model="emailStatus" style="font-size: 12px; padding: 5px 10px; border-radius: 6px; border: 1px solid #cbd5e1; background: #fff;">
+                            <option value="resolved">Mark Resolved</option>
+                            <option value="in_progress">In Progress</option>
+                            <option value="open">Keep Open</option>
+                        </select>
+
+                        @if ($selectedQueryId)
+                            <button
+                                type="button"
+                                wire:click="$set('activeTab', 'whatsapp')"
+                                style="font-size: 12px; color: #00a884; font-weight: 700; background: transparent; border: 1px solid #00a884; border-radius: 6px; padding: 4px 10px; cursor: pointer;"
+                            >
+                                💬 Switch to WhatsApp
+                            </button>
+                        @endif
+                    </div>
+
+                    <button
+                        type="button"
+                        wire:click="sendPlatformEmail"
+                        style="background: #2563eb; color: #ffffff; border: none; padding: 10px 22px; border-radius: 8px; font-size: 13px; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 6px; box-shadow: 0 1px 3px rgba(37,99,235,0.3);"
+                    >
+                        <span>Send Email via Brevo to Student</span>
+                        <svg viewBox="0 0 24 24" width="16" height="16" fill="currentColor">
+                            <path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/>
+                        </svg>
+                    </button>
+                </div>
             </div>
         @endif
     </div>

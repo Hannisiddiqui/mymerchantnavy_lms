@@ -52,6 +52,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('integrations/wordpress')->middleware([VerifyWordPressSignature::class, 'throttle:120,1'])->group(function () {
         Route::post('student', [WordPressController::class, 'student']);
         Route::post('enroll', [WordPressController::class, 'enroll']);
+        Route::post('check', [WordPressController::class, 'check']);
     });
 
     // ---- Protected PDF page images: signed, expiring link (an <img> tag can't send the login token) ----

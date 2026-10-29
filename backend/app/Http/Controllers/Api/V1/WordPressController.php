@@ -16,6 +16,19 @@ class WordPressController extends Controller
 {
     public function __construct(private WordPressLink $link) {}
 
+    /** POST /integrations/wordpress/check: check if a student exists and if they already purchased this product. */
+    public function check(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email:rfc', 'max:191'],
+            'product_id' => ['nullable', 'string', 'max:191'],
+        ]);
+
+        $res = $this->link->check($data['email'], $data['product_id'] ?? null);
+
+        return response()->json(['data' => $res]);
+    }
+
     /** POST /integrations/wordpress/student: a student registered on WordPress (before paying). No course is given. */
     public function student(Request $request): JsonResponse
     {

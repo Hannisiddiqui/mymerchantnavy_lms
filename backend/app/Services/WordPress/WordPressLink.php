@@ -63,6 +63,34 @@ class WordPressLink
         return $user;
     }
 
+    /** @return array{exists: bool, name: ?string, already_purchased: bool} */
+    public function check(string $email, ?string $productId = null): array
+    {
+        $email = mb_strtolower(trim($email));
+        $user = User::whereRaw('lower(email) = ?', [$email])->first();
+
+        $alreadyPurchased = false;
+        if ($user && $productId) {
+            $courses = $this->coursesFor($productId);
+            if (! empty($courses)) {
+                $courseIds = array_map(fn ($c) => $c->id, $courses);
+                $alreadyPurchased = $user->enrollments()
+                    ->whereIn('course_id', $courseIds)
+                    ->where('status', 'active')
+                    ->where(function ($q) {
+                        $q->whereNull('expires_at')->orWhere('expires_at', '>', now());
+                    })
+                    ->exists();
+            }
+        }
+
+        return [
+            'exists' => $user !== null,
+            'name' => $user?->name,
+            'already_purchased' => $alreadyPurchased,
+        ];
+    }
+
     /** @return array<int,Course> courses sold under this WordPress product id */
     public function coursesFor(string $productId): array
     {

@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname } from "next/navigation";
 import Link from "next/link";
-import { Lock, ShieldAlert, ArrowRight, MessageCircle } from "lucide-react";
+import { Lock, ArrowRight, MessageCircle } from "lucide-react";
 import * as pageVisibilityApi from "@/lib/api/pageVisibility";
 import type { PageVisibilitySettings } from "@/lib/api/pageVisibility";
 
@@ -19,9 +19,8 @@ const ROUTE_VISIBILITY_MAP: Record<string, keyof PageVisibilitySettings> = {
 
 export function PageVisibilityGuard({ children }: { children: React.ReactNode }) {
   const pathname = usePathname();
-  const router = useRouter();
-  const [visibility, setVisibility] = useState<PageVisibilitySettings | null>(null);
-  const [loading, setLoading] = useState(true);
+  // Initialize with cached visibility immediately to avoid flickering
+  const [visibility, setVisibility] = useState<PageVisibilitySettings>(pageVisibilityApi.getCached);
 
   useEffect(() => {
     let mounted = true;
@@ -30,24 +29,16 @@ export function PageVisibilityGuard({ children }: { children: React.ReactNode })
       .then((data) => {
         if (mounted) {
           setVisibility(data);
-          setLoading(false);
         }
       })
       .catch(() => {
-        if (mounted) {
-          setVisibility(pageVisibilityApi.defaultPageVisibility);
-          setLoading(false);
-        }
+        // preserve current cached visibility on network failure
       });
 
     return () => {
       mounted = false;
     };
   }, [pathname]);
-
-  if (loading || !visibility) {
-    return <>{children}</>;
-  }
 
   // Determine if current pathname matches a disabled module
   let matchedKey: keyof PageVisibilitySettings | null = null;
@@ -63,7 +54,6 @@ export function PageVisibilityGuard({ children }: { children: React.ReactNode })
   if (isBlocked) {
     const formattedName = matchedKey ? matchedKey.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) : "This section";
 
-    // Find the first enabled route to recommend
     const firstEnabledRoute =
       visibility.my_courses ? "/my-courses" :
       visibility.batches ? "/batches" :
@@ -118,4 +108,3 @@ export function PageVisibilityGuard({ children }: { children: React.ReactNode })
 
   return <>{children}</>;
 }
-

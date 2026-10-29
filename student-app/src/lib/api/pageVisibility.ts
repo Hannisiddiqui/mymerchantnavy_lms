@@ -20,11 +20,41 @@ export const defaultPageVisibility: PageVisibilitySettings = {
   profile: true,
 };
 
-export async function get(): Promise<PageVisibilitySettings> {
-  try {
-    return await request<PageVisibilitySettings>("/page-visibility");
-  } catch {
-    return defaultPageVisibility;
+let cachedVisibility: PageVisibilitySettings | null = null;
+
+const STORAGE_KEY = "mmn_page_visibility_cache";
+
+export function getCached(): PageVisibilitySettings {
+  if (cachedVisibility) {
+    return cachedVisibility;
   }
+  if (typeof window !== "undefined") {
+    try {
+      const stored = window.localStorage.getItem(STORAGE_KEY);
+      if (stored) {
+        cachedVisibility = JSON.parse(stored);
+        return cachedVisibility!;
+      }
+    } catch {
+      // ignore
+    }
+  }
+  return defaultPageVisibility;
 }
 
+export async function get(): Promise<PageVisibilitySettings> {
+  try {
+    const data = await request<PageVisibilitySettings>("/page-visibility");
+    cachedVisibility = data;
+    if (typeof window !== "undefined") {
+      try {
+        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch {
+        // ignore
+      }
+    }
+    return data;
+  } catch {
+    return getCached();
+  }
+}
