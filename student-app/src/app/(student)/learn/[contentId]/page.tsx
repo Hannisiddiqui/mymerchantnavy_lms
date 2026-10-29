@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, CircleCheck, Clock, FileQuestion, Trophy } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Circle, CircleCheck, CirclePlay, Clock, FileQuestion, FileText, Target, Trophy } from "lucide-react";
 import * as api from "@/lib/api";
 import type { ContentItem } from "@/types";
 import { useApi } from "@/lib/use-api";
