@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\Api\V1\AttemptController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BatchController;
 use App\Http\Controllers\Api\V1\ContentController;
 use App\Http\Controllers\Api\V1\CourseController;
 use App\Http\Controllers\Api\V1\NoteController;
@@ -24,6 +25,10 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')->group(function () {
+    // ---- Student Batches Store (PhysicsWallah-style) ----
+    Route::get('batches', [BatchController::class, 'index']);
+    Route::get('batches/{slug}', [BatchController::class, 'show']);
+
     // ---- Student Support & Chatbot ----
     Route::get('support/config', [SupportController::class, 'config']);
     Route::post('support/query', [SupportController::class, 'sendQuery'])->middleware('throttle:30,1');

@@ -57,6 +57,13 @@ class User extends Authenticatable
         });
     }
 
+    public function batches(): BelongsToMany
+    {
+        return $this->belongsToMany(Batch::class, 'batch_user')
+            ->withPivot('enrolled_at', 'expires_at')
+            ->withTimestamps();
+    }
+
     public function courses(): BelongsToMany
     {
         return $this->belongsToMany(Course::class, 'enrollments')

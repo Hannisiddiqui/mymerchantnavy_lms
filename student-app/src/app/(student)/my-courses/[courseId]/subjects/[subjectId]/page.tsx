@@ -2,11 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { ChevronDown, Compass } from "lucide-react";
+import Link from "next/link";
+import { Circle, CircleCheck, CirclePlay, ChevronDown, Compass, FileText, Target } from "lucide-react";
 import * as api from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { cn } from "@/lib/utils";
-import { ContentRow } from "@/components/course/ContentRow";
+import { contentMeta, contentTypes } from "@/components/course/contentTypes";
 import { TestCard } from "@/components/test/TestCard";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ErrorState, PageSkeleton } from "@/components/ui/States";
@@ -39,8 +40,8 @@ export default function SubjectPage() {
         const el = document.getElementById(`chapter-${chId}`) || document.getElementById(`chapter-${chNum}`);
         if (el) {
           el.scrollIntoView({ behavior: "smooth", block: "start" });
-          el.classList.add("ring-2", "ring-brand-500", "ring-offset-2");
-          setTimeout(() => el.classList.remove("ring-2", "ring-brand-500", "ring-offset-2"), 2200);
+          el.classList.add("ring-2", "ring-sky-500", "ring-offset-2", "ring-offset-slate-900");
+          setTimeout(() => el.classList.remove("ring-2", "ring-sky-500", "ring-offset-2", "ring-offset-slate-900"), 2200);
         }
       }, 60);
     }
@@ -66,14 +67,30 @@ export default function SubjectPage() {
   if (loading) return <PageSkeleton />;
   if (error || !subject) return <ErrorState message={error ?? "Subject not found"} onRetry={reload} />;
 
+  const allContents = subject.chapters.flatMap((c) => c.contents);
+  const totalCompleted = allContents.filter((c) => c.completed).length;
+
+  let totalMinutes = 0;
+  for (const c of allContents) {
+    if (c.type === "video") totalMinutes += Math.round((c.durationSeconds || 0) / 60);
+    else if (c.type === "live_class") totalMinutes += c.durationMinutes || 60;
+    else if (c.type === "practice_test") totalMinutes += c.test?.durationMinutes || 30;
+    else if (c.type === "note") totalMinutes += c.readMinutes || 5;
+    else if (c.type === "pdf") totalMinutes += Math.round((c.pageCount || 10) * 1.5);
+  }
+  const durationHours = Math.floor(totalMinutes / 60);
+  const durationMins = totalMinutes % 60;
+  const durationStr = durationHours > 0 ? `${durationHours}h ${durationMins}m` : `${durationMins}m`;
+  const subjectSubtitle = `Total estimated duration: ${durationStr} • ${totalCompleted} / ${allContents.length} contents completed`;
+
   let chapterNo = 0;
   let pillNo = 0;
 
   return (
     <>
       <PageHeader
-        title={subject.title}
-        subtitle={subject.description}
+        title={subject.title.toUpperCase()}
+        subtitle={subjectSubtitle}
         crumbs={[
           { label: "My Courses", href: "/my-courses" },
           { label: subject.courseTitle, href: `/my-courses/${subject.courseId}` },
@@ -82,9 +99,9 @@ export default function SubjectPage() {
       />
 
       {/* Quick Chapter Navigation Pills */}
-      <div className="mb-4 flex items-center gap-1.5 overflow-x-auto rounded-xl border border-line bg-white p-2.5 shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-500 shrink-0 mr-1.5">
-          <Compass className="size-3.5 text-brand-600" /> Jump to:
+      <div className="mb-5 flex items-center gap-1.5 overflow-x-auto rounded-xl border border-slate-800 bg-[#0d1627] p-2.5 shadow-sm scrollbar-thin">
+        <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1.5">
+          <Compass className="size-3.5 text-sky-400" /> Jump to:
         </span>
         {subject.chapters.map((ch) => {
           if (ch.test) return null;
@@ -95,15 +112,15 @@ export default function SubjectPage() {
               key={`pill-${ch.id}`}
               type="button"
               onClick={() => scrollToChapter(ch.id, currentPill)}
-              className="shrink-0 rounded-lg bg-slate-100 hover:bg-brand-600 hover:text-white px-2.5 py-1 text-xs font-bold text-slate-700 transition dark:bg-slate-800 dark:text-slate-300 dark:hover:bg-brand-600 dark:hover:text-white"
+              className="shrink-0 rounded-lg bg-[#182338] hover:bg-sky-600 hover:text-white px-3 py-1.5 text-xs font-bold text-slate-300 transition border border-slate-700/60"
             >
-              Ch {currentPill}
+              Chapter {currentPill}
             </button>
           );
         })}
       </div>
 
-      <div className="space-y-4">
+      <div className="space-y-3.5">
         {subject.chapters.map((chapter) => {
           // A mock test placed between chapters: shown as a test card in its position.
           if (chapter.test) return <TestCard key={chapter.id} test={chapter.test} />;
@@ -115,24 +132,62 @@ export default function SubjectPage() {
             <section
               key={chapter.id}
               id={`chapter-${chapter.id}`}
-              className="overflow-hidden rounded-2xl border border-line bg-white transition-all duration-300 dark:border-slate-800 dark:bg-slate-900 scroll-mt-20"
+              className="overflow-hidden rounded-2xl border border-slate-800/90 bg-[#0d1629] transition-all duration-300 shadow-sm scroll-mt-20"
             >
               <button
                 onClick={() => toggle(chapter.id)}
-                className="flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                className="flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-slate-800/50 transition"
                 aria-expanded={isOpen}
               >
-                <span className="text-xs font-bold uppercase tracking-wider text-brand-600">Chapter {currentNum}</span>
-                <span className="flex-1 font-bold text-navy-900 dark:text-white">{chapter.title}</span>
-                <span className="hidden text-xs font-medium text-slate-500 sm:block">
+                <span className="text-xs font-bold uppercase tracking-wider text-sky-400 shrink-0">Chapter {currentNum}</span>
+                <span className="flex-1 font-bold text-white text-base truncate">{chapter.title}</span>
+                <span className="hidden text-xs font-medium text-slate-400 sm:block shrink-0">
                   {done}/{chapter.contents.length} completed
                 </span>
-                <ChevronDown className={cn("size-5 text-slate-400 transition", isOpen && "rotate-180")} />
+                <ChevronDown className={cn("size-5 text-slate-400 transition shrink-0", isOpen && "rotate-180")} />
               </button>
               {isOpen && (
-                <div className="divide-y divide-line border-t border-line dark:divide-slate-800 dark:border-slate-800">
+                <div className="divide-y divide-slate-800/70 border-t border-slate-800/80">
                   {chapter.contents.map((item) => (
-                    <ContentRow key={item.id} item={item} />
+                    <Link
+                      key={item.id}
+                      href={`/learn/${item.id}`}
+                      className="flex items-center gap-3.5 px-5 py-3.5 hover:bg-slate-800/40 transition group"
+                    >
+                      <span
+                        className={cn(
+                          "grid size-8.5 shrink-0 place-items-center rounded-lg border",
+                          item.type === "pdf" || item.type === "note"
+                            ? "bg-amber-950/40 text-amber-400 border-amber-800/40"
+                            : item.type === "practice_test"
+                            ? "bg-emerald-950/40 text-emerald-400 border-emerald-800/40"
+                            : "bg-blue-950/40 text-blue-400 border-blue-800/40"
+                        )}
+                      >
+                        {item.type === "pdf" || item.type === "note" ? (
+                          <FileText className="size-4" />
+                        ) : item.type === "practice_test" ? (
+                          <Target className="size-4" />
+                        ) : (
+                          <CirclePlay className="size-4" />
+                        )}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block font-semibold text-sm text-slate-100 group-hover:text-sky-300 transition truncate">
+                          {item.title}
+                        </span>
+                        <span className="mt-0.5 flex items-center gap-2 text-xs text-slate-400">
+                          <span>{contentTypes[item.type]?.label || item.type}</span>
+                          <span className="text-slate-600">•</span>
+                          <span>{contentMeta(item)}</span>
+                        </span>
+                      </span>
+                      {item.completed ? (
+                        <CircleCheck className="size-5 shrink-0 text-emerald-400" aria-label="Completed" />
+                      ) : (
+                        <Circle className="size-5 shrink-0 text-slate-600" aria-label="Not completed" />
+                      )}
+                    </Link>
                   ))}
                 </div>
               )}
