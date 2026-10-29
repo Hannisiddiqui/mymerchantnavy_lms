@@ -99,9 +99,9 @@ export default function SubjectPage() {
       />
 
       {/* Quick Chapter Navigation Pills */}
-      <div className="mb-5 flex items-center gap-1.5 overflow-x-auto rounded-xl border border-slate-800 bg-[#0d1627] p-2.5 shadow-sm scrollbar-thin">
-        <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-400 shrink-0 mr-1.5">
-          <Compass className="size-3.5 text-sky-400" /> Jump to:
+      <div className="mb-5 flex items-center gap-1.5 overflow-x-auto rounded-xl border border-line bg-white p-2.5 shadow-xs transition-colors scrollbar-thin dark:border-slate-800 dark:bg-[#0d1627]">
+        <span className="flex items-center gap-1 text-xs font-bold uppercase tracking-wider text-slate-500 shrink-0 mr-1.5 dark:text-slate-400">
+          <Compass className="size-3.5 text-brand-600 dark:text-sky-400" /> Jump to:
         </span>
         {subject.chapters.map((ch) => {
           if (ch.test) return null;
@@ -112,7 +112,7 @@ export default function SubjectPage() {
               key={`pill-${ch.id}`}
               type="button"
               onClick={() => scrollToChapter(ch.id, currentPill)}
-              className="shrink-0 rounded-lg bg-[#182338] hover:bg-sky-600 hover:text-white px-3 py-1.5 text-xs font-bold text-slate-300 transition border border-slate-700/60"
+              className="shrink-0 rounded-lg bg-slate-100 hover:bg-brand-600 hover:text-white px-3 py-1.5 text-xs font-bold text-slate-700 transition border border-slate-200 dark:bg-[#182338] dark:hover:bg-sky-600 dark:hover:text-white dark:text-slate-300 dark:border-slate-700/60"
             >
               Chapter {currentPill}
             </button>
@@ -132,36 +132,36 @@ export default function SubjectPage() {
             <section
               key={chapter.id}
               id={`chapter-${chapter.id}`}
-              className="overflow-hidden rounded-2xl border border-slate-800/90 bg-[#0d1629] transition-all duration-300 shadow-sm scroll-mt-20"
+              className="overflow-hidden rounded-2xl border border-line bg-white transition-all duration-300 shadow-xs scroll-mt-20 dark:border-slate-800/90 dark:bg-[#0d1629]"
             >
               <button
                 onClick={() => toggle(chapter.id)}
-                className="flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-slate-800/50 transition"
+                className="flex w-full items-center gap-4 px-5 py-4 text-left hover:bg-slate-50 dark:hover:bg-slate-800/50 transition"
                 aria-expanded={isOpen}
               >
-                <span className="text-xs font-bold uppercase tracking-wider text-sky-400 shrink-0">Chapter {currentNum}</span>
-                <span className="flex-1 font-bold text-white text-base truncate">{chapter.title}</span>
-                <span className="hidden text-xs font-medium text-slate-400 sm:block shrink-0">
+                <span className="text-xs font-bold uppercase tracking-wider text-brand-600 dark:text-sky-400 shrink-0">Chapter {currentNum}</span>
+                <span className="flex-1 font-bold text-navy-900 dark:text-white text-base truncate">{chapter.title}</span>
+                <span className="hidden text-xs font-medium text-slate-500 dark:text-slate-400 sm:block shrink-0">
                   {done}/{chapter.contents.length} completed
                 </span>
                 <ChevronDown className={cn("size-5 text-slate-400 transition shrink-0", isOpen && "rotate-180")} />
               </button>
               {isOpen && (
-                <div className="divide-y divide-slate-800/70 border-t border-slate-800/80">
+                <div className="divide-y divide-line border-t border-line dark:divide-slate-800/70 dark:border-slate-800/80">
                   {chapter.contents.map((item) => (
                     <Link
                       key={item.id}
                       href={`/learn/${item.id}`}
-                      className="flex items-center gap-3.5 px-5 py-3.5 hover:bg-slate-800/40 transition group"
+                      className="flex items-center gap-3.5 px-5 py-3.5 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition group"
                     >
                       <span
                         className={cn(
-                          "grid size-8.5 shrink-0 place-items-center rounded-lg border",
+                          "grid size-8.5 shrink-0 place-items-center rounded-lg border transition-colors",
                           item.type === "pdf" || item.type === "note"
-                            ? "bg-amber-950/40 text-amber-400 border-amber-800/40"
+                            ? "bg-amber-50 text-amber-600 border-amber-200/60 dark:bg-amber-950/40 dark:text-amber-400 dark:border-amber-800/40"
                             : item.type === "practice_test"
-                            ? "bg-emerald-950/40 text-emerald-400 border-emerald-800/40"
-                            : "bg-blue-950/40 text-blue-400 border-blue-800/40"
+                            ? "bg-emerald-50 text-emerald-600 border-emerald-200/60 dark:bg-emerald-950/40 dark:text-emerald-400 dark:border-emerald-800/40"
+                            : "bg-blue-50 text-blue-600 border-blue-200/60 dark:bg-blue-950/40 dark:text-blue-400 dark:border-blue-800/40"
                         )}
                       >
                         {item.type === "pdf" || item.type === "note" ? (
@@ -173,19 +173,19 @@ export default function SubjectPage() {
                         )}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block font-semibold text-sm text-slate-100 group-hover:text-sky-300 transition truncate">
+                        <span className="block font-semibold text-sm text-slate-800 group-hover:text-brand-600 dark:text-slate-100 dark:group-hover:text-sky-300 transition truncate">
                           {item.title}
                         </span>
-                        <span className="mt-0.5 flex items-center gap-2 text-xs text-slate-400">
+                        <span className="mt-0.5 flex items-center gap-2 text-xs text-slate-500 dark:text-slate-400">
                           <span>{contentTypes[item.type]?.label || item.type}</span>
-                          <span className="text-slate-600">•</span>
+                          <span className="text-slate-300 dark:text-slate-600">•</span>
                           <span>{contentMeta(item)}</span>
                         </span>
                       </span>
                       {item.completed ? (
-                        <CircleCheck className="size-5 shrink-0 text-emerald-400" aria-label="Completed" />
+                        <CircleCheck className="size-5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-label="Completed" />
                       ) : (
-                        <Circle className="size-5 shrink-0 text-slate-600" aria-label="Not completed" />
+                        <Circle className="size-5 shrink-0 text-slate-300 dark:text-slate-600" aria-label="Not completed" />
                       )}
                     </Link>
                   ))}

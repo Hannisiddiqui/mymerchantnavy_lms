@@ -45,7 +45,7 @@ export default function CoursePage() {
         </div>
       </section>
 
-      <h2 className="mb-4 text-lg font-bold text-navy-900">Course content</h2>
+      <h2 className="mb-4 text-lg font-bold text-navy-900 dark:text-white">Course content</h2>
       <ol className="space-y-3">
         {course.curriculum.map((item) =>
           item.kind === "subject" ? (

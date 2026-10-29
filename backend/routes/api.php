@@ -31,6 +31,7 @@ Route::prefix('v1')->group(function () {
 
     // ---- Student Support & Chatbot ----
     Route::get('support/config', [SupportController::class, 'config']);
+    Route::get('page-visibility', [SupportController::class, 'pageVisibility']);
     Route::post('support/query', [SupportController::class, 'sendQuery'])->middleware('throttle:30,1');
 
     // ---- Login (public, rate-limited) ----

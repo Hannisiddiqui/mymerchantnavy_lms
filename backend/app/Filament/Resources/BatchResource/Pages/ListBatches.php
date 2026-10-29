@@ -17,3 +17,4 @@ class ListBatches extends ListRecords
         ];
     }
 }
+

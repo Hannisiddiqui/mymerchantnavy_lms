@@ -18,8 +18,30 @@ class SupportController extends Controller
             'data' => [
                 'support_email' => Setting::get('support_email', 'support.mymerchantnavy@gmail.com'),
                 'support_whatsapp_number' => Setting::get('support_whatsapp_number', '919911223344'),
+                'page_visibility' => $this->getPageVisibilitySettings(),
             ],
         ]);
+    }
+
+    /** Return student LMS page visibility settings. */
+    public function pageVisibility(): JsonResponse
+    {
+        return response()->json([
+            'data' => $this->getPageVisibilitySettings(),
+        ]);
+    }
+
+    private function getPageVisibilitySettings(): array
+    {
+        return [
+            'my_courses' => filter_var(Setting::get('page_visibility_my_courses', '1'), FILTER_VALIDATE_BOOLEAN),
+            'batches' => filter_var(Setting::get('page_visibility_batches', '1'), FILTER_VALIDATE_BOOLEAN),
+            'mock_tests' => filter_var(Setting::get('page_visibility_mock_tests', '1'), FILTER_VALIDATE_BOOLEAN),
+            'performance' => filter_var(Setting::get('page_visibility_performance', '1'), FILTER_VALIDATE_BOOLEAN),
+            'results' => filter_var(Setting::get('page_visibility_results', '1'), FILTER_VALIDATE_BOOLEAN),
+            'notes' => filter_var(Setting::get('page_visibility_notes', '1'), FILTER_VALIDATE_BOOLEAN),
+            'profile' => filter_var(Setting::get('page_visibility_profile', '1'), FILTER_VALIDATE_BOOLEAN),
+        ];
     }
 
     /** Handle queries submitted via student chatbot. */

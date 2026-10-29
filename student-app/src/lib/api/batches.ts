@@ -110,3 +110,4 @@ export async function get(slug: string): Promise<BatchItem> {
   }
   return request<BatchItem>(`/batches/${slug}`);
 }
+

@@ -115,3 +115,4 @@ class Batch extends Model
         return false;
     }
 }
+

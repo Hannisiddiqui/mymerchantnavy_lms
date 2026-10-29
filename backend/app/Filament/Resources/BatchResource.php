@@ -277,3 +277,4 @@ class BatchResource extends Resource
         ];
     }
 }
+

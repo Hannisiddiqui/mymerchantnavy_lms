@@ -22,3 +22,4 @@ class EditBatch extends EditRecord
         return static::getResource()::getUrl('index');
     }
 }
+

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, Calendar, CheckCircle2, CheckCircle, Clock, Layers, Sparkles, Tag } from "lucide-react";
+import { ArrowRight, Calendar, CheckCircle, Clock, Layers, Tag } from "lucide-react";
 import * as api from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import type { BatchItem } from "@/types";
@@ -32,47 +32,19 @@ export default function BatchesPage() {
     <div className="space-y-6">
       <PageHeader
         title="Batches & Programs"
-        subtitle="Comprehensive exam batches for IMU-CET, DNS Sponsorship & Merchant Navy Aspirants."
+        subtitle="Sellable exam batches and test series for IMU-CET, DNS Sponsorship & Merchant Navy Aspirants."
         crumbs={[
           { label: "Dashboard", href: "/my-courses" },
           { label: "Batches" },
         ]}
         action={
           <div className="flex items-center gap-2">
-            <span className="hidden text-xs font-medium text-slate-500 sm:inline-block">
+            <span className="hidden text-xs font-semibold text-slate-500 sm:inline-block">
               {batches.length} batch{batches.length === 1 ? "" : "es"} available
             </span>
           </div>
         }
       />
-
-      {/* PhysicsWallah-Style Announcement Hero Banner */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-navy-950 via-slate-900 to-brand-950 p-6 sm:p-8 text-white shadow-md border border-slate-800">
-        <div className="relative z-10 max-w-2xl space-y-3">
-          <div className="inline-flex items-center gap-1.5 rounded-full bg-brand-500/20 px-3 py-1 text-xs font-semibold text-brand-300 border border-brand-400/30">
-            <Sparkles className="size-3.5" />
-            <span>Target Batches 2026 – 2027</span>
-          </div>
-          <h2 className="text-2xl sm:text-3xl font-extrabold tracking-tight">
-            Learn From Industry Experts. Clear in First Attempt.
-          </h2>
-          <p className="text-sm text-slate-300 leading-relaxed">
-            Full theory curriculum, chapterwise problem ladders, and simulated all-India mock tests. All sellable batches include instant LMS access upon enrollment.
-          </p>
-          <div className="pt-1 flex flex-wrap items-center gap-3 text-xs font-medium text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="size-4 text-emerald-400" /> Complete Notes & Formulas
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="size-4 text-emerald-400" /> 10,000+ Practice MCQs
-            </span>
-            <span className="flex items-center gap-1.5">
-              <CheckCircle2 className="size-4 text-emerald-400" /> Full-Length Mock Series
-            </span>
-          </div>
-        </div>
-        <div className="absolute right-0 top-0 bottom-0 w-1/3 opacity-10 bg-radial from-white to-transparent pointer-events-none" />
-      </div>
 
       {/* Filter Tabs / Categories */}
       <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">

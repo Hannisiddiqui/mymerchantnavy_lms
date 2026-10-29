@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { LifeBuoy, LogOut, PanelLeftClose, PanelLeftOpen, X } from "lucide-react";
 import * as api from "@/lib/api";
+import { useApi } from "@/lib/use-api";
 import { brand, sidebarNav } from "@/lib/config";
 import { cn } from "@/lib/utils";
 import { Logo } from "@/components/ui/Logo";
@@ -25,6 +26,7 @@ export function Sidebar({
 }) {
   const pathname = usePathname();
   const router = useRouter();
+  const { data: visibility } = useApi(() => api.pageVisibility.get(), []);
 
   async function logout() {
     await api.auth.logout();
@@ -33,6 +35,18 @@ export function Sidebar({
 
   // Text that disappears when collapsed (desktop only)
   const label = collapsed ? "lg:hidden" : "";
+
+  const visibleNav = sidebarNav.filter(({ href }) => {
+    if (!visibility) return true;
+    if (href === "/my-courses" && visibility.my_courses === false) return false;
+    if (href === "/batches" && visibility.batches === false) return false;
+    if (href === "/mock-tests" && visibility.mock_tests === false) return false;
+    if (href === "/performance" && visibility.performance === false) return false;
+    if (href === "/results" && visibility.results === false) return false;
+    if (href === "/notes" && visibility.notes === false) return false;
+    if (href === "/profile" && visibility.profile === false) return false;
+    return true;
+  });
 
   return (
     <>
@@ -63,7 +77,7 @@ export function Sidebar({
 
         <p className={cn("mt-4 px-6 text-[11px] font-bold uppercase tracking-[0.16em] text-slate-500", label)}>Learn</p>
         <nav className="mt-2 flex flex-col gap-1 px-3">
-          {sidebarNav.map(({ label: text, href, icon: Icon, alsoActiveOn = [] }) => {
+          {visibleNav.map(({ label: text, href, icon: Icon, alsoActiveOn = [] }) => {
             const active = [href, ...alsoActiveOn].some((p) => pathname === p || pathname.startsWith(`${p}/`));
             return (
               <Link

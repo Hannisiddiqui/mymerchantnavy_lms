@@ -37,6 +37,7 @@ class AdminPanelProvider extends PanelProvider
             ->brandName('My Merchant Navy')
             ->font('Inter')
             ->sidebarCollapsibleOnDesktop()
+            ->darkMode(true)
             ->colors([
                 // Same blue as the student site
                 'primary' => [
