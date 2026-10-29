@@ -32,6 +32,16 @@ class CourseResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    public static function canViewAny(): bool
+    {
+        $admin = auth('admin')->user();
+        if (! $admin) {
+            return false;
+        }
+
+        return $admin->isSuperAdmin() || $admin->hasPermission('manage_courses');
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

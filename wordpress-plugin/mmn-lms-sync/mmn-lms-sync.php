@@ -228,13 +228,38 @@ function mmn_lms_login_url($user, $go = '')
     if ($email === '' || ! mmn_lms_ready()) {
         return rtrim(mmn_lms_setting('app_url'), '/') . '/login';
     }
-    $payload = rtrim(strtr(base64_encode(wp_json_encode([
+
+    $name = '';
+    $phone = '';
+    if ($wp_user) {
+        $name = trim($wp_user->first_name . ' ' . $wp_user->last_name);
+        if ($name === '') {
+            $name = trim(get_user_meta($wp_user->ID, 'billing_first_name', true) . ' ' . get_user_meta($wp_user->ID, 'billing_last_name', true));
+        }
+        if ($name === '') {
+            $name = $wp_user->display_name;
+        }
+        $phone = get_user_meta($wp_user->ID, 'phone', true);
+        if (! $phone) {
+            $phone = get_user_meta($wp_user->ID, 'billing_phone', true);
+        }
+    }
+
+    $token_data = [
         'e' => strtolower($email),
         'x' => time() + 120,
         'j' => bin2hex(random_bytes(8)),
         'v' => $wp_user ? (bool) get_user_meta($wp_user->ID, 'mmn_email_verified', true) : false,
         'g' => (is_string($go) && preg_match('#^/[A-Za-z0-9_/-]{0,100}$#', $go)) ? $go : null,
-    ])), '+/', '-_'), '=');
+    ];
+    if ($name !== '') {
+        $token_data['n'] = $name;
+    }
+    if ($phone) {
+        $token_data['p'] = (string) $phone;
+    }
+
+    $payload = rtrim(strtr(base64_encode(wp_json_encode($token_data)), '+/', '-_'), '=');
 
     return rtrim(mmn_lms_setting('app_url'), '/') . '/sso#t=' . $payload . '.' . hash_hmac('sha256', $payload, mmn_lms_setting('secret'));
 }

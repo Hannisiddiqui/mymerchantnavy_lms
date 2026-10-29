@@ -1,5 +1,7 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where(.dark, .dark *));
+
 /*
  * Brand theme — My Merchant Navy.
  * Change colours here only; every component uses these tokens
@@ -47,6 +49,20 @@ body {
   background: var(--color-surface);
   color: #1e293b;
   font-family: var(--font-sans);
+  transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+:root.dark,
+html.dark {
+  --color-surface: #0a0f1d;
+  --color-line: #1e293b;
+  color-scheme: dark;
+}
+
+:root.dark body,
+html.dark body {
+  background: #0a0f1d;
+  color: #f1f5f9;
 }
 
 /* Same families as mymerchantnavy.com (Jakarta headings, Inter text) at a calmer weight. In the base layer, so a

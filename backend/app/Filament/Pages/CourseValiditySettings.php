@@ -13,17 +13,14 @@ use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
 use Filament\Schemas\Components\Section;
-use Filament\Schemas\Concerns\InteractsWithSchemas;
-use Filament\Schemas\Contracts\HasSchemas;
 use Filament\Schemas\Schema;
 
 /**
  * Super Admin Course Validity Management
  * Configure automatic calendar-based validity rules from purchase date.
  */
-class CourseValiditySettings extends Page implements HasSchemas
+class CourseValiditySettings extends Page
 {
-    use InteractsWithSchemas;
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-calendar-days';
 
     protected static string|\UnitEnum|null $navigationGroup = 'Super Admin';
@@ -66,15 +63,26 @@ class CourseValiditySettings extends Page implements HasSchemas
 
         $this->selectedCourseId = $course->id;
 
-        $this->data = [
-            'course_id' => $course->id,
-            'validity_type' => $course->validity_type ?: '6_months',
-            'validity_duration_months' => $course->validity_duration_months ?: 6,
-            'validity_duration_days' => $course->validity_duration_days,
-            'validity_fixed_expiry_date' => $course->validity_fixed_expiry_date ? (is_string($course->validity_fixed_expiry_date) ? substr($course->validity_fixed_expiry_date, 0, 10) : $course->validity_fixed_expiry_date->format('Y-m-d')) : null,
-        ];
+        $hasValidity = \Illuminate\Support\Facades\Schema::hasColumn('courses', 'validity_type');
+        $validityType = $hasValidity ? ($course->validity_type ?: '6_months') : '6_months';
+        $durationMonths = $hasValidity ? ($course->validity_duration_months ?: 6) : 6;
+        $durationDays = $hasValidity ? $course->validity_duration_days : null;
+        $fixedDate = $hasValidity && $course->validity_fixed_expiry_date
+            ? (is_string($course->validity_fixed_expiry_date) ? substr($course->validity_fixed_expiry_date, 0, 10) : $course->validity_fixed_expiry_date->format('Y-m-d'))
+            : null;
 
-        $this->form->fill($this->data);
+        $this->form->fill([
+            'course_id' => $course->id,
+            'validity_type' => $validityType,
+            'validity_duration_months' => $durationMonths,
+            'validity_duration_days' => $durationDays,
+            'validity_fixed_expiry_date' => $fixedDate,
+        ]);
+    }
+
+    public function updatedSelectedCourseId($value): void
+    {
+        $this->loadCourse((int) $value);
     }
 
     public function form(Schema $schema): Schema
@@ -90,11 +98,7 @@ class CourseValiditySettings extends Page implements HasSchemas
                             ->options(Course::orderBy('title')->pluck('title', 'id'))
                             ->required()
                             ->live()
-                            ->afterStateUpdated(function ($state, $old) {
-                                if ($state && (int)$state !== (int)$this->selectedCourseId) {
-                                    $this->loadCourse((int) $state);
-                                }
-                            }),
+                            ->afterStateUpdated(fn ($state) => $this->loadCourse((int) $state)),
                     ]),
 
                 Section::make('Validity Duration Rules')
@@ -131,6 +135,16 @@ class CourseValiditySettings extends Page implements HasSchemas
     public function save(): void
     {
         abort_unless(static::canAccess(), 403);
+
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('courses', 'validity_type')) {
+            Notification::make()
+                ->title('Database Migration Required')
+                ->body('Please run "php artisan migrate" on the server before updating course validity.')
+                ->warning()
+                ->send();
+
+            return;
+        }
         $formData = $this->form->getState();
         $courseId = $formData['course_id'] ?? $this->selectedCourseId;
 
@@ -172,6 +186,16 @@ class CourseValiditySettings extends Page implements HasSchemas
     public function recalculateExistingEnrollments(): void
     {
         abort_unless(static::canAccess(), 403);
+
+        if (! \Illuminate\Support\Facades\Schema::hasColumn('enrollments', 'expires_at')) {
+            Notification::make()
+                ->title('Database Migration Required')
+                ->body('Please run "php artisan migrate" on the server before recalculating enrollments.')
+                ->warning()
+                ->send();
+
+            return;
+        }
         $course = Course::findOrFail($this->selectedCourseId);
         $enrollments = Enrollment::where('course_id', $course->id)->get();
 
@@ -242,7 +266,7 @@ class CourseValiditySettings extends Page implements HasSchemas
 
     public function getCalculatedSampleExpiryProperty(): string
     {
-        if (! $this->selectedCourse) {
+        if (! $this->selectedCourse || ! method_exists($this->selectedCourse, 'calculateExpiry')) {
             return '—';
         }
 

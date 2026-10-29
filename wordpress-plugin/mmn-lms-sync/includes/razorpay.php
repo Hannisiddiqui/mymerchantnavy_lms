@@ -224,6 +224,11 @@ function mmn_lms_front_script()
                 return post({ action: 'mmn_rzp_create', nonce: cfg.nonce, product: product });
             }).then(function (d) {
                 if (!d.success) { throw new Error(d.data || 'Could not start the payment.'); }
+                if (d.data && d.data.already_purchased) {
+                    ui.say(d.data.message || 'Already enrolled! Taking you to LMS…');
+                    window.location.href = d.data.redirect;
+                    return;
+                }
                 var o = d.data;
                 new Razorpay({
                     key: o.key, amount: o.amount, currency: 'INR', name: o.site, description: o.title, order_id: o.order_id,
@@ -251,20 +256,21 @@ function mmn_lms_front_script()
             ov = document.createElement('div');
             ov.className = 'mmn-ov';
             var title = opts.product && cfg.products[opts.product] ? cfg.products[opts.product].title : '';
-            var back = window.location.pathname + (opts.product ? '?mmn_buy=' + encodeURIComponent(opts.product) : window.location.search);
-            var login = cfg.loginUrl + (cfg.loginUrl.indexOf('?') < 0 ? '?' : '&') + 'redirect_to=' + encodeURIComponent(back);
             ov.innerHTML =
                 '<div class="mmn-box"><button type="button" class="mmn-x" aria-label="Close">&times;</button>' +
-                '<div class="mmn-s1"><h3>Student registration</h3><p>' + (title ? 'Create your account for ' + esc(title) + ', then pay.' : 'Create your account.') + ' We email you a code to confirm your address.</p>' +
-                '<div class="mmn-hp"><input type="text" class="mmn-website" tabindex="-1" autocomplete="off"></div>' +
-                '<label>Full name</label><input type="text" class="mmn-name" autocomplete="name">' +
-                '<label>Email address</label><input type="email" class="mmn-email" autocomplete="email">' +
-                '<label>Mobile number</label><input type="tel" class="mmn-phone" autocomplete="tel">' +
-                '<label>Create a password (8+ characters)</label><input type="password" class="mmn-pass" autocomplete="new-password">' +
-                '<div class="mmn-err"></div><button type="button" class="mmn-go mmn-send">Send me a verification code</button>' +
-                '<p style="margin-top:14px">Already registered? <a href="' + esc(login) + '">Log in</a></p></div>' +
+                '<div class="mmn-s1"><h3>Student registration</h3><p>' + (title ? 'Create your account for <strong>' + esc(title) + '</strong>, then proceed to payment.' : 'Create your student account.') + ' All fields are compulsory.</p>' +
+                '<div class="mmn-hp" style="display:none !important;"><input type="text" class="mmn-hp-field" tabindex="-1" autocomplete="off"></div>' +
+                '<label>Full name <span style="color:#ef4444">*</span></label><input type="text" class="mmn-name" autocomplete="name" placeholder="Enter your full name" required>' +
+                '<label>Email address <span style="color:#ef4444">*</span></label><input type="email" class="mmn-email" autocomplete="email" placeholder="student@example.com" required>' +
+                '<label>Mobile number <span style="color:#ef4444">*</span></label>' +
+                '<div style="position:relative;display:flex;align-items:center;">' +
+                '<span style="position:absolute;left:12px;font-weight:700;color:#374151;font-size:14px;pointer-events:none;">+91</span>' +
+                '<input type="tel" class="mmn-phone" autocomplete="tel" placeholder="9876543210" maxlength="10" inputmode="numeric" style="padding-left:46px;letter-spacing:0.05em;" required>' +
+                '</div>' +
+                '<label>Create a password (8+ characters) <span style="color:#ef4444">*</span></label><input type="password" class="mmn-pass" autocomplete="new-password" placeholder="At least 8 characters" minlength="8" required>' +
+                '<div class="mmn-err"></div><button type="button" class="mmn-go mmn-send">Send me a verification code</button></div>' +
                 '<div class="mmn-s2" style="display:none"><h3>Check your email</h3><p class="mmn-sent"></p>' +
-                '<label>Verification code</label><input type="text" class="mmn-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code">' +
+                '<label>Verification code</label><input type="text" class="mmn-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••">' +
                 '<div class="mmn-err"></div><button type="button" class="mmn-go mmn-check">' + (opts.product ? 'Verify and continue to payment' : 'Verify and create my account') + '</button>' +
                 '<button type="button" class="mmn-lnk mmn-resend">Send the code again</button></div></div>';
             document.body.appendChild(ov);
@@ -277,19 +283,101 @@ function mmn_lms_front_script()
                 btn.textContent = on ? text : btn.dataset.t;
             }
 
+            // Restrict phone input to numbers only
+            var phoneInput = q('.mmn-phone');
+            if (phoneInput) {
+                phoneInput.addEventListener('input', function () {
+                    this.value = this.value.replace(/\D/g, '').slice(0, 10);
+                });
+            }
+
             q('.mmn-x').onclick = closePopup;
             ov.addEventListener('mousedown', function (e) { if (e.target === ov) { closePopup(); } });
 
             q('.mmn-send').onclick = function () {
-                var btn = this; showErr(s1, ''); busy(btn, true, 'Sending…');
-                post({ action: 'mmn_reg_start', name: q('.mmn-name').value, email: q('.mmn-email').value, phone: q('.mmn-phone').value, password: q('.mmn-pass').value, website: q('.mmn-website').value })
-                    .then(function (d) {
-                        busy(btn, false);
-                        if (!d.success) { showErr(s1, (d.data && d.data.message) || 'Something went wrong. Please try again.'); return; }
-                        pid = d.data.pid;
-                        q('.mmn-sent').innerHTML = 'We emailed a 6-digit code to <strong>' + esc(d.data.email) + '</strong>.';
-                        s1.style.display = 'none'; s2.style.display = 'block'; q('.mmn-code').focus();
-                    }).catch(function () { busy(btn, false); showErr(s1, 'Could not reach the server. Please try again.'); });
+                var btn = this;
+                showErr(s1, '');
+                var name = q('.mmn-name').value.trim();
+                var email = q('.mmn-email').value.trim();
+                var phone = q('.mmn-phone').value.trim();
+                var pass = q('.mmn-pass').value;
+
+                if (!name || !email || !phone || !pass) {
+                    showErr(s1, 'All fields are compulsory. Please fill in your name, email, mobile number, and password.');
+                    return;
+                }
+                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                    showErr(s1, 'Please enter a valid email address.');
+                    return;
+                }
+                if (!/^[6-9]\d{9}$/.test(phone)) {
+                    showErr(s1, 'Please enter a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9).');
+                    return;
+                }
+                if (pass.length < 8) {
+                    showErr(s1, 'Your password must be at least 8 characters long.');
+                    return;
+                }
+
+                busy(btn, true, 'Verifying…');
+                post({
+                    action: 'mmn_reg_start',
+                    name: name,
+                    email: email,
+                    phone: phone,
+                    password: pass,
+                    product: opts.product || '',
+                    mmn_hp: q('.mmn-hp-field') ? q('.mmn-hp-field').value : ''
+                }).then(function (d) {
+                    busy(btn, false);
+                    if (!d.success) {
+                        showErr(s1, (d.data && d.data.message) || 'Something went wrong. Please try again.');
+                        return;
+                    }
+                    if (d.data && d.data.already_purchased) {
+                        closePopup();
+                        alert(d.data.message || 'You already own this course! Taking you to your LMS courses...');
+                        window.location.href = d.data.redirect || 'https://lms.mymerchantnavy.com/my-courses';
+                        return;
+                    }
+                    if (d.data && (d.data.account_exists || d.data.logged_in)) {
+                        // User account already exists on LMS or WordPress. Let them pay immediately!
+                        showErr(s1, '');
+                        var noticeBox = s1.querySelector('.mmn-exists-box');
+                        if (!noticeBox) {
+                            noticeBox = document.createElement('div');
+                            noticeBox.className = 'mmn-exists-box';
+                            noticeBox.style.cssText = 'background:#eff6ff;color:#1e40af;border:1px solid #bfdbfe;padding:12px 14px;border-radius:10px;margin-top:14px;font-size:13px;line-height:1.45;';
+                            s1.appendChild(noticeBox);
+                        }
+                        noticeBox.innerHTML = '<div style="font-weight:700;margin-bottom:4px;">Account already exists</div>' +
+                            '<div>An account is already registered with <strong>' + esc(email) + '</strong>. Click below to proceed directly to secure payment.</div>' +
+                            '<button type="button" class="mmn-go mmn-direct-pay" style="margin-top:10px;background:#15803d;">Proceed to Payment &rarr;</button>';
+                        btn.style.display = 'none';
+                        noticeBox.querySelector('.mmn-direct-pay').onclick = function () {
+                            var payBtn = this;
+                            busy(payBtn, true, 'Opening payment…');
+                            post({ action: 'mmn_nonce' }).then(function (n) {
+                                cfg.nonce = n.data;
+                                cfg.loggedIn = true;
+                                closePopup();
+                                opts.done();
+                            }).catch(function () {
+                                busy(payBtn, false);
+                                alert('Could not initiate payment. Please try again.');
+                            });
+                        };
+                        return;
+                    }
+                    pid = d.data.pid;
+                    q('.mmn-sent').innerHTML = 'We emailed a 6-digit code to <strong>' + esc(d.data.email) + '</strong>.';
+                    s1.style.display = 'none';
+                    s2.style.display = 'block';
+                    q('.mmn-code').focus();
+                }).catch(function () {
+                    busy(btn, false);
+                    showErr(s1, 'Could not reach the server. Please check your connection and try again.');
+                });
             };
             q('.mmn-check').onclick = function () {
                 var btn = this; showErr(s2, ''); busy(btn, true, 'Checking…');
@@ -354,6 +442,27 @@ add_action('wp_ajax_mmn_rzp_create', function () {
         wp_send_json_error('This course cannot be bought right now.');
     }
     $user   = wp_get_current_user();
+
+    // Check if user has already purchased and paid for this course
+    $existing = get_posts([
+        'post_type'   => 'mmn_order',
+        'post_status' => 'private',
+        'author'      => $user->ID,
+        'numberposts' => 1,
+        'meta_query'  => [
+            ['key' => 'product', 'value' => $product],
+            ['key' => 'status', 'value' => 'paid'],
+        ],
+    ]);
+    if (! empty($existing)) {
+        wp_send_json_success([
+            'already_purchased' => true,
+            'redirect'          => mmn_lms_after_payment_url($user, $existing[0]->ID),
+            'message'           => 'You already have access to this course! Taking you to LMS...',
+        ]);
+        return;
+    }
+
     $amount = (int) round($products[$product]['price'] * 100);
 
     $post_id = wp_insert_post([

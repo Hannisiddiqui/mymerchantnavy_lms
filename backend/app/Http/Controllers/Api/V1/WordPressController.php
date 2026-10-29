@@ -16,6 +16,19 @@ class WordPressController extends Controller
 {
     public function __construct(private WordPressLink $link) {}
 
+    /** POST /integrations/wordpress/check: check if a student exists and if they already purchased this product. */
+    public function check(Request $request): JsonResponse
+    {
+        $data = $request->validate([
+            'email' => ['required', 'email:rfc', 'max:191'],
+            'product_id' => ['nullable', 'string', 'max:191'],
+        ]);
+
+        $res = $this->link->check($data['email'], $data['product_id'] ?? null);
+
+        return response()->json(['data' => $res]);
+    }
+
     /** POST /integrations/wordpress/student: a student registered on WordPress (before paying). No course is given. */
     public function student(Request $request): JsonResponse
     {
@@ -61,7 +74,12 @@ class WordPressController extends Controller
         $claims = $this->link->claimsFromToken($token);
         abort_unless($claims, 401, 'This sign-in link has expired. Please log in with your email.');
 
-        $user = $this->link->student($claims['email'], verified: $claims['verified']);
+        $user = $this->link->student(
+            email: $claims['email'],
+            name: $claims['name'] ?? null,
+            phone: $claims['phone'] ?? null,
+            verified: $claims['verified']
+        );
         abort_unless($user->is_active, 403, 'Your account is disabled. Please contact support.');
         // A link from a WordPress account whose email was NOT verified there (an old or other kind of registration) must
         // never open an account whose owner has proved the address; only the emailed code does that.

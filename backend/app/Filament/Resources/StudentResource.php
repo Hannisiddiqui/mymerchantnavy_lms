@@ -43,6 +43,16 @@ class StudentResource extends Resource
 
     protected static ?string $recordTitleAttribute = 'email';
 
+    public static function canViewAny(): bool
+    {
+        $admin = auth('admin')->user();
+        if (! $admin) {
+            return false;
+        }
+
+        return $admin->isSuperAdmin() || $admin->hasPermission('manage_students');
+    }
+
     public static function canDelete(Model $record): bool
     {
         return auth('admin')->user()?->isSuperAdmin() ?? false;
@@ -81,7 +91,7 @@ class StudentResource extends Resource
                     ->formatStateUsing(fn ($state, User $record) => $state ?: ($record->email)),
 
                 TextColumn::make('purchase_status')
-                    ->label('Purchase')
+                    ->label('Purchase Type')
                     ->badge()
                     ->state(function (User $record) {
                         $enrollments = $record->enrollments;
@@ -89,17 +99,17 @@ class StudentResource extends Resource
                             return 'No Course';
                         }
                         if ($enrollments->contains('purchase_type', 'paid')) {
-                            return 'Paid';
+                            return 'Paid Course';
                         }
                         if ($enrollments->contains('purchase_type', 'free')) {
-                            return 'Free';
+                            return 'Free Course';
                         }
 
                         return 'Assigned';
                     })
                     ->color(fn (string $state): string => match ($state) {
-                        'Paid' => 'success',
-                        'Free' => 'info',
+                        'Paid Course' => 'success',
+                        'Free Course' => 'info',
                         'Assigned' => 'gray',
                         default => 'warning',
                     }),
@@ -134,8 +144,9 @@ class StudentResource extends Resource
                     ->boolean(),
 
                 TextColumn::make('created_at')
-                    ->label('Registered')
-                    ->dateTime('d M Y, H:i')
+                    ->label('Registered Date & Time')
+                    ->dateTime('d M Y, h:i:s A')
+                    ->description(fn (User $record) => $record->created_at?->diffForHumans())
                     ->sortable(),
             ])
             ->defaultSort('created_at', 'desc')

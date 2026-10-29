@@ -18,7 +18,22 @@
                 <span class="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium {{ $record->is_active ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' : 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' }}">
                     {{ $record->is_active ? 'Account Active' : 'Account Inactive' }}
                 </span>
-                <p class="text-xs text-gray-400 mt-1">Reg: {{ $record->created_at->format('d M Y, H:i') }}</p>
+                <p class="text-xs text-gray-500 font-mono mt-1">Reg: {{ $record->created_at->format('d M Y, h:i:s A') }}</p>
+                <div class="mt-1">
+                    @if ($record->enrollments->contains('purchase_type', 'paid'))
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400">
+                            Paid Student
+                        </span>
+                    @elseif ($record->enrollments->contains('purchase_type', 'free'))
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-400">
+                            Free Course Student
+                        </span>
+                    @else
+                        <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-amber-100 text-amber-800 dark:bg-amber-950/40 dark:text-amber-400">
+                            No Course Assigned
+                        </span>
+                    @endif
+                </div>
             </div>
         </div>
 
@@ -72,7 +87,7 @@
                     <tbody class="divide-y divide-gray-200 dark:divide-gray-800 bg-white dark:bg-gray-900">
                         @foreach ($enrollments as $enr)
                             <tr>
-                                <td class="p-2.5 font-bold text-gray-900 dark:text-white">{{ $enr->course->title }}</td>
+                                <td class="p-2.5 font-bold text-gray-900 dark:text-white">{{ $enr->course?->title ?? 'Untitled Course' }}</td>
                                 <td class="p-2.5">
                                     <span class="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-medium {{ $enr->purchase_type === 'paid' ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/40 dark:text-emerald-400' : ($enr->purchase_type === 'free' ? 'bg-sky-100 text-sky-800 dark:bg-sky-950/40 dark:text-sky-400' : 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300') }}">
                                         {{ ucfirst($enr->purchase_type ?: 'Assigned') }}

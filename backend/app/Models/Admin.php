@@ -20,7 +20,7 @@ class Admin extends Authenticatable implements FilamentUser
 
     public const SUPER_ADMIN_EMAIL = 'support.mymerchantnavy@gmail.com';
 
-    protected $fillable = ['name', 'email', 'password', 'role'];
+    protected $fillable = ['name', 'email', 'password', 'role', 'permissions'];
 
     protected $hidden = ['password', 'remember_token'];
 
@@ -29,6 +29,7 @@ class Admin extends Authenticatable implements FilamentUser
         return [
             'password' => 'hashed',
             'role' => AdminRole::class,
+            'permissions' => 'array',
         ];
     }
 
@@ -57,6 +58,42 @@ class Admin extends Authenticatable implements FilamentUser
     public function isSuperAdmin(): bool
     {
         return strtolower((string) $this->email) === self::SUPER_ADMIN_EMAIL;
+    }
+
+    public function isSiteManager(): bool
+    {
+        return $this->role === AdminRole::SiteManager;
+    }
+
+    /**
+     * Check if the admin holds a specific granular permission.
+     */
+    public function hasPermission(string $permission): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        if (is_array($this->permissions)) {
+            return in_array($permission, $this->permissions, true);
+        }
+
+        // Default role fallbacks if permissions array is null:
+        return match ($this->role) {
+            AdminRole::Admin => in_array($permission, ['manage_courses', 'manage_tests', 'manage_batches', 'manage_page_builder', 'manage_students', 'manage_reports', 'can_publish_without_approval'], true),
+            AdminRole::Manager, AdminRole::SiteManager => in_array($permission, ['manage_support_chat', 'manage_reports', 'manage_students'], true),
+            AdminRole::Support => in_array($permission, ['manage_support_chat', 'manage_reports'], true),
+            default => false,
+        };
+    }
+
+    public function canPublishDirectly(): bool
+    {
+        if ($this->isSuperAdmin()) {
+            return true;
+        }
+
+        return $this->hasPermission('can_publish_without_approval');
     }
 
     public function canManageAdmins(): bool

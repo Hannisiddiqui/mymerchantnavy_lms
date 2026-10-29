@@ -2,14 +2,17 @@
 
 use App\Http\Controllers\Api\V1\AttemptController;
 use App\Http\Controllers\Api\V1\AuthController;
+use App\Http\Controllers\Api\V1\BatchController;
 use App\Http\Controllers\Api\V1\ContentController;
 use App\Http\Controllers\Api\V1\CourseController;
+use App\Http\Controllers\Api\V1\CustomPageController;
 use App\Http\Controllers\Api\V1\NoteController;
 use App\Http\Controllers\Api\V1\NotificationController;
 use App\Http\Controllers\Api\V1\PdfPageController;
 use App\Http\Controllers\Api\V1\PerformanceController;
 use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\QuestionReportController;
+use App\Http\Controllers\Api\V1\SupportController;
 use App\Http\Controllers\Api\V1\TestController;
 use App\Http\Controllers\Api\V1\WordPressController;
 use App\Http\Middleware\VerifyWordPressSignature;
@@ -23,6 +26,21 @@ use Illuminate\Support\Facades\Route;
 */
 
 Route::prefix('v1')->group(function () {
+    // ---- Student Batches Store (PhysicsWallah-style) ----
+    Route::get('batches/config', [BatchController::class, 'config']);
+    Route::get('batches', [BatchController::class, 'index']);
+    Route::get('batches/{slug}', [BatchController::class, 'show']);
+
+    // ---- In-Built Custom Pages & Builder ----
+    Route::get('custom-pages', [CustomPageController::class, 'index']);
+    Route::get('custom-pages/{slug}', [CustomPageController::class, 'show']);
+
+    // ---- Student Support & Chatbot ----
+    Route::get('support/config', [SupportController::class, 'config']);
+    Route::get('support/my-queries', [SupportController::class, 'myQueries']);
+    Route::get('page-visibility', [SupportController::class, 'pageVisibility']);
+    Route::post('support/query', [SupportController::class, 'sendQuery'])->middleware('throttle:30,1');
+
     // ---- Login (public, rate-limited) ----
     Route::middleware('throttle:otp')->group(function () {
         Route::post('auth/otp/send', [AuthController::class, 'sendOtp']);
@@ -34,6 +52,7 @@ Route::prefix('v1')->group(function () {
     Route::prefix('integrations/wordpress')->middleware([VerifyWordPressSignature::class, 'throttle:120,1'])->group(function () {
         Route::post('student', [WordPressController::class, 'student']);
         Route::post('enroll', [WordPressController::class, 'enroll']);
+        Route::post('check', [WordPressController::class, 'check']);
     });
 
     // ---- Protected PDF page images: signed, expiring link (an <img> tag can't send the login token) ----

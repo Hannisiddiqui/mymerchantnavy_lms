@@ -9,13 +9,103 @@
 
 <style>
     /* Prevent raw SVGs in custom blade views, callouts or tables from expanding across the full screen */
+    svg { max-width: 100%; }
+    svg.h-4, svg.w-4 { width: 1rem !important; height: 1rem !important; max-width: 1rem !important; max-height: 1rem !important; }
     svg.h-5, svg.w-5 { width: 1.25rem !important; height: 1.25rem !important; max-width: 1.25rem !important; max-height: 1.25rem !important; }
     svg.h-6, svg.w-6 { width: 1.5rem !important; height: 1.5rem !important; max-width: 1.5rem !important; max-height: 1.5rem !important; }
     svg.h-8, svg.w-8 { width: 2rem !important; height: 2rem !important; max-width: 2rem !important; max-height: 2rem !important; }
     svg.h-10, svg.w-10 { width: 2.5rem !important; height: 2.5rem !important; max-width: 2.5rem !important; max-height: 2.5rem !important; }
     svg.h-12, svg.w-12 { width: 3rem !important; height: 3rem !important; max-width: 3rem !important; max-height: 3rem !important; }
-    svg:not([width]):not([class*="w-"]) { max-width: 2rem; max-height: 2rem; }
-    .fi-callout-icon { width: 1.5rem !important; height: 1.5rem !important; max-width: 1.5rem !important; max-height: 1.5rem !important; }
+    svg:not([width]):not([class*="w-"]) { max-width: 2.5rem; max-height: 2.5rem; }
+    .fi-callout-icon svg, .fi-callout svg, [class*="callout"] svg { width: 1.5rem !important; height: 1.5rem !important; max-width: 1.5rem !important; max-height: 1.5rem !important; }
+    .fi-btn-icon svg, .fi-icon-btn-icon svg { width: 1.25rem !important; height: 1.25rem !important; max-width: 1.25rem !important; max-height: 1.25rem !important; }
+
+    /* Custom Resilient Layout & Spacing Classes */
+    .mmn-card-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+        gap: 1.25rem;
+        margin-top: 1.25rem;
+        margin-bottom: 1.5rem;
+    }
+    .mmn-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+    }
+    .dark .mmn-card {
+        background-color: #0f172a;
+        border-color: #334155;
+        color: #f8fafc;
+    }
+    .mmn-card-blue {
+        background-color: #f0f7ff;
+        border-color: #bfdbfe;
+    }
+    .dark .mmn-card-blue {
+        background-color: rgba(30, 58, 138, 0.25);
+        border-color: rgba(96, 165, 250, 0.3);
+    }
+    .mmn-stat-label {
+        font-size: 0.75rem;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.05em;
+        color: #64748b;
+    }
+    .dark .mmn-stat-label {
+        color: #94a3b8;
+    }
+    .mmn-stat-value {
+        font-size: 1.5rem;
+        font-weight: 700;
+        color: #0f172a;
+        margin-top: 0.35rem;
+        line-height: 1.2;
+    }
+    .dark .mmn-stat-value {
+        color: #f8fafc;
+    }
+    .mmn-stat-sub {
+        font-size: 0.75rem;
+        color: #64748b;
+        margin-top: 0.35rem;
+    }
+    .dark .mmn-stat-sub {
+        color: #94a3b8;
+    }
+    .mmn-btn-row {
+        display: flex;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 1rem;
+        margin-top: 1.75rem;
+        padding-top: 1.25rem;
+        border-top: 1px solid #e2e8f0;
+    }
+    .dark .mmn-btn-row {
+        border-top-color: #334155;
+    }
+    .mmn-action-card {
+        background-color: #ffffff;
+        border: 1px solid #e2e8f0;
+        border-radius: 0.75rem;
+        padding: 1.25rem;
+        margin-top: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 1rem;
+    }
+    .dark .mmn-action-card {
+        background-color: #0f172a;
+        border-color: #334155;
+    }
 
     /* ===== Course & test builder (prefix cb-) ===== */
     .cb-wrap { display: flex; flex-direction: column; gap: 1rem; }

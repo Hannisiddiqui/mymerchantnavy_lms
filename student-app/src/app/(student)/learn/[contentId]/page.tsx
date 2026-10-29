@@ -1,14 +1,14 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useParams } from "next/navigation";
-import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, CircleCheck, Clock, FileQuestion, Trophy } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChevronDown, ChevronRight, Circle, CircleCheck, CirclePlay, Clock, FileQuestion, FileText, Target, Trophy } from "lucide-react";
 import * as api from "@/lib/api";
 import type { ContentItem } from "@/types";
 import { useApi } from "@/lib/use-api";
 import { ContentRow } from "@/components/course/ContentRow";
-import { contentTypes } from "@/components/course/contentTypes";
+import { contentMeta, contentTypes } from "@/components/course/contentTypes";
 import { AssignmentView } from "@/components/content/AssignmentView";
 import { LiveClassView } from "@/components/content/LiveClassView";
 import { ProtectedPdfViewer } from "@/components/content/ProtectedPdfViewer";
@@ -49,14 +49,28 @@ export default function LearnPage() {
         ...prev,
         [data.content.chapterId]: true,
       }));
+
+      if (typeof document !== "undefined") {
+        setTimeout(() => {
+          document.getElementById(`nav-chapter-${data.content.chapterId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 250);
+      }
     }
   }, [data?.content?.chapterId]);
 
   function toggleChapter(chId: number) {
-    setOpenChapters((prev) => ({
-      ...prev,
-      [chId]: !prev[chId],
-    }));
+    setOpenChapters((prev) => {
+      const willOpen = !prev[chId];
+      if (willOpen && typeof document !== "undefined") {
+        setTimeout(() => {
+          document.getElementById(`nav-chapter-${chId}`)?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+        }, 60);
+      }
+      return {
+        ...prev,
+        [chId]: willOpen,
+      };
+    });
   }
 
   if (loading) return <PageSkeleton />;
@@ -116,7 +130,7 @@ export default function LearnPage() {
         action={<Badge tone="blue">{contentTypes[content.type].label}</Badge>}
       />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_340px]">
         <div className="min-w-0 space-y-4">
           <div id="reader" className="scroll-mt-20">
             <ContentBody
@@ -125,7 +139,7 @@ export default function LearnPage() {
             />
           </div>
 
-          <div className="flex flex-wrap items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2 pt-1">
             {content.completed ? (
               <span className="flex items-center gap-1.5 text-sm font-semibold text-green-700">
                 <CircleCheck className="size-5" /> {isDocument ? "Marked as read" : "Completed"}
@@ -142,7 +156,7 @@ export default function LearnPage() {
                 </Button>
               )}
               {next && (
-                <Button href={`/learn/${next.id}`} onClick={onDone}>
+                <Button href={`/learn/${next.id}`} onClick={onDone} className="bg-blue-600 hover:bg-blue-700 text-white">
                   Next <ArrowRight className="size-4" />
                 </Button>
               )}
@@ -163,28 +177,31 @@ export default function LearnPage() {
         </div>
 
         <aside className="lg:sticky lg:top-20 lg:self-start">
-          <Card className="overflow-hidden shadow-sm border border-line">
-            <div className="border-b border-line bg-slate-50/50 px-4 py-3 dark:bg-slate-900/50">
-              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">{subject.title}</p>
+          <div className="overflow-hidden rounded-2xl border border-line bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+            {/* Slate Header Banner matching Screenshot 2 */}
+            <div className="bg-[#64748b] px-4 py-3 text-white">
+              <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-200">{subject.title}</p>
               <div className="flex items-center justify-between mt-0.5">
-                <p className="font-bold text-navy-900 dark:text-white">Chapter Navigation</p>
-                <span className="text-xs font-medium text-slate-500">
+                <p className="font-bold text-sm text-white">Chapter Navigation</p>
+                <span className="text-xs text-slate-200 font-medium">
                   {all.filter((c) => c.completed).length}/{all.length} completed
                 </span>
               </div>
             </div>
-            <div className="max-h-[70vh] overflow-y-auto p-2 space-y-1.5 divide-y divide-slate-100 dark:divide-slate-800">
+
+            {/* Chapter Accordion List */}
+            <div className="max-h-[72vh] overflow-y-auto divide-y divide-slate-100 dark:divide-slate-800/80">
               {subject.chapters.map((ch) => {
                 if (ch.test) {
                   return (
                     <Link
                       key={ch.id}
                       href={`/tests/${ch.test.id}`}
-                      className="flex items-center gap-2 rounded-lg bg-navy-900/5 px-3 py-2.5 text-sm font-bold text-navy-900 hover:bg-navy-900/10 dark:bg-navy-900/20 dark:text-white"
+                      className="flex items-center gap-2.5 px-3.5 py-2.5 text-xs font-semibold text-slate-700 hover:bg-slate-50 dark:text-slate-300 dark:hover:bg-slate-800/60"
                     >
                       <Trophy className="size-4 text-brand-600 shrink-0" />
                       <span className="truncate">{ch.test.title}</span>
-                      <span className="ml-auto text-xs font-medium text-slate-500 shrink-0">Mock test</span>
+                      <span className="ml-auto text-[11px] font-medium text-slate-400 shrink-0">Mock test</span>
                     </Link>
                   );
                 }
@@ -195,24 +212,40 @@ export default function LearnPage() {
                 const num = ++chapterNo;
 
                 return (
-                  <div key={ch.id} className={`pt-1.5 rounded-lg transition-colors ${isCurrentChapter ? "bg-brand-50/30 dark:bg-brand-950/10" : ""}`}>
+                  <div key={ch.id} id={`nav-chapter-${ch.id}`} className="transition-colors">
                     <button
                       type="button"
                       onClick={() => toggleChapter(ch.id)}
-                      className="flex w-full items-center justify-between px-2.5 py-1.5 text-left text-xs font-bold text-slate-700 hover:text-navy-900 dark:text-slate-300 dark:hover:text-white"
+                      className={`flex w-full items-center justify-between px-3.5 py-2.5 text-left transition hover:bg-slate-50 dark:hover:bg-slate-800/50 ${
+                        isOpen ? "bg-slate-50/50 dark:bg-slate-800/20" : ""
+                      }`}
                     >
-                      <span className="flex items-center gap-1.5 truncate">
-                        <span className={`inline-flex items-center justify-center size-5 rounded-full text-[10px] font-semibold shrink-0 ${isCurrentChapter ? "bg-brand-600 text-white" : "bg-slate-200 text-slate-700 dark:bg-slate-700 dark:text-slate-200"}`}>
+                      <span className="flex items-center gap-2.5 min-w-0 pr-2">
+                        <span
+                          className={`inline-flex items-center justify-center size-5 rounded-full text-[10px] font-bold shrink-0 ${
+                            isOpen
+                              ? "bg-blue-600 text-white"
+                              : "bg-slate-600 text-white dark:bg-slate-700 dark:text-slate-200"
+                          }`}
+                        >
                           {num}
                         </span>
-                        <span className="truncate">{ch.title}</span>
+                        <span
+                          className={`text-xs truncate ${
+                            isOpen
+                              ? "font-bold text-blue-600 dark:text-blue-400"
+                              : "font-semibold text-slate-600 dark:text-slate-300"
+                          }`}
+                        >
+                          {ch.title}
+                        </span>
                       </span>
-                      <span className="flex items-center gap-1.5 shrink-0 ml-2">
-                        <span className="text-[11px] font-normal text-slate-500">
+                      <span className="flex items-center gap-1.5 shrink-0 text-slate-400 text-xs">
+                        <span className={`text-[11px] ${isOpen ? "text-blue-600 dark:text-blue-400 font-semibold" : "text-slate-500"}`}>
                           {completedInChapter}/{ch.contents.length}
                         </span>
                         {isOpen ? (
-                          <ChevronDown className="size-3.5 text-slate-400" />
+                          <ChevronDown className={`size-3.5 ${isOpen ? "text-blue-600 dark:text-blue-400" : "text-slate-400"}`} />
                         ) : (
                           <ChevronRight className="size-3.5 text-slate-400" />
                         )}
@@ -220,22 +253,72 @@ export default function LearnPage() {
                     </button>
 
                     {isOpen && (
-                      <div className="mt-1 space-y-0.5 pb-1 pl-1 pr-0.5">
-                        {ch.contents.map((c) => (
-                          <ContentRow
-                            key={c.id}
-                            item={c}
-                            active={c.id === content.id}
-                            compact
-                          />
-                        ))}
+                      <div className="bg-slate-50/60 dark:bg-slate-900/40 p-1.5 space-y-1">
+                        {ch.contents.map((c) => {
+                          const isActive = c.id === content.id;
+                          return (
+                            <Link
+                              key={c.id}
+                              href={`/learn/${c.id}`}
+                              className={`flex items-center gap-2.5 px-2.5 py-2 rounded-lg transition text-left group ${
+                                isActive
+                                  ? "bg-blue-50/90 text-blue-900 border border-blue-200/60 dark:bg-blue-950/40 dark:border-blue-900/60 dark:text-blue-200 font-medium"
+                                  : "hover:bg-white text-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
+                              }`}
+                            >
+                              {/* Icon */}
+                              <span
+                                className={`grid size-7 place-items-center rounded-lg shrink-0 ${
+                                  c.type === "pdf" || c.type === "note"
+                                    ? "bg-orange-50 text-orange-500 dark:bg-orange-950/40 dark:text-orange-400"
+                                    : c.type === "practice_test"
+                                    ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-950/40 dark:text-emerald-400"
+                                    : "bg-blue-50 text-blue-600 dark:bg-blue-950/40 dark:text-blue-400"
+                                }`}
+                              >
+                                {c.type === "pdf" || c.type === "note" ? (
+                                  <FileText className="size-3.5" />
+                                ) : c.type === "practice_test" ? (
+                                  <Target className="size-3.5" />
+                                ) : (
+                                  <CirclePlay className="size-3.5" />
+                                )}
+                              </span>
+
+                              {/* Title & subtitle */}
+                              <span className="min-w-0 flex-1">
+                                <span
+                                  className={`block text-xs truncate ${
+                                    isActive ? "font-bold text-blue-700 dark:text-blue-300" : "font-medium text-slate-800 dark:text-slate-200"
+                                  }`}
+                                >
+                                  {c.title}
+                                </span>
+                                <span className="text-[11px] text-slate-500 dark:text-slate-400">
+                                  {c.type === "pdf"
+                                    ? `${c.pageCount} pages`
+                                    : c.type === "practice_test"
+                                    ? `${c.test.questionsCount} questions`
+                                    : contentMeta(c)}
+                                </span>
+                              </span>
+
+                              {/* Checkbox indicator */}
+                              {c.completed ? (
+                                <CircleCheck className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" />
+                              ) : (
+                                <Circle className="size-4 shrink-0 text-slate-300 dark:text-slate-600" />
+                              )}
+                            </Link>
+                          );
+                        })}
                       </div>
                     )}
                   </div>
                 );
               })}
             </div>
-          </Card>
+          </div>
         </aside>
       </div>
     </>

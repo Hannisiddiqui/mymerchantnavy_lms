@@ -25,7 +25,32 @@ export interface Device {
   isCurrent: boolean;
 }
 
-// ---------- Courses ----------
+// ---------- Courses & Batches ----------
+
+export interface BatchItem {
+  id: number;
+  title: string;
+  slug: string;
+  batchCode?: string;
+  targetExam?: string;
+  imageUrl?: string;
+  description?: string;
+  highlights: string[];
+  mrpPrice: number;
+  price: number;
+  discountPercent: number;
+  startsAt?: string;
+  validityText: string;
+  endsAt?: string;
+  purchaseUrl: string;
+  wpProductId?: string;
+  footerTag?: string;
+  isLive: boolean;
+  status: "active" | "upcoming" | "closed";
+  isEnrolled: boolean;
+  courses: { id: number; title: string; slug: string }[];
+  tests: { id: number; title: string; durationMinutes: number }[];
+}
 
 export interface CourseSummary {
   id: number;
