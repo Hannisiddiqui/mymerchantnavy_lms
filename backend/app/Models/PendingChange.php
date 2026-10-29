@@ -40,3 +40,4 @@ class PendingChange extends Model
         return $this->belongsTo(Admin::class, 'reviewed_by_admin_id');
     }
 }
+

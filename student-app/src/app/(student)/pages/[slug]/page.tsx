@@ -148,10 +148,10 @@ function HeroBlock({ data }: { data: Record<string, any> }) {
           <div className="pt-2">
             <Link
               href={data.cta_url}
-              className="inline-flex items-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-bold text-navy-900 shadow hover:bg-slate-100 transition"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-white px-5 py-2.5 text-xs font-bold text-navy-900 shadow hover:bg-slate-100 transition whitespace-nowrap active:scale-95"
             >
-              {data.cta_text}
-              <ArrowRight className="size-4" />
+              <span>{data.cta_text}</span>
+              <ArrowRight className="size-4 shrink-0" />
             </Link>
           </div>
         )}
@@ -285,10 +285,10 @@ function CtaBoxBlock({ data }: { data: Record<string, any> }) {
           <div className="pt-2">
             <Link
               href={data.button_url}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-brand-700 transition"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-6 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-brand-700 transition whitespace-nowrap active:scale-95"
             >
-              {data.button_label}
-              <ArrowRight className="size-4" />
+              <span>{data.button_label}</span>
+              <ArrowRight className="size-4 shrink-0" />
             </Link>
           </div>
         )}
@@ -394,10 +394,10 @@ function SplitContentBlock({ data }: { data: Record<string, any> }) {
           <div className="pt-2">
             <Link
               href={data.button_url}
-              className="inline-flex items-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-brand-700 transition"
+              className="inline-flex items-center justify-center gap-2 rounded-xl bg-brand-600 px-5 py-2.5 text-xs font-bold text-white shadow-sm hover:bg-brand-700 transition whitespace-nowrap active:scale-95"
             >
-              {data.button_text}
-              <ArrowRight className="size-4" />
+              <span>{data.button_text}</span>
+              <ArrowRight className="size-4 shrink-0" />
             </Link>
           </div>
         )}

@@ -14,3 +14,4 @@ class ListPendingChanges extends ListRecords
         return [];
     }
 }
+

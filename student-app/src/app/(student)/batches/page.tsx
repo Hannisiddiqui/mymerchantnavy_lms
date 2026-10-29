@@ -191,7 +191,7 @@ function BatchCard({ batch }: { batch: BatchItem }) {
 
         {/* Price & Action Row */}
         <div className="mt-auto pt-5 border-t border-line dark:border-slate-800 flex items-center justify-between gap-3">
-          <div>
+          <div className="min-w-0">
             <div className="flex items-baseline gap-2">
               <span className="text-xl font-extrabold text-navy-900 dark:text-white">
                 ₹{Number(batch.price).toLocaleString("en-IN")}
@@ -209,11 +209,11 @@ function BatchCard({ batch }: { batch: BatchItem }) {
             )}
           </div>
 
-          <div>
+          <div className="shrink-0">
             {batch.isEnrolled ? (
               <Link
                 href="/my-courses"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold shadow-xs transition"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 text-xs font-bold shadow-xs transition whitespace-nowrap active:scale-95"
               >
                 <span>Enrolled</span>
                 <ArrowRight className="size-3.5" />
@@ -223,7 +223,7 @@ function BatchCard({ batch }: { batch: BatchItem }) {
                 href={batch.purchaseUrl || "https://mymerchantnavy.com/pass/"}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 rounded-xl bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 text-xs font-bold shadow-xs transition"
+                className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-brand-600 hover:bg-brand-700 text-white px-4 py-2 text-xs font-bold shadow-xs transition whitespace-nowrap active:scale-95"
               >
                 <span>Buy Now</span>
                 <ArrowRight className="size-3.5" />

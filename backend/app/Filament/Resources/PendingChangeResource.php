@@ -173,3 +173,4 @@ class PendingChangeResource extends Resource
         ];
     }
 }
+

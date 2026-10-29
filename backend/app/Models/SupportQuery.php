@@ -39,3 +39,4 @@ class SupportQuery extends Model
         return $this->belongsTo(Admin::class, 'replied_by_admin_id');
     }
 }
+
