@@ -11,7 +11,19 @@ export interface CustomPageListItem {
 }
 
 export interface CustomPageBlock {
-  type: "hero" | "rich_text" | "cards_grid" | "faq" | "cta_box" | "alert_notice";
+  type:
+    | "hero"
+    | "rich_text"
+    | "cards_grid"
+    | "faq"
+    | "cta_box"
+    | "alert_notice"
+    | "media_image"
+    | "split_content"
+    | "stats_numbers"
+    | "testimonials"
+    | "video_embed"
+    | string;
   data: Record<string, any>;
 }
 
