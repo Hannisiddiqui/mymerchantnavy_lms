@@ -169,3 +169,11 @@ Admin accounts are created with `php artisan lms:create-admin you@example.com`. 
 - **Emails** (same Brevo mail setup): course assigned/renewed emails include the valid-until date; changing a course's validity or recalculating enrollments emails the Super Admin; the recipient and result are logged (`email.course_validity`).
 - **Activity log** (`activity_logs`, `App\Models\ActivityLog::record`): the AuditObserver records changes to admins, students, courses, tests and questions with old and new values; passwords and tokens are never stored (shown as `[changed]`). It grows without limit; nothing deletes old rows yet.
 - Known and not changed: Manager and Support admin roles are not enforced anywhere (all admins can do everything except the Super Admin pages); the Session Limits page settings for tabs, admin timeout and the device on/off switch are saved but not used by the app.
+
+## 14. Adding a whole new chapter (Study Material + Practice Ladder + Practice Test)
+
+Done on 30 Oct 2026 for Maths chapters 23-25 (Probability, Quadratic Equations, Arithmetic Progression: chapters 62-64, tests 92-94, positions 22-24 of the Maths subject, course 1). Steps:
+1. Check the PDFs (page count, no blank pages) and **solve every question of the practice test yourself**; also check the ladder answers and the guide's worked examples.
+2. Parse the practice-test PDF on the PC (`docs/handoff-tools/parse_chapter_tests.php`, uses `PdfRuleParser`; the parser now also understands the labels "What this question asks" and "Concept behind it"). Fix known PDF typos (a stray ":," was removed), write `{chapter, questions[]}` JSON.
+3. Upload the JSON and the two PDFs to the server and run `docs/handoff-tools/new_chapters.php dry`, then `apply` (with `QUEUE_CONNECTION=sync` so the pages are rendered at once). It creates the chapter, the two PDF contents, the test (+2 / -0.25, 90 min, published), the 100 questions with `subject_id`/`chapter_id` set, and the practice-test content, in this order: Study Material, Practice Ladder, Practice Test.
+4. Read back (counts, key positions 25/25/25/25, pages rendered) and delete the temporary files from the server.

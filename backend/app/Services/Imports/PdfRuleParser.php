@@ -30,6 +30,7 @@ class PdfRuleParser implements QuestionParser
         'why the other options fail' => true, 'why the others are wrong' => true, 'why the others fail' => true, 'concept behind the question' => true,
         'what the question is asking' => true, 'step by step' => true, 'why the other options are wrong' => true,
         'why the tempting options fail' => true, 'what the guide says' => true,
+        'what this question asks' => true, 'concept behind it' => true,
         'explanation' => true, 'solution' => true, 'hint' => true, 'reasoning' => true, 'step' => true,
         'how to see what this asks' => false, 'revise in the chapter document' => false,
     ];
