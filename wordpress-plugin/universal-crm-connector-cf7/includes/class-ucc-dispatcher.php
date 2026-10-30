@@ -550,22 +550,27 @@ class UCC_Dispatcher
         }
         $description = implode("\n", $desc_lines);
 
+        $submission_date_val = ! empty($payload['date'])
+            ? (string) $payload['date']
+            : (! empty($payload['created-date']) ? (string) $payload['created-date'] : current_time('d M Y, h:i A'));
+
         $lead_values = [
-            'name'             => $raw_name . ' (' . $source_label . ')',
-            'contact_name'     => $contact_name,
-            'email_from'       => $email,
-            'phone'            => $phone_clean,
-            'type'             => 'opportunity', // 'opportunity' ensures it appears immediately on the main Odoo CRM Pipeline kanban board
-            'stage_id'         => 1,             // Places into the initial 'New' pipeline stage
-            'user_id'          => (int) $uid,    // Assigns to the authenticated user so it shows in 'My Pipeline' filter
-            'city'             => $city,
-            'x_WhatsApp'       => $whatsapp_clean,
-            'x_form_source'    => $source,
-            'x_eligibility'    => $eligibility,
-            'x_Lead_Qualified' => $eligibility,
-            'x_pcm_percentage' => $pcm,
-            'x_course'         => $course,
-            'description'      => $description,
+            'name'              => $raw_name . ' (' . $source_label . ')',
+            'contact_name'      => $contact_name,
+            'email_from'        => $email,
+            'phone'             => $phone_clean,
+            'type'              => 'opportunity', // 'opportunity' ensures it appears immediately on the main Odoo CRM Pipeline kanban board
+            'stage_id'          => 1,             // Places into the initial 'New' pipeline stage
+            'user_id'           => (int) $uid,    // Assigns to the authenticated user so it shows in 'My Pipeline' filter
+            'city'              => $city,
+            'x_WhatsApp'        => $whatsapp_clean,
+            'x_form_source'     => $source,
+            'x_eligibility'     => $eligibility,
+            'x_Lead_Qualified'  => $eligibility,
+            'x_pcm_percentage'  => $pcm,
+            'x_course'          => $course,
+            'x_submission_date' => $submission_date_val,
+            'description'       => $description,
         ];
         if (! empty($payload['created-date'])) {
             $lead_values['x_creation_date'] = (string) $payload['created-date'];

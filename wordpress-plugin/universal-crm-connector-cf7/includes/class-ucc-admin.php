@@ -1132,42 +1132,135 @@ class UCC_Admin
 
         ?>
         <div class="ucc-box">
-            <h2><?php esc_html_e('Odoo CRM Configuration & Webhook Implementation Guide', 'universal-crm-connector-cf7'); ?></h2>
-            <p class="ucc-desc"><?php esc_html_e('Follow these click-by-click instructions to configure Odoo to receive Contact Form 7 submissions and automatically create leads.', 'universal-crm-connector-cf7'); ?></p>
+            <h2><?php esc_html_e('Odoo CRM Integration & Multi-Form Management Guide', 'universal-crm-connector-cf7'); ?></h2>
+            <p class="ucc-desc"><?php esc_html_e('Learn how both Contact Form 7 forms are connected to Odoo, how student candidate fields work, and how non-technical admins can split leads into separate pipelines, teams, or tabs.', 'universal-crm-connector-cf7'); ?></p>
 
-            <div class="ucc-setup-steps">
-                <h3><?php esc_html_e('Step 1: Create Automation Rule in Odoo', 'universal-crm-connector-cf7'); ?></h3>
+            <!-- SECTION 1: HOW BOTH FORMS WORK -->
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:18px 22px; margin-bottom:24px;">
+                <h3 style="margin-top:0; color:#15803d; font-size:16px; display:flex; align-items:center; gap:8px;">
+                    <span class="dashicons dashicons-yes-alt" style="color:#16a34a; font-size:22px; width:22px; height:22px;"></span>
+                    <?php esc_html_e('Active Direct Integration: Both Forms Feed Automatically into Odoo CRM', 'universal-crm-connector-cf7'); ?>
+                </h3>
+                <p style="margin:6px 0 12px 0; color:#166534; font-size:13px; line-height:1.6;">
+                    <?php esc_html_e('Your website is connected directly to Odoo CRM (https://mmnin.odoo.com) via high-performance JSON-RPC API. Whenever a candidate submits either form on your website, a new opportunity lead is created instantly in your Odoo CRM Pipeline in the "New" stage.', 'universal-crm-connector-cf7'); ?>
+                </p>
+
+                <table class="widefat" style="background:#ffffff; border-radius:6px; overflow:hidden; border:1px solid #dcfce7; margin-top:10px;">
+                    <thead>
+                        <tr style="background:#f8fafc;">
+                            <th style="font-weight:600; width:28%;"><?php esc_html_e('Contact Form 7 Form', 'universal-crm-connector-cf7'); ?></th>
+                            <th style="font-weight:600; width:42%;"><?php esc_html_e('Captured Student Fields', 'universal-crm-connector-cf7'); ?></th>
+                            <th style="font-weight:600; width:30%;"><?php esc_html_e('Non-Present Fields Behavior', 'universal-crm-connector-cf7'); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td><strong>Form A: Data Needed</strong><br><span style="color:#64748b; font-size:12px;">ID: 8612</span></td>
+                            <td>Full Name, City, WhatsApp No, Phone No, Lead Source (<code>Data Needed</code>), Form Submitted Date</td>
+                            <td><span style="color:#64748b; font-size:12px;">Pcm%, Course, and Eligibility remain cleanly blank in Odoo (no placeholders or clutter).</span></td>
+                        </tr>
+                        <tr style="background:#fbfcfe;">
+                            <td><strong>Form B: Sales Funnel / Eligibility</strong><br><span style="color:#64748b; font-size:12px;">ID: 8795</span></td>
+                            <td>Full Name, City, Eligibility, Lead Source (<code>Sales Funnel / Eligibility Checker</code>), WhatsApp No, Phone No, Pcm%, Course, Form Submitted Date</td>
+                            <td><span style="color:#16a34a; font-weight:600; font-size:12px;">All 8 dedicated student candidate fields are fully populated!</span></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <!-- SECTION 2: DEDICATED STUDENT VIEW & SALES ASSIGNMENT -->
+            <div style="background:#ffffff; border:1px solid #e2e8f0; border-radius:8px; padding:18px 22px; margin-bottom:24px;">
+                <h3 style="margin-top:0; font-size:16px; color:#1e293b;"><?php esc_html_e('Odoo View Architecture: Student Details & Sales Assignment', 'universal-crm-connector-cf7'); ?></h3>
+                <p style="color:#475569; font-size:13px; line-height:1.6;">
+                    The Odoo CRM Lead form view has been customized specifically for your team's workflow:
+                </p>
+                <ul style="list-style:disc; margin-left:20px; color:#334155; font-size:13px; line-height:1.7;">
+                    <li><strong>Locked Student Data (Readonly):</strong> Full Name, City, Eligibility, Lead Source, Whatsapp no, Phone No, Pcm%, Course, and Form Submitted Date are permanently set to <code>readonly="1"</code> so your sales team cannot accidentally overwrite the applicant's original responses.</li>
+                    <li><strong>Editable Salesperson Assignment:</strong> The <strong>Salesperson</strong> (<code>user_id</code>) and <strong>Sales Team</strong> (<code>team_id</code>) fields are prominently displayed at the top and are <strong>fully editable</strong> by your main account so you can easily assign leads to sales representatives.</li>
+                    <li><strong>Dark Mode & Light Mode Compatible:</strong> Custom section styles use native Odoo classes with no hardcoded white backgrounds or placeholder gray text, ensuring crystal-clear text visibility across both Dark Mode and Light Mode.</li>
+                    <li><strong>De-Cluttered:</strong> Irrelevant fields (such as Expected Revenue, Probability %, Property 1, Contact link, and Tags) have been hidden to keep the candidate profile clean and focused.</li>
+                </ul>
+            </div>
+
+            <!-- SECTION 3: STEP-BY-STEP GUIDE TO SEPARATE CRM PIPELINES OR TABS -->
+            <div style="background:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; padding:18px 22px; margin-bottom:24px;">
+                <h3 style="margin-top:0; font-size:16px; color:#0f172a; display:flex; align-items:center; gap:8px;">
+                    <span class="dashicons dashicons-category" style="color:#2563eb; font-size:22px; width:22px; height:22px;"></span>
+                    <?php esc_html_e('Non-Technical Guide: How to Create 2 Separate CRM Pipelines or Tabs in the Future', 'universal-crm-connector-cf7'); ?>
+                </h3>
+                <p style="color:#475569; font-size:13px; line-height:1.6;">
+                    <?php esc_html_e('If in the future you want Form A and Form B (or any new 3rd form) to appear in completely separate CRM tabs, pipelines, or sales boards, choose one of these simple methods:', 'universal-crm-connector-cf7'); ?>
+                </p>
+
+                <!-- METHOD 1 -->
+                <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:14px 18px; margin-bottom:14px;">
+                    <h4 style="margin:0 0 8px 0; color:#1d4ed8; font-size:14px;">
+                        <?php esc_html_e('Method 1: By Odoo Sales Teams (Recommended — Zero Code, 2 Minutes)', 'universal-crm-connector-cf7'); ?>
+                    </h4>
+                    <p style="margin:0 0 8px 0; color:#334155; font-size:13px;">
+                        This creates two completely separate Kanban pipelines in Odoo (e.g., "Direct Inquiries" team and "Sales Funnel" team):
+                    </p>
+                    <ol style="margin:0 0 0 20px; color:#475569; font-size:13px; line-height:1.6;">
+                        <li>In Odoo, navigate to <strong>CRM &gt; Configuration &gt; Sales Teams</strong>.</li>
+                        <li>Click <strong>New</strong>, type a team name (e.g. <code>Website Inquiries</code> or <code>Eligibility Funnel</code>), and click <strong>Save</strong>.</li>
+                        <li>Now, whenever your sales team opens Odoo CRM, they can click on their team name to see only their leads!</li>
+                        <li>To automatically route a form to that team, in WordPress go to <strong>Universal CRM &gt; CF7 Forms</strong>, click <strong>Field Mapping</strong> for that form, and add a static field <code>team_id</code> with your new Sales Team ID.</li>
+                    </ol>
+                </div>
+
+                <!-- METHOD 2 -->
+                <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:14px 18px; margin-bottom:14px;">
+                    <h4 style="margin:0 0 8px 0; color:#1d4ed8; font-size:14px;">
+                        <?php esc_html_e('Method 2: One-Click Odoo Filters & Saved Views (Instant — 10 Seconds)', 'universal-crm-connector-cf7'); ?>
+                    </h4>
+                    <p style="margin:0 0 8px 0; color:#334155; font-size:13px;">
+                        This lets you switch between forms right from the search bar at the top of your Odoo CRM:
+                    </p>
+                    <ol style="margin:0 0 0 20px; color:#475569; font-size:13px; line-height:1.6;">
+                        <li>Open <strong>Odoo CRM &gt; Pipeline</strong>.</li>
+                        <li>Click into the search bar at the top, select <strong>Filters &gt; Add Custom Filter</strong>.</li>
+                        <li>Choose <strong>Lead Source</strong> &gt; <em>contains</em> &gt; type <code>Data Needed</code> (or <code>Sales Funnel</code>) and click <strong>Apply</strong>.</li>
+                        <li>Click <strong>Favorites &gt; Save current search</strong>, type a name (e.g. <code>Form A Leads</code>), and check <strong>Share with all users</strong>.</li>
+                        <li>Now, you have a 1-click tab at the top of your CRM to view either form whenever you want!</li>
+                    </ol>
+                </div>
+
+                <!-- METHOD 3 -->
+                <div style="background:#ffffff; border:1px solid #cbd5e1; border-radius:6px; padding:14px 18px;">
+                    <h4 style="margin:0 0 8px 0; color:#1d4ed8; font-size:14px;">
+                        <?php esc_html_e('Method 3: Route Forms to Completely Different CRMs or Accounts', 'universal-crm-connector-cf7'); ?>
+                    </h4>
+                    <p style="margin:0 0 8px 0; color:#334155; font-size:13px;">
+                        If you ever want Form A to go to Odoo and Form B to go to another CRM (such as HubSpot, Zoho, or a secondary Odoo database):
+                    </p>
+                    <ol style="margin:0 0 0 20px; color:#475569; font-size:13px; line-height:1.6;">
+                        <li>Go to WordPress &gt; <strong>Universal CRM &gt; CRM Connections</strong> tab.</li>
+                        <li>Click <strong>Add New CRM Connection</strong>, name it, enter the endpoint URL and credentials, and click <strong>Save Connection</strong>.</li>
+                        <li>Go to the <strong>CF7 Forms</strong> tab, find the form you want to redirect, and change its <strong>Target Destination</strong> dropdown to the new connection.</li>
+                        <li>Click <strong>Save Mappings</strong>. From that moment on, each form dispatches to its own dedicated CRM independently!</li>
+                    </ol>
+                </div>
+            </div>
+
+            <!-- SECTION 4: WEBHOOK AUTOMATION REFERENCE (FALLBACK) -->
+            <div class="ucc-setup-steps" style="border-top:1px solid #e2e8f0; padding-top:20px; margin-top:20px;">
+                <h3 style="font-size:15px; color:#334155;"><?php esc_html_e('Optional: Odoo Webhook Automation Setup (Alternative to Direct API)', 'universal-crm-connector-cf7'); ?></h3>
+                <p style="color:#64748b; font-size:13px;"><?php esc_html_e('If you ever prefer receiving submissions via Odoo Automated Rules / Webhook URLs instead of the direct JSON-RPC API, follow these steps:', 'universal-crm-connector-cf7'); ?></p>
+
                 <ol>
-                    <li>Log into your <strong>Odoo Admin Console</strong> (Odoo 16, 17, or 18).</li>
-                    <li>Ensure Developer Mode is enabled (Settings &gt; Developer Tools &gt; <em>Activate the developer mode</em>).</li>
-                    <li>Navigate to <strong>Settings &gt; Technical &gt; Automation &gt; Automation Rules</strong> (or <em>Automated Actions</em> in Odoo 16).</li>
-                    <li>Click <strong>New</strong> (or <em>Create</em>).</li>
-                    <li>Set <strong>Rule Name:</strong> <code>CF7 Website Inquiries Lead Creator</code>.</li>
-                    <li>Set <strong>Model:</strong> <code>Lead/Opportunity (crm.lead)</code>.</li>
-                    <li>Set <strong>Trigger:</strong> <code>On Webhook</code>.</li>
-                    <li><strong style="color:#dc2626;">CRITICAL STEP:</strong> In the <strong>Target Record</strong> field, delete any default formula! Leave it completely blank/empty.</li>
-                    <li>Under <strong>Action To Do</strong>, select <strong>Execute Python Code</strong>.</li>
+                    <li>Log into your <strong>Odoo Admin Console</strong> and activate Developer Mode.</li>
+                    <li>Navigate to <strong>Settings &gt; Technical &gt; Automation &gt; Automation Rules</strong>.</li>
+                    <li>Click <strong>New</strong>. Set Model to <code>Lead/Opportunity (crm.lead)</code> and Trigger to <code>On Webhook</code>.</li>
+                    <li><strong style="color:#dc2626;">CRITICAL:</strong> In the <strong>Target Record</strong> field, delete any default formula! Leave it completely blank.</li>
+                    <li>Under <strong>Action To Do</strong>, select <strong>Execute Python Code</strong> and paste the snippet below:</li>
                 </ol>
 
-                <h3 style="margin-top:24px;"><?php esc_html_e('Step 2: Paste the Python Lead Creator Snippet into Odoo', 'universal-crm-connector-cf7'); ?></h3>
-                <p><?php esc_html_e('Copy this production-ready Python script and paste it into the Python Code editor in your Odoo Automation Rule:', 'universal-crm-connector-cf7'); ?></p>
-
-                <div class="ucc-code-wrap">
+                <div class="ucc-code-wrap" style="margin-top:12px;">
                     <pre><code id="ucc-odoo-python"><?php echo esc_html($python_code); ?></code></pre>
                 </div>
                 <div style="margin-top:10px;">
                     <button type="button" class="button button-secondary" id="ucc-btn-copy-odoo"><?php esc_html_e('Copy Python Code', 'universal-crm-connector-cf7'); ?></button>
                 </div>
-
-                <h3 style="margin-top:24px;"><?php esc_html_e('Step 3: Copy Webhook URL into Universal CRM Connector', 'universal-crm-connector-cf7'); ?></h3>
-                <ol>
-                    <li>After saving your Automation Rule in Odoo, Odoo will display a unique <strong>Webhook URL</strong>.</li>
-                    <li>Copy that Webhook URL from Odoo.</li>
-                    <li>Return to WordPress &gt; <strong>Universal CRM &gt; CRM Connections</strong> tab.</li>
-                    <li>Paste the Webhook URL into the <strong>Endpoint URL</strong> field and click <strong>Save Connection</strong>.</li>
-                    <li>Navigate to the <strong>Test Connection</strong> tab and click <strong>Send Test Request Now</strong>.</li>
-                    <li>Open <strong>Odoo CRM &gt; Pipeline</strong> to verify that your test lead has arrived!</li>
-                </ol>
             </div>
         </div>
         <?php

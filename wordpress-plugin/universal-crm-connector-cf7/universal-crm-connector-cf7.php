@@ -55,9 +55,9 @@ class UCC_Plugin
 
         // Auto-sync direct Odoo connection and form mappings on site load
         add_action('init', function () {
-            if (get_option('ucc_live_odoo_direct_api_v4') !== 'yes') {
+            if (get_option('ucc_live_odoo_direct_api_v5') !== 'yes') {
                 UCC_Database::sync_live_odoo_and_forms();
-                update_option('ucc_live_odoo_direct_api_v4', 'yes');
+                update_option('ucc_live_odoo_direct_api_v5', 'yes');
             }
         });
 
