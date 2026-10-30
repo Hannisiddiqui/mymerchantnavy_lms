@@ -528,7 +528,9 @@ class UCC_Dispatcher
             'contact_name' => $contact_name,
             'email_from'   => $email,
             'phone'        => $phone_clean,
-            'type'         => 'lead',
+            'type'         => 'opportunity', // 'opportunity' ensures it appears immediately on the main Odoo CRM Pipeline kanban board
+            'stage_id'     => 1,             // Places into the initial 'New' pipeline stage
+            'user_id'      => (int) $uid,    // Assigns to the authenticated user so it shows in 'My Pipeline' filter
             'description'  => $description,
         ];
         if (! empty($city)) {
