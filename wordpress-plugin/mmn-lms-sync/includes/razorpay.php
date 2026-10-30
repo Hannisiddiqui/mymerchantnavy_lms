@@ -262,7 +262,19 @@ function mmn_lms_front_script()
         function purchase(product, ui) {
             var info = cfg.products[product];
             function fail(err) {
-                var msg = (err && err.message) ? err.message : (typeof err === 'string' ? err : 'Could not start the payment. Please try again.');
+                var msg = '';
+                if (err) {
+                    if (typeof err === 'string') {
+                        msg = err;
+                    } else if (err.message && typeof err.message === 'string') {
+                        msg = err.message;
+                    } else if (err.data) {
+                        msg = typeof err.data === 'string' ? err.data : (err.data.message || JSON.stringify(err.data));
+                    }
+                }
+                if (!msg || msg === '[object Object]') {
+                    msg = 'Could not start the payment. Please try again.';
+                }
                 alert(msg);
                 ui.end();
             }
@@ -271,9 +283,12 @@ function mmn_lms_front_script()
 
             if (info.free) {
                 ensureNonce().then(function (nonce) {
-                    return post({ action: 'mmn_free_enroll', nonce: nonce, product: product });
+                    return post({ action: 'mmn_free_enroll', nonce: nonce, product: product, user_id: cfg.userId || '' });
                 }).then(function (d) {
-                    if (!d || !d.success) { throw new Error((d && d.data) || 'Could not sign you up.'); }
+                    if (!d || !d.success) {
+                        var errStr = (d && d.data) ? (typeof d.data === 'string' ? d.data : (d.data.message || 'Could not sign you up.')) : 'Could not sign you up.';
+                        throw new Error(errStr);
+                    }
                     window.location.href = d.data.redirect;
                 }).catch(fail);
                 return;
@@ -281,10 +296,18 @@ function mmn_lms_front_script()
 
             Promise.all([loadRazorpay(), ensureNonce()]).then(function (results) {
                 var freshNonce = results[1];
-                return post({ action: 'mmn_rzp_create', nonce: freshNonce, product: product });
+                return post({ action: 'mmn_rzp_create', nonce: freshNonce, product: product, user_id: cfg.userId || '' });
             }).then(function (d) {
                 if (!d || !d.success) {
-                    throw new Error((d && d.data) || 'Could not start the payment. Please try again.');
+                    var errStr = 'Could not start the payment. Please try again.';
+                    if (d && d.data) {
+                        if (typeof d.data === 'string') {
+                            errStr = d.data;
+                        } else if (typeof d.data === 'object' && d.data.message) {
+                            errStr = d.data.message;
+                        }
+                    }
+                    throw new Error(errStr);
                 }
                 if (d.data && d.data.already_purchased) {
                     ui.say(d.data.message || 'Already enrolled! Taking you to LMS…');
@@ -629,6 +652,9 @@ function mmn_lms_front_script()
                         showErr(sLoginOtp, (d && d.data && d.data.message) || 'Incorrect code. Please try again.');
                         return;
                     }
+                    if (d.data && d.data.user_id) {
+                        cfg.userId = d.data.user_id;
+                    }
                     if (d.data && d.data.nonce) {
                         cfg.nonce = d.data.nonce;
                     }
@@ -663,6 +689,9 @@ function mmn_lms_front_script()
                     if (!d || !d.success) {
                         showErr(sLogin, (d && d.data && d.data.message) || 'Invalid password. Please try again.');
                         return;
+                    }
+                    if (d.data && d.data.user_id) {
+                        cfg.userId = d.data.user_id;
                     }
                     if (d.data && d.data.nonce) {
                         cfg.nonce = d.data.nonce;
@@ -728,6 +757,7 @@ function mmn_lms_front_script()
 
                     // 2. Account exists and password already matched: proceed to payment directly
                     if (d.data && d.data.account_exists && d.data.logged_in) {
+                        if (d.data.user_id) { cfg.userId = d.data.user_id; }
                         if (d.data.nonce) { cfg.nonce = d.data.nonce; }
                         cfg.loggedIn = true;
                         closePopup();
@@ -778,6 +808,9 @@ function mmn_lms_front_script()
                         busy(btn, false);
                         showErr(s2, (d && d.data && d.data.message) || 'That code is not right.');
                         return;
+                    }
+                    if (d.data && d.data.user_id) {
+                        cfg.userId = d.data.user_id;
                     }
                     if (d.data && d.data.nonce) {
                         cfg.nonce = d.data.nonce;
@@ -846,8 +879,18 @@ add_action('wp_footer', 'mmn_lms_front_script', 20);
 
 // ---------------------------------------------------------------------------------------------------- server side of the button
 
-add_action('wp_ajax_mmn_rzp_create', function () {
+function mmn_lms_ajax_rzp_create() {
     $user = wp_get_current_user();
+    if (! $user || ! $user->ID) {
+        if (! empty($_POST['user_id'])) {
+            $u = get_user_by('id', (int) $_POST['user_id']);
+            if ($u) {
+                $user = $u;
+                wp_set_current_user($user->ID);
+                wp_set_auth_cookie($user->ID, true);
+            }
+        }
+    }
     if (! $user || ! $user->ID) {
         wp_send_json_error('Please log in or register before starting payment.');
         return;
@@ -931,10 +974,9 @@ add_action('wp_ajax_mmn_rzp_create', function () {
         'site'     => get_bloginfo('name'),
         'prefill'  => ['name' => $payload['name'], 'email' => $payload['email'], 'contact' => $payload['phone']],
     ]);
-});
-add_action('wp_ajax_nopriv_mmn_rzp_create', function () {
-    wp_send_json_error('Please log in or register before starting payment.');
-});
+}
+add_action('wp_ajax_mmn_rzp_create', 'mmn_lms_ajax_rzp_create');
+add_action('wp_ajax_nopriv_mmn_rzp_create', 'mmn_lms_ajax_rzp_create');
 
 add_action('wp_ajax_mmn_rzp_verify', function () {
     $order_id   = sanitize_text_field(wp_unslash(isset($_POST['razorpay_order_id']) ? $_POST['razorpay_order_id'] : ''));
@@ -954,8 +996,18 @@ add_action('wp_ajax_mmn_rzp_verify', function () {
 });
 
 /** A free sign-up (price 0 in the settings): the course is given at once, nothing to pay. */
-add_action('wp_ajax_mmn_free_enroll', function () {
+function mmn_lms_ajax_free_enroll() {
     $user = wp_get_current_user();
+    if (! $user || ! $user->ID) {
+        if (! empty($_POST['user_id'])) {
+            $u = get_user_by('id', (int) $_POST['user_id']);
+            if ($u) {
+                $user = $u;
+                wp_set_current_user($user->ID);
+                wp_set_auth_cookie($user->ID, true);
+            }
+        }
+    }
     if (! $user || ! $user->ID) {
         wp_send_json_error('Please log in or register before sign-up.');
         return;
@@ -975,7 +1027,9 @@ add_action('wp_ajax_mmn_free_enroll', function () {
     ]);
     mmn_lms_order_paid($post_id, 'free');
     wp_send_json_success(['redirect' => mmn_lms_after_payment_url($user, $post_id)]);
-});
+}
+add_action('wp_ajax_mmn_free_enroll', 'mmn_lms_ajax_free_enroll');
+add_action('wp_ajax_nopriv_mmn_free_enroll', 'mmn_lms_ajax_free_enroll');
 
 // ---------------------------------------------------------------------------------------------------- webhook (when the student closes the page after paying)
 
