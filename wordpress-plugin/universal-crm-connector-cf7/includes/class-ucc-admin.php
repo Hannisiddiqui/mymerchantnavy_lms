@@ -832,15 +832,18 @@ class UCC_Admin
                         <label for="ucc_test_payload"><strong><?php esc_html_e('Payload Data (JSON)', 'universal-crm-connector-cf7'); ?></strong></label>
                         <textarea id="ucc_test_payload" class="widefat" rows="12" style="font-family:ui-monospace,Menlo,Monaco,Consolas,monospace;font-size:13px;"><?php
                             echo esc_textarea(wp_json_encode([
-                                'name'           => 'Rohan Sharma',
+                                'full-name'      => 'Rohan Sharma',
                                 'email'          => 'rohan.sharma@example.com',
-                                'phone'          => '9876543210',
+                                'whatsapp'       => '+91 9876543210',
+                                'phone'          => '+91 9876543210',
                                 'city'           => 'Mumbai',
-                                'source'         => 'Data Needed',
-                                'cf7_form_id'    => 101,
+                                'qualfied'       => 'Yes (IMU-CET Fit)',
+                                'pcm%'           => '81.4%',
+                                'course'         => 'GP Rating Pass',
+                                'form-source'    => 'Data Needed',
+                                'cf7_form_id'    => 8612,
                                 'cf7_form_title' => 'Data Needed',
                                 'submission_id'  => wp_generate_uuid4(),
-                                '_model'         => 'crm.lead',
                             ], JSON_PRETTY_PRINT));
                         ?></textarea>
                     </p>

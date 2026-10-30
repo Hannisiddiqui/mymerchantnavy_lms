@@ -499,23 +499,50 @@ class UCC_Dispatcher
 
         // 3. Prepare Lead Fields for crm.lead
         $raw_name     = ! empty($payload['name']) ? $payload['name'] : (! empty($payload['full-name']) ? $payload['full-name'] : 'Lead from Contact Form 7');
-        $contact_name = ! empty($payload['contact_name']) ? $payload['contact_name'] : $raw_name;
+        $contact_name = ! empty($payload['contact_name']) ? $payload['contact_name'] : (! empty($payload['full-name']) ? $payload['full-name'] : $raw_name);
         $email        = ! empty($payload['email_from']) ? $payload['email_from'] : (! empty($payload['email']) ? $payload['email'] : '');
-        $phone        = ! empty($payload['phone']) ? $payload['phone'] : (! empty($payload['whatsapp']) ? $payload['whatsapp'] : '');
+        $phone_raw    = ! empty($payload['phone']) ? $payload['phone'] : (! empty($payload['whatsapp']) ? $payload['whatsapp'] : '');
+        $whatsapp_raw = ! empty($payload['whatsapp']) ? $payload['whatsapp'] : $phone_raw;
         $city         = ! empty($payload['city']) ? $payload['city'] : '';
+        $source       = ! empty($payload['source']) ? $payload['source'] : (! empty($payload['form-source']) ? $payload['form-source'] : $source_label);
+        $eligibility  = ! empty($payload['eligibility']) ? $payload['eligibility'] : (! empty($payload['qualfied']) ? $payload['qualfied'] : (! empty($payload['qualified']) ? $payload['qualified'] : ''));
+        $pcm          = ! empty($payload['pcm%']) ? $payload['pcm%'] : (! empty($payload['pcm']) ? $payload['pcm'] : (! empty($payload['pcm_percentage']) ? $payload['pcm_percentage'] : ''));
+        $course       = ! empty($payload['course']) ? $payload['course'] : (! empty($payload['target_course']) ? $payload['target_course'] : '');
 
-        // Clean phone digits
-        $phone_clean = preg_replace('/[^0-9+]/', '', (string) $phone);
+        // If course is empty but payment link or form title has a course name, extract it nicely
+        if (empty($course) && ! empty($payload['payment-link'])) {
+            if (stripos($payload['payment-link'], 'gp-rating') !== false || stripos($payload['payment-link'], 'gp_rating') !== false) {
+                $course = 'GP Rating Pass';
+            } elseif (stripos($payload['payment-link'], 'dns') !== false || stripos($payload['payment-link'], 'bsc') !== false) {
+                $course = 'DNS & B.Sc Nautical Science Pass';
+            } elseif (stripos($payload['payment-link'], 'gme') !== false || stripos($payload['payment-link'], 'btech') !== false) {
+                $course = 'GME & B.Tech Pass';
+            }
+        }
+
+        // Clean phone and whatsapp numbers
+        $phone_clean    = preg_replace('/[^0-9+]/', '', (string) $phone_raw);
+        $whatsapp_clean = preg_replace('/[^0-9+]/', '', (string) $whatsapp_raw);
 
         // Build structured submission notes for description
         $desc_lines = [];
-        $desc_lines[] = "--- CONTACT FORM 7 SUBMISSION ---";
+        $desc_lines[] = "=== CONTACT FORM 7 SUBMISSION ===";
         $desc_lines[] = "Form: " . $form_title;
         $desc_lines[] = "Source Label: " . $source_label;
         $desc_lines[] = "Submission ID: " . $idempotency_key;
         $desc_lines[] = "Timestamp: " . current_time('mysql');
         $desc_lines[] = "";
-        $desc_lines[] = "--- FORM FIELD VALUES ---";
+        $desc_lines[] = "=== DEDICATED FIELDS ===";
+        $desc_lines[] = "Full Name: " . $contact_name;
+        $desc_lines[] = "City: " . ($city ?: '—');
+        $desc_lines[] = "Eligibility: " . ($eligibility ?: '—');
+        $desc_lines[] = "Lead Source: " . $source;
+        $desc_lines[] = "Whatsapp no: " . ($whatsapp_clean ?: '—');
+        $desc_lines[] = "Phone No.: " . ($phone_clean ?: '—');
+        $desc_lines[] = "Pcm%: " . ($pcm ?: '—');
+        $desc_lines[] = "Course: " . ($course ?: '—');
+        $desc_lines[] = "";
+        $desc_lines[] = "=== ALL FORM FIELD VALUES ===";
         foreach ($payload as $k => $v) {
             if ($k === '_model' || $k === '_id') continue;
             if (is_array($v)) $v = implode(', ', $v);
@@ -524,17 +551,24 @@ class UCC_Dispatcher
         $description = implode("\n", $desc_lines);
 
         $lead_values = [
-            'name'         => $raw_name . ' (' . $source_label . ')',
-            'contact_name' => $contact_name,
-            'email_from'   => $email,
-            'phone'        => $phone_clean,
-            'type'         => 'opportunity', // 'opportunity' ensures it appears immediately on the main Odoo CRM Pipeline kanban board
-            'stage_id'     => 1,             // Places into the initial 'New' pipeline stage
-            'user_id'      => (int) $uid,    // Assigns to the authenticated user so it shows in 'My Pipeline' filter
-            'description'  => $description,
+            'name'             => $raw_name . ' (' . $source_label . ')',
+            'contact_name'     => $contact_name,
+            'email_from'       => $email,
+            'phone'            => $phone_clean,
+            'type'             => 'opportunity', // 'opportunity' ensures it appears immediately on the main Odoo CRM Pipeline kanban board
+            'stage_id'         => 1,             // Places into the initial 'New' pipeline stage
+            'user_id'          => (int) $uid,    // Assigns to the authenticated user so it shows in 'My Pipeline' filter
+            'city'             => $city,
+            'x_WhatsApp'       => $whatsapp_clean,
+            'x_form_source'    => $source,
+            'x_eligibility'    => $eligibility,
+            'x_Lead_Qualified' => $eligibility,
+            'x_pcm_percentage' => $pcm,
+            'x_course'         => $course,
+            'description'      => $description,
         ];
-        if (! empty($city)) {
-            $lead_values['city'] = $city;
+        if (! empty($payload['created-date'])) {
+            $lead_values['x_creation_date'] = (string) $payload['created-date'];
         }
 
         // 4. Create Lead in crm.lead via object.execute_kw

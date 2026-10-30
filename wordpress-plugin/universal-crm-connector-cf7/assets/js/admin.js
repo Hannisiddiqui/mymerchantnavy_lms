@@ -177,34 +177,33 @@
             var val = $(this).val();
             if (val === 'form_a') {
                 $('#ucc_test_payload').val(JSON.stringify({
-                    "name": "Rohan Sharma",
+                    "full-name": "Rohan Sharma",
                     "email": "rohan.sharma@example.com",
-                    "phone": "9876543210",
+                    "whatsapp": "+91 9876543210",
                     "city": "Mumbai",
-                    "source": "Data Needed",
-                    "cf7_form_id": 101,
+                    "form-source": "Data Needed",
+                    "cf7_form_id": 8612,
                     "cf7_form_title": "Data Needed",
-                    "submission_id": "test-" + Math.floor(Math.random() * 1000000),
-                    "_model": "crm.lead"
+                    "submission_id": "test-" + Math.floor(Math.random() * 1000000)
                 }, null, 2));
             } else if (val === 'form_b') {
                 $('#ucc_test_payload').val(JSON.stringify({
-                    "name": "Aditya Verma",
+                    "full-name": "Aditya Verma",
                     "email": "aditya.verma@example.com",
-                    "phone": "9812345678",
+                    "whatsapp": "+91 9812345678",
+                    "phone": "+91 9812345678",
                     "city": "Delhi",
-                    "created_date": "2026-10-30",
-                    "lead_status": "new",
-                    "date": "2026-10-30",
-                    "source": "Sales Funnel / Eligibility Checker",
-                    "qualfied": "yes",
-                    "wp_group_created": "batch_2026",
-                    "meeting_status": "scheduled",
-                    "payment_link": "https://mymerchantnavy.com/pass/?mmn_buy=gp-rating-pass",
-                    "cf7_form_id": 102,
-                    "cf7_form_title": "Sales Funnel",
-                    "submission_id": "test-" + Math.floor(Math.random() * 1000000),
-                    "_model": "crm.lead"
+                    "form-source": "Sales Funnel / Eligibility Checker",
+                    "qualfied": "Eligible (IMU-CET Fit)",
+                    "pcm%": "78.5%",
+                    "course": "DNS & B.Sc Nautical Science Pass",
+                    "created-date": "2026-10-30",
+                    "lead-status": "new",
+                    "meeting-status": "scheduled",
+                    "payment-link": "https://mymerchantnavy.com/pass/?mmn_buy=dns-pass",
+                    "cf7_form_id": 8795,
+                    "cf7_form_title": "Sales Funnel / Eligibility Checker",
+                    "submission_id": "test-" + Math.floor(Math.random() * 1000000)
                 }, null, 2));
             }
         });
