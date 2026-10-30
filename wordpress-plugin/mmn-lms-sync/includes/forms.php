@@ -552,6 +552,101 @@ function mmn_lms_handle_ajax_login_and_pay()
 add_action('wp_ajax_nopriv_mmn_login_and_pay', 'mmn_lms_handle_ajax_login_and_pay');
 add_action('wp_ajax_mmn_login_and_pay', 'mmn_lms_handle_ajax_login_and_pay');
 
+/** Dispatches a 6-digit OTP code to an existing user's registered email when they forgot password or choose OTP login */
+function mmn_lms_handle_ajax_login_send_otp()
+{
+    $identifier = trim(sanitize_text_field(mmn_lms_post('identifier')));
+    if (empty($identifier)) {
+        wp_send_json_error(['message' => 'Please provide your email address or mobile number.']);
+    }
+
+    $clean_phone = preg_replace('/\D/', '', $identifier);
+    if (strlen($clean_phone) === 12 && substr($clean_phone, 0, 2) === '91') {
+        $clean_phone = substr($clean_phone, 2);
+    } elseif (strlen($clean_phone) === 11 && substr($clean_phone, 0, 1) === '0') {
+        $clean_phone = substr($clean_phone, 1);
+    }
+
+    $user = null;
+    if (is_email($identifier)) {
+        $user = get_user_by('email', $identifier);
+    }
+    if (! $user && strlen($clean_phone) === 10) {
+        $users_by_phone = get_users([
+            'meta_query' => [
+                'relation' => 'OR',
+                ['key' => 'phone', 'value' => '+91' . $clean_phone],
+                ['key' => 'phone', 'value' => $clean_phone],
+                ['key' => 'billing_phone', 'value' => '+91' . $clean_phone],
+                ['key' => 'billing_phone', 'value' => $clean_phone],
+            ],
+            'number' => 1,
+        ]);
+        if (! empty($users_by_phone)) {
+            $user = $users_by_phone[0];
+        }
+    }
+    if (! $user) {
+        $user = get_user_by('login', $identifier);
+    }
+
+    if (! $user) {
+        wp_send_json_error(['message' => 'No registered account found with these details.']);
+    }
+
+    $code  = (string) random_int(100000, 999999);
+    $token = strtolower(wp_generate_password(24, false));
+    set_transient('mmn_login_otp_' . $token, [
+        'user_id' => $user->ID,
+        'email'   => $user->user_email,
+        'code'    => mmn_lms_code_hash($code),
+        'sent'    => time(),
+    ], MMN_LMS_CODE_MINUTES * MINUTE_IN_SECONDS);
+
+    if (! mmn_lms_send_code($user->user_email, $code)) {
+        delete_transient('mmn_login_otp_' . $token);
+        wp_send_json_error(['message' => 'Could not send verification code. Please check your email and try again.']);
+    }
+
+    wp_send_json_success([
+        'token'   => $token,
+        'email'   => mmn_lms_mask_email($user->user_email),
+        'message' => 'Verification code sent to ' . mmn_lms_mask_email($user->user_email),
+    ]);
+}
+add_action('wp_ajax_nopriv_mmn_login_send_otp', 'mmn_lms_handle_ajax_login_send_otp');
+add_action('wp_ajax_mmn_login_send_otp', 'mmn_lms_handle_ajax_login_send_otp');
+
+/** Verifies the OTP code for existing user and signs them in for checkout */
+function mmn_lms_handle_ajax_login_verify_otp()
+{
+    $token = sanitize_key(mmn_lms_post('token'));
+    $code  = preg_replace('/\D/', '', (string) mmn_lms_post('code'));
+
+    $otp_data = $token !== '' ? get_transient('mmn_login_otp_' . $token) : false;
+    if (! $otp_data) {
+        wp_send_json_error(['message' => 'The verification code has expired. Please request a new one.']);
+    }
+
+    if (! hash_equals($otp_data['code'], mmn_lms_code_hash($code))) {
+        wp_send_json_error(['message' => 'The verification code is incorrect. Please check your email.']);
+    }
+
+    delete_transient('mmn_login_otp_' . $token);
+
+    $user_id = (int) $otp_data['user_id'];
+    wp_set_current_user($user_id);
+    wp_set_auth_cookie($user_id, true);
+
+    wp_send_json_success([
+        'nonce'   => wp_create_nonce('mmn_rzp'),
+        'user_id' => $user_id,
+        'message' => 'Signed in successfully! Opening payment window...',
+    ]);
+}
+add_action('wp_ajax_nopriv_mmn_login_verify_otp', 'mmn_lms_handle_ajax_login_verify_otp');
+add_action('wp_ajax_mmn_login_verify_otp', 'mmn_lms_handle_ajax_login_verify_otp');
+
 /** Supplies a fresh mmn_rzp nonce to the browser */
 function mmn_lms_handle_ajax_nonce()
 {
