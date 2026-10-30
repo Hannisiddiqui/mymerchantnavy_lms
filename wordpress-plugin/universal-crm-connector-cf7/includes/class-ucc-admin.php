@@ -57,16 +57,16 @@ class UCC_Admin
 
         wp_enqueue_style(
             'ucc-admin-css',
-            plugins_url('assets/css/admin.css', dirname(__FILE__)),
+            UCC_PLUGIN_URL . 'assets/css/admin.css',
             [],
-            defined('UCC_VERSION') ? UCC_VERSION : '1.0'
+            defined('UCC_VERSION') ? UCC_VERSION : '1.0.2'
         );
 
         wp_enqueue_script(
             'ucc-admin-js',
-            plugins_url('assets/js/admin.js', dirname(__FILE__)),
+            UCC_PLUGIN_URL . 'assets/js/admin.js',
             ['jquery'],
-            defined('UCC_VERSION') ? UCC_VERSION : '1.0',
+            defined('UCC_VERSION') ? UCC_VERSION : '1.0.2',
             true
         );
 
@@ -95,6 +95,38 @@ class UCC_Admin
         ];
 
         ?>
+        <style>
+        /* Fallback and critical tab styles */
+        .ucc-wrap { margin: 20px 20px 20px 2px; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+        .ucc-header { display: flex; justify-content: space-between; align-items: center; background: #fff; padding: 20px 24px; border-radius: 12px; border: 1px solid #e2e8f0; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.05); }
+        .ucc-header-left { display: flex; align-items: center; gap: 16px; }
+        .ucc-title { font-size: 21px; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.25; }
+        .ucc-subtitle { font-size: 13.5px; color: #64748b; margin: 4px 0 0; }
+        .ucc-pill-status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 9999px; font-size: 12.5px; font-weight: 700; white-space: nowrap; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+        .ucc-dot-live { width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block; }
+        .nav-tab-wrapper.ucc-nav-tabs { display: flex !important; flex-wrap: wrap !important; gap: 4px !important; border-bottom: 1px solid #c3c4c7 !important; margin: 0 0 20px !important; padding: 0 !important; }
+        .nav-tab-wrapper.ucc-nav-tabs .nav-tab { display: inline-block !important; font-size: 14px !important; font-weight: 600 !important; padding: 9px 18px !important; margin: 0 !important; border: 1px solid #c3c4c7 !important; border-bottom: none !important; border-radius: 6px 6px 0 0 !important; background: #f0f0f1 !important; color: #50575e !important; text-decoration: none !important; }
+        .nav-tab-wrapper.ucc-nav-tabs .nav-tab:hover { background: #ffffff !important; color: #1d2327 !important; }
+        .nav-tab-wrapper.ucc-nav-tabs .nav-tab-active, .nav-tab-wrapper.ucc-nav-tabs .nav-tab-active:hover { background: #ffffff !important; color: #2271b1 !important; border-top: 3px solid #2271b1 !important; border-color: #c3c4c7 #c3c4c7 #ffffff !important; margin-bottom: -1px !important; }
+        .ucc-grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
+        @media (max-width: 1024px) { .ucc-grid-two { grid-template-columns: 1fr; } }
+        .ucc-box { background: #ffffff; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 24px; }
+        .ucc-box-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 16px; padding-bottom: 12px; border-bottom: 1px solid #f1f5f9; }
+        .ucc-box-head h2 { margin: 0; font-size: 17px; font-weight: 700; color: #0f172a; }
+        .ucc-cards-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 16px; margin-bottom: 24px; }
+        .ucc-card-stat { background: #fff; padding: 18px 20px; border-radius: 12px; border: 1px solid #e2e8f0; }
+        .ucc-stat-label { display: block; font-size: 12px; font-weight: 700; color: #64748b; margin-bottom: 6px; text-transform: uppercase; }
+        .ucc-stat-val { font-size: 28px; font-weight: 800; color: #0f172a; }
+        .ucc-badge-success { background: #dcfce7; color: #15803d; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+        .ucc-badge-muted { background: #f1f5f9; color: #64748b; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+        .ucc-badge-danger { background: #fee2e2; color: #b91c1c; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+        .ucc-badge-warning { background: #fef3c7; color: #b45309; padding: 3px 9px; border-radius: 999px; font-size: 11px; font-weight: 700; }
+        .ucc-box select, .ucc-box input[type="text"], .ucc-box input[type="url"], .ucc-box input[type="password"], .ucc-box input[type="number"], .ucc-box textarea { width: 100% !important; max-width: 100% !important; box-sizing: border-box !important; padding: 10px 14px !important; border: 1.5px solid #cbd5e1 !important; border-radius: 8px !important; font-size: 14px !important; background: #fff !important; }
+        .ucc-box select:focus, .ucc-box input:focus, .ucc-box textarea:focus { border-color: #2563eb !important; outline: none !important; box-shadow: 0 0 0 3px rgba(37,99,235,0.15) !important; }
+        .ucc-code-wrap { background: #0f172a; border-radius: 10px; padding: 16px 18px; overflow-x: auto; border: 1px solid #1e293b; }
+        .ucc-code-wrap pre { margin: 0; color: #38bdf8; font-family: ui-monospace, Menlo, Monaco, Consolas, monospace; font-size: 12.5px; line-height: 1.6; }
+        </style>
+
         <div class="wrap ucc-wrap">
             <!-- Hidden WP heading anchors so external plugin notices (WPML, WooCommerce, etc.) don't inject inside our custom header card -->
             <h1 class="wp-heading-inline" style="display:none !important;">Universal CRM Connector</h1>
@@ -102,8 +134,8 @@ class UCC_Admin
 
             <div class="ucc-header">
                 <div class="ucc-header-left">
-                    <div class="ucc-header-icon-box">
-                        <span class="dashicons dashicons-networking ucc-header-icon"></span>
+                    <div class="ucc-header-icon-box" style="width:48px;height:48px;background:#eff6ff;border:1px solid #bfdbfe;border-radius:10px;display:flex;align-items:center;justify-content:center;">
+                        <span class="dashicons dashicons-networking" style="font-size:28px;width:28px;height:28px;color:#2563eb;"></span>
                     </div>
                     <div>
                         <div class="ucc-title"><?php esc_html_e('Universal CRM Connector for Contact Form 7', 'universal-crm-connector-cf7'); ?></div>
@@ -115,10 +147,10 @@ class UCC_Admin
                 </div>
             </div>
 
-            <!-- Modern Segmented Tab Navigation -->
-            <nav class="ucc-nav-tabs">
+            <!-- Tab Navigation with full WordPress and custom classes -->
+            <nav class="nav-tab-wrapper ucc-nav-tabs">
                 <?php foreach ($tabs as $key => $label) : ?>
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=universal-crm-connector&tab=' . $key)); ?>" class="ucc-nav-tab <?php echo $active_tab === $key ? 'ucc-nav-tab-active' : ''; ?>">
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=universal-crm-connector&tab=' . $key)); ?>" class="nav-tab ucc-nav-tab <?php echo $active_tab === $key ? 'nav-tab-active ucc-nav-tab-active' : ''; ?>">
                         <?php echo esc_html($label); ?>
                     </a>
                 <?php endforeach; ?>

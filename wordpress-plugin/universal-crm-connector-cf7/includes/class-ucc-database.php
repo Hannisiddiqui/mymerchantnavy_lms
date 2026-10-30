@@ -86,6 +86,123 @@ class UCC_Database
 
         // Run default seed if this is first installation
         self::seed_defaults();
+        self::sync_live_odoo_and_forms();
+    }
+
+    /**
+     * Synchronize live Odoo webhook endpoint and real site Contact Form 7 forms (8612, 8795).
+     */
+    public static function sync_live_odoo_and_forms()
+    {
+        global $wpdb;
+        $table_connections = $wpdb->prefix . 'ucc_crm_connections';
+        $table_mappings    = $wpdb->prefix . 'ucc_form_mappings';
+
+        $real_odoo_url = 'https://mmnin.odoo.com/web/hook/4220c8b3-3e63-46fe-9302-6c5f40fe29df';
+
+        // 1. Update existing demo connection if pointing to dummy URL or create it
+        $existing_conn = $wpdb->get_row("SELECT * FROM $table_connections WHERE endpoint_url LIKE '%myodoo.example.com%' OR crm_type = 'odoo' ORDER BY id ASC LIMIT 1");
+        if ($existing_conn) {
+            $wpdb->update($table_connections, [
+                'name'         => 'MMN Odoo CRM Lead Webhook',
+                'crm_type'     => 'odoo',
+                'endpoint_url' => $real_odoo_url,
+                'http_method'  => 'POST',
+                'content_type' => 'application/json',
+                'timeout'      => 15,
+            ], ['id' => $existing_conn->id]);
+            $conn_id = $existing_conn->id;
+        } else {
+            $wpdb->insert($table_connections, [
+                'name'         => 'MMN Odoo CRM Lead Webhook',
+                'crm_type'     => 'odoo',
+                'endpoint_url' => $real_odoo_url,
+                'http_method'  => 'POST',
+                'content_type' => 'application/json',
+                'timeout'      => 15,
+                'retry_enabled'=> 1,
+                'max_retries'  => 3,
+                'created_at'   => current_time('mysql'),
+            ]);
+            $conn_id = $wpdb->insert_id;
+        }
+
+        // 2. Mappings for Form A (8612: "Data Needed")
+        $mappings_a = [
+            ['cf7_field' => 'full-name',   'crm_key' => 'name',         'transform' => 'trim',            'default_value' => 'Candidate'],
+            ['cf7_field' => 'email',       'crm_key' => 'email_from',   'transform' => 'trim',            'default_value' => ''],
+            ['cf7_field' => 'city',        'crm_key' => 'city',         'transform' => 'trim',            'default_value' => ''],
+            ['cf7_field' => 'whatsapp',    'crm_key' => 'phone',        'transform' => 'clean_phone_10',  'default_value' => ''],
+            ['cf7_field' => 'form-source', 'crm_key' => 'source',       'transform' => 'trim',            'default_value' => 'Data Needed'],
+        ];
+        $static_a = [
+            ['key' => 'source', 'value' => 'Data Needed'],
+            ['key' => '_model', 'value' => 'crm.lead'],
+        ];
+
+        // 3. Mappings for Form B (8795: "Sales Funnel")
+        $mappings_b = [
+            ['cf7_field' => 'full-name',        'crm_key' => 'name',              'transform' => 'trim',            'default_value' => 'Candidate'],
+            ['cf7_field' => 'email',            'crm_key' => 'email_from',        'transform' => 'trim',            'default_value' => ''],
+            ['cf7_field' => 'whatsapp',         'crm_key' => 'phone',             'transform' => 'clean_phone_10',  'default_value' => ''],
+            ['cf7_field' => 'city',             'crm_key' => 'city',              'transform' => 'trim',            'default_value' => ''],
+            ['cf7_field' => 'created-date',     'crm_key' => 'created_date',      'transform' => 'trim',            'default_value' => ''],
+            ['cf7_field' => 'lead-status',      'crm_key' => 'lead_status',       'transform' => 'trim',            'default_value' => ''],
+            ['cf7_field' => 'date',             'crm_key' => 'date',              'transform' => 'trim',            'default_value' => ''],
+            ['cf7_field' => 'form-source',      'crm_key' => 'source',            'transform' => 'trim',            'default_value' => 'Sales Funnel / Eligibility Checker'],
+            ['cf7_field' => 'qualfied',         'crm_key' => 'qualfied',          'transform' => 'trim',            'default_value' => ''],
+            ['cf7_field' => 'wp-group-created', 'crm_key' => 'wp_group_created',  'transform' => 'trim',            'default_value' => ''],
+            ['cf7_field' => 'meeting-status',   'crm_key' => 'meeting_status',    'transform' => 'trim',            'default_value' => ''],
+            ['cf7_field' => 'payment-link',     'crm_key' => 'payment_link',      'transform' => 'trim',            'default_value' => ''],
+        ];
+        $static_b = [
+            ['key' => 'source', 'value' => 'Sales Funnel / Eligibility Checker'],
+            ['key' => '_model', 'value' => 'crm.lead'],
+        ];
+
+        // Ensure Form 8612 is mapped and enabled
+        $exists_8612 = $wpdb->get_var($wpdb->prepare("SELECT id FROM $table_mappings WHERE cf7_form_id = %d", 8612));
+        if ($exists_8612) {
+            $wpdb->update($table_mappings, [
+                'connection_id'  => $conn_id,
+                'enabled'        => 1,
+                'source_label'   => 'Data Needed',
+                'field_mappings' => wp_json_encode($mappings_a),
+                'static_fields'  => wp_json_encode($static_a),
+            ], ['id' => $exists_8612]);
+        } else {
+            $wpdb->insert($table_mappings, [
+                'cf7_form_id'    => 8612,
+                'connection_id'  => $conn_id,
+                'enabled'        => 1,
+                'source_label'   => 'Data Needed',
+                'field_mappings' => wp_json_encode($mappings_a),
+                'static_fields'  => wp_json_encode($static_a),
+                'created_at'     => current_time('mysql'),
+            ]);
+        }
+
+        // Ensure Form 8795 is mapped and enabled
+        $exists_8795 = $wpdb->get_var($wpdb->prepare("SELECT id FROM $table_mappings WHERE cf7_form_id = %d", 8795));
+        if ($exists_8795) {
+            $wpdb->update($table_mappings, [
+                'connection_id'  => $conn_id,
+                'enabled'        => 1,
+                'source_label'   => 'Sales Funnel / Eligibility Checker',
+                'field_mappings' => wp_json_encode($mappings_b),
+                'static_fields'  => wp_json_encode($static_b),
+            ], ['id' => $exists_8795]);
+        } else {
+            $wpdb->insert($table_mappings, [
+                'cf7_form_id'    => 8795,
+                'connection_id'  => $conn_id,
+                'enabled'        => 1,
+                'source_label'   => 'Sales Funnel / Eligibility Checker',
+                'field_mappings' => wp_json_encode($mappings_b),
+                'static_fields'  => wp_json_encode($static_b),
+                'created_at'     => current_time('mysql'),
+            ]);
+        }
     }
 
     /**

@@ -58,6 +58,12 @@ class UCC_Plugin
             UCC_Admin::instance();
             add_filter('plugin_action_links_' . plugin_basename(__FILE__), [$this, 'add_action_links']);
             add_action('admin_notices', [$this, 'check_dependencies_notice']);
+            add_action('admin_init', function () {
+                if (get_option('ucc_live_odoo_synced_v2') !== 'yes') {
+                    UCC_Database::sync_live_odoo_and_forms();
+                    update_option('ucc_live_odoo_synced_v2', 'yes');
+                }
+            });
         }
 
         // Daily cleanup cron
