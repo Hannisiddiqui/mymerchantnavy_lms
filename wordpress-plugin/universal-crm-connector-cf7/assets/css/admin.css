@@ -1,56 +1,88 @@
 /**
  * Universal CRM Connector Admin Styles
+ * High-precision typography, clean alignment, and modern dashboard aesthetics.
  */
 
 .ucc-wrap {
-    margin: 20px 20px 0 2px;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen-Sans, Ubuntu, Cantarell, "Helvetica Neue", sans-serif;
+    margin: 20px 20px 20px 2px;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    color: #1e293b;
+    box-sizing: border-box;
 }
 
+.ucc-wrap *, .ucc-wrap *::before, .ucc-wrap *::after {
+    box-sizing: border-box;
+}
+
+/* 1. Header Card */
 .ucc-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
     background: #ffffff;
-    padding: 20px 24px;
-    border-radius: 12px;
+    padding: 22px 28px;
+    border-radius: 14px;
     border: 1px solid #e2e8f0;
-    margin-bottom: 20px;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    margin-bottom: 22px;
+    box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.05);
 }
 
 .ucc-header-left {
     display: flex;
     align-items: center;
-    gap: 16px;
+    gap: 18px;
+    min-width: 0;
+}
+
+.ucc-header-icon-box {
+    width: 52px;
+    height: 52px;
+    background: #eff6ff;
+    border: 1px solid #bfdbfe;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
 }
 
 .ucc-header-icon {
-    font-size: 38px;
-    width: 38px;
-    height: 38px;
+    font-size: 30px;
+    width: 30px;
+    height: 30px;
     color: #2563eb;
+    margin: 0;
 }
 
 .ucc-title {
-    margin: 0;
-    font-size: 22px;
-    font-weight: 700;
+    font-size: 21px;
+    font-weight: 800;
     color: #0f172a;
-    line-height: 1.2;
+    line-height: 1.25;
+    letter-spacing: -0.01em;
 }
 
 .ucc-subtitle {
     margin: 4px 0 0;
     font-size: 13.5px;
     color: #64748b;
+    line-height: 1.4;
+}
+
+.ucc-header-badge {
+    flex-shrink: 0;
+    margin-left: 20px;
 }
 
 .ucc-pill-status {
-    padding: 6px 14px;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 16px;
     border-radius: 9999px;
-    font-size: 12.5px;
-    font-weight: 600;
+    font-size: 13px;
+    font-weight: 700;
+    white-space: nowrap;
 }
 
 .ucc-pill-live {
@@ -59,31 +91,58 @@
     border: 1px solid #a7f3d0;
 }
 
+.ucc-dot-live {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #10b981;
+    display: inline-block;
+    box-shadow: 0 0 0 3px rgba(16, 185, 129, 0.25);
+}
+
+/* 2. Modern Segmented Tab Navigation */
 .ucc-nav-tabs {
-    border-bottom: 1px solid #cbd5e1;
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+    border-bottom: 2px solid #e2e8f0;
     margin-bottom: 24px;
+    padding-bottom: 0;
 }
 
-.ucc-nav-tabs .nav-tab {
-    font-size: 14px;
+.ucc-nav-tab {
+    display: inline-flex;
+    align-items: center;
+    padding: 10px 18px;
+    font-size: 13.5px;
     font-weight: 600;
-    padding: 8px 18px;
+    color: #64748b;
+    text-decoration: none;
     border-radius: 8px 8px 0 0;
-    border-color: transparent;
+    border: 1px solid transparent;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -2px;
+    transition: all 0.15s ease;
     background: transparent;
-    color: #475569;
-    margin-right: 4px;
 }
 
-.ucc-nav-tabs .nav-tab-active,
-.ucc-nav-tabs .nav-tab-active:hover {
+.ucc-nav-tab:hover {
+    color: #0f172a;
+    background: #f8fafc;
+    border-color: #f1f5f9 #f1f5f9 transparent;
+}
+
+.ucc-nav-tab-active,
+.ucc-nav-tab-active:hover {
+    color: #2563eb;
     background: #ffffff;
     border-color: #cbd5e1 #cbd5e1 #ffffff;
-    color: #2563eb;
     border-top: 3px solid #2563eb;
+    border-bottom: 2px solid #ffffff;
+    font-weight: 700;
 }
 
-/* Stats Cards */
+/* 3. Stat Cards Grid */
 .ucc-cards-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
@@ -93,7 +152,7 @@
 
 .ucc-card-stat {
     background: #ffffff;
-    padding: 18px 20px;
+    padding: 20px 22px;
     border-radius: 12px;
     border: 1px solid #e2e8f0;
     box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
@@ -101,16 +160,16 @@
 
 .ucc-stat-label {
     display: block;
-    font-size: 12.5px;
-    font-weight: 600;
+    font-size: 12px;
+    font-weight: 700;
     color: #64748b;
     margin-bottom: 8px;
     text-transform: uppercase;
-    letter-spacing: 0.04em;
+    letter-spacing: 0.05em;
 }
 
 .ucc-stat-val {
-    font-size: 28px;
+    font-size: 30px;
     font-weight: 800;
     color: #0f172a;
     line-height: 1;
@@ -120,13 +179,13 @@
 .ucc-text-danger  { color: #dc2626 !important; }
 .ucc-text-muted   { color: #94a3b8 !important; }
 
-/* Boxes */
+/* 4. Layout Boxes */
 .ucc-box {
     background: #ffffff;
-    padding: 24px;
-    border-radius: 12px;
+    padding: 26px;
+    border-radius: 14px;
     border: 1px solid #e2e8f0;
-    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.05);
+    box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.04);
     margin-bottom: 24px;
 }
 
@@ -134,34 +193,138 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 16px;
-    padding-bottom: 12px;
+    margin-bottom: 18px;
+    padding-bottom: 14px;
     border-bottom: 1px solid #f1f5f9;
 }
 
 .ucc-box-head h2 {
     margin: 0;
-    font-size: 17px;
+    font-size: 17.5px;
     font-weight: 700;
     color: #0f172a;
+    letter-spacing: -0.01em;
 }
 
 .ucc-grid-two {
     display: grid;
-    grid-template-columns: 1.15fr 0.85fr;
-    gap: 20px;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    align-items: start;
 }
 
-@media (max-width: 1024px) {
+@media (max-width: 1100px) {
     .ucc-grid-two {
         grid-template-columns: 1fr;
     }
 }
 
-.ucc-req { color: #dc2626; }
-.ucc-desc { display: block; font-size: 12px; color: #64748b; margin-top: 4px; }
-.ucc-flex-fields { display: flex; gap: 14px; }
+/* 5. Clean Form Controls & Typography */
+.ucc-box p {
+    margin: 0 0 16px;
+}
 
+.ucc-box label {
+    display: block;
+    font-size: 13.5px;
+    font-weight: 600;
+    color: #334155;
+    margin-bottom: 7px;
+}
+
+.ucc-req {
+    color: #dc2626;
+    margin-left: 2px;
+}
+
+.ucc-desc {
+    display: block;
+    font-size: 12.5px;
+    color: #64748b;
+    margin-top: 6px;
+    line-height: 1.45;
+}
+
+.ucc-box select,
+.ucc-box input[type="text"],
+.ucc-box input[type="url"],
+.ucc-box input[type="password"],
+.ucc-box input[type="number"],
+.ucc-box textarea {
+    display: block;
+    width: 100% !important;
+    max-width: 100%;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.45;
+    border: 1.5px solid #cbd5e1;
+    border-radius: 8px;
+    background: #ffffff;
+    color: #0f172a;
+    transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    min-height: 42px;
+}
+
+.ucc-box select:focus,
+.ucc-box input:focus,
+.ucc-box textarea:focus {
+    border-color: #2563eb;
+    outline: none;
+    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.ucc-box textarea {
+    min-height: 180px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+    font-size: 13px;
+    background: #f8fafc;
+    line-height: 1.5;
+}
+
+.ucc-flex-fields {
+    display: flex;
+    gap: 16px;
+}
+
+@media (max-width: 768px) {
+    .ucc-flex-fields {
+        flex-direction: column;
+        gap: 0;
+    }
+}
+
+/* 6. Action Buttons */
+.ucc-box .button-primary.button-large,
+#ucc-btn-send-test {
+    background: #2563eb !important;
+    border: 0 !important;
+    color: #ffffff !important;
+    padding: 11px 24px !important;
+    font-size: 14.5px !important;
+    font-weight: 700 !important;
+    border-radius: 8px !important;
+    cursor: pointer !important;
+    box-shadow: 0 2px 4px 0 rgba(37, 99, 235, 0.25) !important;
+    transition: background 0.15s ease, transform 0.05s ease !important;
+    height: auto !important;
+    line-height: 1.2 !important;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+}
+
+.ucc-box .button-primary.button-large:hover,
+#ucc-btn-send-test:hover {
+    background: #1d4ed8 !important;
+}
+
+.ucc-box .button-primary.button-large:active,
+#ucc-btn-send-test:active {
+    transform: translateY(1px);
+}
+
+/* 7. Tags & Badges */
 .ucc-tag {
     display: inline-block;
     background: #f1f5f9;
@@ -175,7 +338,7 @@
 .ucc-tag-cloud {
     display: flex;
     flex-wrap: wrap;
-    gap: 4px;
+    gap: 5px;
 }
 
 .ucc-tag-item {
@@ -188,14 +351,13 @@
     font-family: monospace;
 }
 
-/* Badges */
 .ucc-badge-success, .ucc-badge-muted, .ucc-badge-danger, .ucc-badge-warning {
     display: inline-block;
-    padding: 3px 9px;
+    padding: 4px 10px;
     border-radius: 999px;
-    font-size: 11px;
+    font-size: 11.5px;
     font-weight: 700;
-    line-height: 1.3;
+    line-height: 1.25;
 }
 
 .ucc-badge-success { background: #dcfce7; color: #15803d; }
@@ -206,12 +368,15 @@
 .ucc-empty-text {
     color: #94a3b8;
     font-style: italic;
-    padding: 18px 0;
+    padding: 24px 0;
+    text-align: center;
 }
 
+/* 8. Alert Banners */
 .ucc-banner-info {
     display: flex;
     align-items: flex-start;
+    gap: 14px;
     background: #eff6ff;
     border-color: #bfdbfe;
     color: #1e40af;
@@ -221,77 +386,59 @@
     background: #fffbeb;
     border: 1px solid #fde68a;
     color: #92400e;
-    padding: 12px 16px;
-    border-radius: 8px;
+    padding: 14px 18px;
+    border-radius: 10px;
 }
 
-/* Code Preview */
+.ucc-banner-warning strong {
+    font-size: 14px;
+}
+
+/* 9. Response Console & Code Preview */
 .ucc-code-wrap {
     background: #0f172a;
-    border-radius: 8px;
-    padding: 14px;
+    border-radius: 10px;
+    padding: 16px 18px;
     overflow-x: auto;
-    max-height: 440px;
+    max-height: 450px;
+    border: 1px solid #1e293b;
 }
 
 .ucc-code-wrap pre {
     margin: 0;
     color: #38bdf8;
-    font-family: Menlo, Monaco, Consolas, "Courier New", monospace;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
     font-size: 12.5px;
-    line-height: 1.5;
-}
-
-.ucc-filters-bar {
-    margin-bottom: 16px;
-    background: #f8fafc;
-    padding: 10px 14px;
-    border-radius: 8px;
-    border: 1px solid #e2e8f0;
-}
-
-/* Accordion */
-.ucc-accordion {
-    display: flex;
-    flex-direction: column;
-    gap: 12px;
-}
-
-.ucc-accordion-item {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 8px;
-    overflow: hidden;
-}
-
-.ucc-acc-head {
-    padding: 14px 18px;
-    cursor: pointer;
-    background: #ffffff;
-    border-bottom: 1px solid #f1f5f9;
-}
-
-.ucc-acc-head h3 {
-    margin: 0;
-    font-size: 15px;
-    font-weight: 600;
-}
-
-.ucc-acc-body {
-    padding: 16px 20px;
-    font-size: 13.5px;
     line-height: 1.6;
 }
 
-.ucc-acc-body ol, .ucc-acc-body ul {
-    margin: 8px 0 12px 20px;
+/* 10. Tables */
+.ucc-box table.widefat {
+    border: 1px solid #e2e8f0;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: none;
 }
 
-/* Modal */
+.ucc-box table.widefat thead th {
+    background: #f8fafc;
+    font-weight: 700;
+    color: #475569;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 12px 14px;
+}
+
+.ucc-box table.widefat tbody td {
+    padding: 12px 14px;
+    vertical-align: middle;
+}
+
+/* 11. Modal */
 .ucc-modal {
     position: fixed;
     inset: 0;
-    background: rgba(15, 23, 42, 0.6);
+    background: rgba(15, 23, 42, 0.65);
+    backdrop-filter: blur(4px);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -300,28 +447,28 @@
 
 .ucc-modal-box {
     background: #ffffff;
-    max-width: 680px;
-    width: 90%;
-    border-radius: 14px;
-    padding: 24px 28px;
+    max-width: 720px;
+    width: 92%;
+    border-radius: 16px;
+    padding: 28px 32px;
     position: relative;
-    max-height: 88vh;
+    max-height: 90vh;
     overflow-y: auto;
-    box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.2);
+    box-shadow: 0 25px 50px -12px rgba(15, 23, 42, 0.25);
 }
 
 .ucc-modal-close {
     position: absolute;
-    top: 16px;
-    right: 20px;
+    top: 18px;
+    right: 22px;
     background: none;
     border: 0;
-    font-size: 26px;
+    font-size: 28px;
     cursor: pointer;
     color: #94a3b8;
+    line-height: 1;
 }
 
 .ucc-modal-close:hover {
     color: #0f172a;
 }
-

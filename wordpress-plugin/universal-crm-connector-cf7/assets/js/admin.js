@@ -243,8 +243,16 @@
                     $('#ucc-res-body code').text(d.body || (d.error ? 'Error: ' + d.error : '(Empty response body returned)'));
 
                     if (d.error) {
+                        var diagHtml = '<strong>Diagnostic Note:</strong> ' + $('<div>').text(d.error).html();
+                        if (d.error.indexOf('myodoo.example.com') !== -1 || (d.body && d.body.indexOf('myodoo.example.com') !== -1)) {
+                            diagHtml += '<div style="margin-top:10px;padding-top:10px;border-top:1px solid #fecaca;">' +
+                                '<strong>⚠️ Demo Placeholder URL Detected:</strong> The endpoint is currently pointing to the sample URL <code>https://myodoo.example.com</code>. ' +
+                                'To connect your live Odoo instance, go to the <strong>CRM Connections</strong> tab and paste your actual Odoo Webhook URL.' +
+                                '<div style="margin-top:10px;"><a href="admin.php?page=universal-crm-connector&tab=connections" class="button button-small button-primary">Edit CRM Connection URL &rarr;</a></div>' +
+                                '</div>';
+                        }
                         $('#ucc-res-diagnosis').show().css({ background: '#fef2f2', border: '1px solid #fecaca', color: '#b91c1c' })
-                            .html('<strong>Diagnostic Note:</strong> ' + $('<div>').text(d.error).html());
+                            .html(diagHtml);
                     } else if (d.success) {
                         $('#ucc-res-diagnosis').show().css({ background: '#f0fdf4', border: '1px solid #bbf7d0', color: '#166534' })
                             .html('<strong>HTTP 200 Handshake Success:</strong> Request accepted by CRM. Please verify that the record is now visible in Odoo CRM &gt; Pipeline.');

@@ -91,28 +91,34 @@ class UCC_Admin
             'test'            => __('Test Connection', 'universal-crm-connector-cf7'),
             'logs'            => __('Delivery Logs', 'universal-crm-connector-cf7'),
             'troubleshooting' => __('Troubleshooting', 'universal-crm-connector-cf7'),
-            'documentation'   => __('Documentation & Odoo Guide', 'universal-crm-connector-cf7'),
+            'documentation'   => __('Odoo Guide', 'universal-crm-connector-cf7'),
         ];
 
         ?>
         <div class="wrap ucc-wrap">
+            <!-- Hidden WP heading anchors so external plugin notices (WPML, WooCommerce, etc.) don't inject inside our custom header card -->
+            <h1 class="wp-heading-inline" style="display:none !important;">Universal CRM Connector</h1>
+            <hr class="wp-header-end" style="display:none !important;">
+
             <div class="ucc-header">
                 <div class="ucc-header-left">
-                    <span class="dashicons dashicons-networking ucc-header-icon"></span>
+                    <div class="ucc-header-icon-box">
+                        <span class="dashicons dashicons-networking ucc-header-icon"></span>
+                    </div>
                     <div>
-                        <h1 class="ucc-title"><?php esc_html_e('Universal CRM Connector for Contact Form 7', 'universal-crm-connector-cf7'); ?></h1>
+                        <div class="ucc-title"><?php esc_html_e('Universal CRM Connector for Contact Form 7', 'universal-crm-connector-cf7'); ?></div>
                         <p class="ucc-subtitle"><?php esc_html_e('Reliable webhook and REST API gateway connecting Contact Form 7 to Odoo and external CRMs.', 'universal-crm-connector-cf7'); ?></p>
                     </div>
                 </div>
                 <div class="ucc-header-badge">
-                    <span class="ucc-pill-status ucc-pill-live">● <?php esc_html_e('Active & Ready', 'universal-crm-connector-cf7'); ?></span>
+                    <span class="ucc-pill-status ucc-pill-live"><span class="ucc-dot-live"></span> <?php esc_html_e('Active & Ready', 'universal-crm-connector-cf7'); ?></span>
                 </div>
             </div>
 
-            <!-- Tab Navigation -->
-            <nav class="nav-tab-wrapper ucc-nav-tabs">
+            <!-- Modern Segmented Tab Navigation -->
+            <nav class="ucc-nav-tabs">
                 <?php foreach ($tabs as $key => $label) : ?>
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=universal-crm-connector&tab=' . $key)); ?>" class="nav-tab <?php echo $active_tab === $key ? 'nav-tab-active' : ''; ?>">
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=universal-crm-connector&tab=' . $key)); ?>" class="ucc-nav-tab <?php echo $active_tab === $key ? 'ucc-nav-tab-active' : ''; ?>">
                         <?php echo esc_html($label); ?>
                     </a>
                 <?php endforeach; ?>
@@ -716,12 +722,31 @@ class UCC_Admin
         $forms = UCC_CF7::get_forms();
 
         ?>
+        <!-- Real Odoo Connection Guidance Banner -->
+        <div class="ucc-banner-warning" style="margin-bottom:22px;display:flex;align-items:flex-start;gap:14px;">
+            <span class="dashicons dashicons-info" style="font-size:24px;width:24px;height:24px;color:#d97706;margin-top:2px;flex-shrink:0;"></span>
+            <div>
+                <strong><?php esc_html_e('How to connect your real Odoo instance:', 'universal-crm-connector-cf7'); ?></strong>
+                <p style="margin:4px 0 10px;font-size:13.5px;line-height:1.5;">
+                    <?php esc_html_e('The default connection uses the demo URL "https://myodoo.example.com" which cannot be resolved. To connect your live Odoo, create an Automation Rule in Odoo (Trigger: On Webhook, Target Record: BLANK, Action: Execute Python Code), copy your generated Webhook URL from Odoo, and paste it into the CRM Connections tab.', 'universal-crm-connector-cf7'); ?>
+                </p>
+                <div style="display:flex;gap:10px;flex-wrap:wrap;">
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=universal-crm-connector&tab=connections')); ?>" class="button button-small button-primary">
+                        <?php esc_html_e('Configure Live Odoo Endpoint URL &rarr;', 'universal-crm-connector-cf7'); ?>
+                    </a>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=universal-crm-connector&tab=documentation')); ?>" class="button button-small">
+                        <?php esc_html_e('View Odoo Setup & Python Code Guide', 'universal-crm-connector-cf7'); ?>
+                    </a>
+                </div>
+            </div>
+        </div>
+
         <div class="ucc-grid-two">
             <div class="ucc-box">
                 <div class="ucc-box-head">
                     <h2><?php esc_html_e('Test Connection & Send Test Request', 'universal-crm-connector-cf7'); ?></h2>
                 </div>
-                <p class="ucc-desc"><?php esc_html_e('Test network reachability, TLS certificates, authentication credentials, and response formatting using fake sample data. No real contact details will be dispatched.', 'universal-crm-connector-cf7'); ?></p>
+                <p class="ucc-desc" style="margin-bottom:18px;"><?php esc_html_e('Test network reachability, TLS certificates, authentication credentials, and response formatting using fake sample data. No real contact details will be dispatched.', 'universal-crm-connector-cf7'); ?></p>
 
                 <form id="ucc-test-form" method="post" action="#">
                     <p>
@@ -746,7 +771,7 @@ class UCC_Admin
 
                     <p>
                         <label for="ucc_test_payload"><strong><?php esc_html_e('Payload Data (JSON)', 'universal-crm-connector-cf7'); ?></strong></label>
-                        <textarea id="ucc_test_payload" class="widefat" rows="11" style="font-family:monospace;font-size:13px;"><?php
+                        <textarea id="ucc_test_payload" class="widefat" rows="12" style="font-family:ui-monospace,Menlo,Monaco,Consolas,monospace;font-size:13px;"><?php
                             echo esc_textarea(wp_json_encode([
                                 'name'           => 'Rohan Sharma',
                                 'email'          => 'rohan.sharma@example.com',
@@ -761,7 +786,7 @@ class UCC_Admin
                         ?></textarea>
                     </p>
 
-                    <div style="margin-top:20px;display:flex;gap:12px;align-items:center;">
+                    <div style="margin-top:22px;display:flex;gap:12px;align-items:center;">
                         <button type="submit" class="button button-primary button-large" id="ucc-btn-send-test"><?php esc_html_e('Send Test Request Now', 'universal-crm-connector-cf7'); ?></button>
                         <span class="ucc-test-spinner spinner"></span>
                     </div>
