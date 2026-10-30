@@ -348,3 +348,4 @@ class UCC_Database
         return openssl_decrypt($ciphertext, 'aes-256-cbc', $key, 0, $iv);
     }
 }
+

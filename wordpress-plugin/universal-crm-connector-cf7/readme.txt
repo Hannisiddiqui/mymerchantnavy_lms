@@ -46,3 +46,4 @@ In Odoo Automation Rules (Trigger: On Webhook), Odoo defaults to an expression e
 * Automated detection of Contact Form 7 forms.
 * Pre-configured mappings for Form A ("Data Needed") and Form B ("Sales Funnel / Eligibility Checker").
 * Full Odoo Python Server Action guide and live test console.
+

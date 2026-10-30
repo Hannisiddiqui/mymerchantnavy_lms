@@ -1314,3 +1314,4 @@ class UCC_Admin
         wp_send_json_success(['message' => 'Delivery logs cleared successfully.']);
     }
 }
+

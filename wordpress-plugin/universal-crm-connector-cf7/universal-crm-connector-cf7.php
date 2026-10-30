@@ -126,3 +126,4 @@ register_deactivation_hook(__FILE__, ['UCC_Plugin', 'deactivate']);
 add_action('plugins_loaded', function () {
     UCC_Plugin::instance();
 });
+

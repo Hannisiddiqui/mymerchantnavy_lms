@@ -238,3 +238,4 @@ This unhandled exception triggers an immediate `HTTP 500 Internal Server Error`.
 * **SSRF Protection:** Tested with `127.0.0.1`, `10.0.0.1`, `192.168.1.1` (correctly blocked) and valid public HTTPS URLs (permitted).
 * **Google Sheets Coexistence:** Verified priority 20 on `wpcf7_mail_sent` wrapped in `try...catch` ensures Google Sheets runs unaffected.
 * **Live Odoo Webhook Endpoint Verification:** The plugin includes the "Send Test Request" console so the administrator can test their real private Odoo URL from the WordPress admin interface safely.
+

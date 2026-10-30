@@ -213,3 +213,4 @@ class UCC_Logger
         $wpdb->query($wpdb->prepare("DELETE FROM $table WHERE created_at < %s", $cutoff));
     }
 }
+
