@@ -63,11 +63,37 @@ class WordPressLink
         return $user;
     }
 
-    /** @return array{exists: bool, name: ?string, already_purchased: bool} */
-    public function check(string $email, ?string $productId = null): array
+    /** @return array{exists: bool, matched_by: ?string, name: ?string, email: ?string, phone: ?string, already_purchased: bool} */
+    public function check(string $email, ?string $productId = null, ?string $phone = null): array
     {
         $email = mb_strtolower(trim($email));
-        $user = User::whereRaw('lower(email) = ?', [$email])->first();
+        $cleanPhone = substr(preg_replace('/\D+/', '', (string) $phone), -10);
+
+        // Match user by email or 10-digit mobile number
+        $user = User::whereRaw('lower(email) = ?', [$email])
+            ->when($cleanPhone && strlen($cleanPhone) === 10, function ($q) use ($cleanPhone) {
+                $q->orWhere('phone', $cleanPhone)
+                    ->orWhere('phone', '+91'.$cleanPhone)
+                    ->orWhere('phone', 'like', "%{$cleanPhone}");
+            })
+            ->first();
+
+        $matchedBy = null;
+        if ($user) {
+            $emailMatches = mb_strtolower((string) $user->email) === $email;
+            $userDigits = substr(preg_replace('/\D+/', '', (string) $user->phone), -10);
+            $phoneMatches = $cleanPhone && strlen($cleanPhone) === 10 && ($userDigits === $cleanPhone);
+
+            if ($emailMatches && $phoneMatches) {
+                $matchedBy = 'both';
+            } elseif ($emailMatches) {
+                $matchedBy = 'email';
+            } elseif ($phoneMatches) {
+                $matchedBy = 'phone';
+            } else {
+                $matchedBy = 'account';
+            }
+        }
 
         $alreadyPurchased = false;
         if ($user && $productId) {
@@ -86,7 +112,10 @@ class WordPressLink
 
         return [
             'exists' => $user !== null,
+            'matched_by' => $matchedBy,
             'name' => $user?->name,
+            'email' => $user?->email,
+            'phone' => $user?->phone,
             'already_purchased' => $alreadyPurchased,
         ];
     }

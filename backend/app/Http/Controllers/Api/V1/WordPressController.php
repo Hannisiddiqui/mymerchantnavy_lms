@@ -21,10 +21,15 @@ class WordPressController extends Controller
     {
         $data = $request->validate([
             'email' => ['required', 'email:rfc', 'max:191'],
+            'phone' => ['nullable', 'string', 'max:30'],
             'product_id' => ['nullable', 'string', 'max:191'],
         ]);
 
-        $res = $this->link->check($data['email'], $data['product_id'] ?? null);
+        $res = $this->link->check(
+            email: $data['email'],
+            productId: $data['product_id'] ?? null,
+            phone: $data['phone'] ?? null
+        );
 
         return response()->json(['data' => $res]);
     }
