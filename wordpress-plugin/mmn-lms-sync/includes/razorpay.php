@@ -142,14 +142,14 @@ function mmn_lms_front_script()
         'nonce'    => is_user_logged_in() ? wp_create_nonce('mmn_rzp') : '',
         'loggedIn' => is_user_logged_in(),
         'products' => (object) $products,
-        'loginUrl' => wp_login_url(),
+        'lmsUrl'   => rtrim(mmn_lms_setting('app_url'), '/') . '/login',
         'site'     => get_bloginfo('name'),
     ]);
     ?>
     <style>
     .mmn-ov{position:fixed;inset:0;background:rgba(15,23,42,.75);backdrop-filter:blur(4px);display:flex;align-items:center;justify-content:center;z-index:999999;padding:16px}
     .mmn-box{background:#ffffff;width:100%;max-width:440px;border-radius:20px;padding:30px 26px;position:relative;box-shadow:0 25px 50px -12px rgba(15,23,42,.25);font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;max-height:94vh;overflow-y:auto;box-sizing:border-box}
-    .mmn-box h3{font-size:21px;font-weight:800;color:#0f172a;margin:0 0 6px;letter-spacing:-0.02em}
+    .mmn-box h3{font-size:21px;font-weight:800;color:#0f172a;margin:0;letter-spacing:-0.02em}
     .mmn-box p{font-size:13.5px;color:#64748b;margin:0 0 16px;line-height:1.5}
     .mmn-box label{display:block;font-size:12.5px;font-weight:600;color:#334155;margin:12px 0 5px}
     .mmn-box input{width:100%;padding:11px 14px;border:1.5px solid #cbd5e1;border-radius:10px;font-size:15px;color:#0f172a;background:#f8fafc;box-sizing:border-box;transition:border-color .15s ease,box-shadow .15s ease}
@@ -160,7 +160,8 @@ function mmn_lms_front_script()
     .mmn-box .mmn-x{position:absolute;top:16px;right:18px;background:none;border:0;font-size:24px;line-height:1;color:#94a3b8;cursor:pointer;padding:4px;border-radius:6px}
     .mmn-box .mmn-x:hover{color:#0f172a}
     .mmn-box .mmn-err{background:#fef2f2;color:#b91c1c;border:1px solid #fecaca;padding:10px 14px;border-radius:10px;margin-top:12px;font-size:13px;line-height:1.45;display:none}
-    .mmn-box .mmn-lnk{background:none;border:0;color:#2563eb;text-decoration:underline;cursor:pointer;font-size:13px;padding:0;margin-top:12px;font-weight:600}
+    .mmn-box .mmn-lnk{background:none;border:0;color:#2563eb;text-decoration:none;cursor:pointer;font-size:13px;padding:0;margin-top:12px;font-weight:600}
+    .mmn-box .mmn-lnk:hover{text-decoration:underline}
     .mmn-box .mmn-hp{position:absolute;left:-9999px;opacity:0;pointer-events:none}
     .mmn-box input.mmn-code{letter-spacing:.6em;text-align:center;font-size:24px;font-weight:800;font-family:monospace;padding:12px 14px}
     .mmn-toast{position:fixed;top:18px;left:50%;transform:translateX(-50%);background:#0f172a;color:#ffffff;padding:11px 22px;border-radius:999px;font-size:14px;font-weight:600;z-index:999999;box-shadow:0 10px 15px -3px rgba(0,0,0,.1);display:none}
@@ -169,6 +170,9 @@ function mmn_lms_front_script()
     .mmn-pass-wrap{position:relative;display:flex;align-items:center}
     .mmn-pass-toggle{position:absolute;right:10px;background:none;border:0;color:#64748b;font-size:13px;font-weight:600;cursor:pointer;padding:4px 6px;border-radius:4px}
     .mmn-pass-toggle:hover{color:#0f172a}
+    .mmn-step-header{display:flex;align-items:center;margin-bottom:14px}
+    .mmn-btn-back{background:none;border:0;color:#2563eb;font-weight:700;font-size:13.5px;cursor:pointer;padding:4px 8px 4px 0;display:inline-flex;align-items:center;gap:4px;border-radius:6px;transition:opacity .15s}
+    .mmn-btn-back:hover{opacity:.8}
     </style>
     <script>
     (function () {
@@ -220,7 +224,7 @@ function mmn_lms_front_script()
             });
         }
 
-        // Clean Indian phone number to 10 digits
+        // Clean Indian phone number to first 10 digits
         function cleanIndianPhone(val) {
             if (!val) return '';
             var d = String(val).replace(/\D/g, '');
@@ -229,7 +233,7 @@ function mmn_lms_front_script()
             } else if (d.length === 11 && d.indexOf('0') === 0) {
                 d = d.slice(1);
             }
-            return d.slice(-10);
+            return d.slice(0, 10);
         }
 
         // Toast feedback
@@ -323,7 +327,7 @@ function mmn_lms_front_script()
             }).catch(fail);
         }
 
-        // ---- the registration popup with autofill support and account-exists handling
+        // ---- the registration popup with autofill support, strict phone typing & back options
         var ov = null;
         function closePopup() { if (ov) { ov.remove(); ov = null; } }
         function openRegistration(opts) {
@@ -336,7 +340,7 @@ function mmn_lms_front_script()
                 '<div class="mmn-box">' +
                 '<button type="button" class="mmn-x" aria-label="Close">&times;</button>' +
 
-                // Step 1: Registration Form with Autofill Attributes
+                // Step 1: Registration Form Only (No Login button here)
                 '<div class="mmn-s1">' +
                     '<h3>Student registration</h3>' +
                     '<p>' + (title ? 'Create your account for <strong>' + esc(title) + '</strong>, then proceed to payment.' : 'Create your student account.') + ' All fields are compulsory.</p>' +
@@ -349,7 +353,7 @@ function mmn_lms_front_script()
                         '<label for="mmn_reg_phone">Mobile number <span style="color:#ef4444">*</span></label>' +
                         '<div class="mmn-phone-wrap">' +
                             '<span class="mmn-phone-badge">+91</span>' +
-                            '<input type="tel" id="mmn_reg_phone" name="tel" class="mmn-phone" autocomplete="tel" placeholder="9876543210" maxlength="15" inputmode="numeric" style="padding-left:48px;" required>' +
+                            '<input type="tel" id="mmn_reg_phone" name="tel" class="mmn-phone" autocomplete="tel" placeholder="9876543210" maxlength="10" inputmode="numeric" style="padding-left:48px;" required>' +
                         '</div>' +
                         '<label for="mmn_reg_pass">Create a password (8+ characters) <span style="color:#ef4444">*</span></label>' +
                         '<div class="mmn-pass-wrap">' +
@@ -359,12 +363,14 @@ function mmn_lms_front_script()
                         '<div class="mmn-err"></div>' +
                         '<button type="button" class="mmn-go mmn-send">Send me a verification code</button>' +
                     '</form>' +
-                    '<p style="margin:16px 0 0;font-size:13px;text-align:center;">Already registered? <button type="button" class="mmn-lnk mmn-go-login" style="margin:0;">Log in</button></p>' +
                 '</div>' +
 
-                // Step 2: Verification Code
+                // Step 2: Verification Code with Back Option
                 '<div class="mmn-s2" style="display:none">' +
-                    '<h3>Check your email</h3>' +
+                    '<div class="mmn-step-header">' +
+                        '<button type="button" class="mmn-btn-back mmn-back-to-step1" title="Back to registration">&larr; Back</button>' +
+                        '<h3>Check your email</h3>' +
+                    '</div>' +
                     '<p class="mmn-sent"></p>' +
                     '<form id="mmn_verify_form" method="post" action="#" onsubmit="return false;" autocomplete="on">' +
                         '<label for="mmn_verify_code">Verification code</label>' +
@@ -373,14 +379,17 @@ function mmn_lms_front_script()
                         '<button type="button" class="mmn-go mmn-check">' + (opts.product ? 'Verify &amp; Continue to Payment' : 'Verify &amp; Create Account') + '</button>' +
                         '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">' +
                             '<button type="button" class="mmn-lnk mmn-resend" style="margin:0;">Send the code again</button>' +
-                            '<button type="button" class="mmn-lnk mmn-edit-details" style="margin:0;color:#64748b;">Change details</button>' +
+                            '<button type="button" class="mmn-lnk mmn-back-to-step1" style="margin:0;color:#64748b;">Change details</button>' +
                         '</div>' +
                     '</form>' +
                 '</div>' +
 
-                // Step 3: Account Exists - Log in & Pay
+                // Step 3: Account Exists - Log in & Pay with Back Button & OTP Login Option
                 '<div class="mmn-s-login" style="display:none">' +
-                    '<h3>Account found</h3>' +
+                    '<div class="mmn-step-header">' +
+                        '<button type="button" class="mmn-btn-back mmn-back-to-step1" title="Back to registration">&larr; Back</button>' +
+                        '<h3>Account found</h3>' +
+                    '</div>' +
                     '<div class="mmn-login-notice" style="background:#eff6ff;border:1px solid #bfdbfe;color:#1e40af;padding:12px 14px;border-radius:12px;margin:12px 0 16px;font-size:13px;line-height:1.45;"></div>' +
                     '<form id="mmn_exist_login_form" method="post" action="#" onsubmit="return false;" autocomplete="on">' +
                         '<label for="mmn_login_ident">Email or mobile number <span style="color:#ef4444">*</span></label>' +
@@ -392,9 +401,33 @@ function mmn_lms_front_script()
                         '</div>' +
                         '<div class="mmn-err"></div>' +
                         '<button type="button" class="mmn-go mmn-btn-login-pay" style="background:#15803d;">Log In &amp; Continue to Payment &rarr;</button>' +
-                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:13px;">' +
-                            '<a href="' + esc(cfg.loginUrl ? cfg.loginUrl + '?action=lostpassword' : '/wp-login.php?action=lostpassword') + '" target="_blank" style="color:#2563eb;text-decoration:underline;">Forgot password?</a>' +
-                            '<button type="button" class="mmn-lnk mmn-back-to-reg" style="margin:0;">Register different account</button>' +
+                        '<div style="margin-top:14px;text-align:center;">' +
+                            '<button type="button" class="mmn-lnk mmn-btn-forgot-otp" style="color:#2563eb;font-weight:600;">Forgot password? Log in with email code</button>' +
+                        '</div>' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;font-size:12.5px;">' +
+                            '<a href="' + esc(cfg.lmsUrl || 'https://lms.mymerchantnavy.com/login') + '" target="_blank" style="color:#64748b;text-decoration:underline;">Reset password on LMS</a>' +
+                            '<button type="button" class="mmn-lnk mmn-back-to-step1" style="margin:0;color:#64748b;">Use different number</button>' +
+                        '</div>' +
+                    '</form>' +
+                '</div>' +
+
+                // Step 4: Existing Account OTP Login (When user forgot password)
+                '<div class="mmn-s-login-otp" style="display:none">' +
+                    '<div class="mmn-step-header">' +
+                        '<button type="button" class="mmn-btn-back mmn-back-to-login" title="Back to password login">&larr; Back</button>' +
+                        '<h3>Sign in with Code</h3>' +
+                    '</div>' +
+                    '<p style="margin:0 0 16px 0;font-size:13.5px;color:#64748b;line-height:1.5;">' +
+                        'We emailed a 6-digit login verification code to <strong class="mmn-login-otp-dest" style="color:#0f172a;"></strong>.' +
+                    '</p>' +
+                    '<form id="mmn_login_otp_form" method="post" action="#" onsubmit="return false;" autocomplete="on">' +
+                        '<label for="mmn_login_otp_code">Verification code</label>' +
+                        '<input type="text" id="mmn_login_otp_code" class="mmn-code" name="one-time-code" inputmode="numeric" maxlength="6" autocomplete="one-time-code" placeholder="••••••" required>' +
+                        '<div class="mmn-err"></div>' +
+                        '<button type="button" class="mmn-go mmn-btn-verify-login-otp" style="background:#15803d;">Verify &amp; Continue to Payment &rarr;</button>' +
+                        '<div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">' +
+                            '<button type="button" class="mmn-lnk mmn-login-otp-resend" style="margin:0;">Send the code again</button>' +
+                            '<button type="button" class="mmn-lnk mmn-back-to-login" style="margin:0;color:#64748b;">Use password instead</button>' +
                         '</div>' +
                     '</form>' +
                 '</div>' +
@@ -404,7 +437,8 @@ function mmn_lms_front_script()
             document.body.appendChild(ov);
 
             var q = function (s) { return ov.querySelector(s); };
-            var s1 = q('.mmn-s1'), s2 = q('.mmn-s2'), sLogin = q('.mmn-s-login'), pid = '';
+            var s1 = q('.mmn-s1'), s2 = q('.mmn-s2'), sLogin = q('.mmn-s-login'), sLoginOtp = q('.mmn-s-login-otp');
+            var pid = '', loginOtpToken = '';
 
             function showErr(step, msg) {
                 var e = step.querySelector('.mmn-err');
@@ -435,18 +469,62 @@ function mmn_lms_front_script()
                 };
             });
 
-            // Restrict & sanitize phone input for autofill and manual typing
+            // Strict phone input handling: accepts only digits, stops at 10, does not replace on typing
             var phoneInput = q('#mmn_reg_phone');
             if (phoneInput) {
-                var handlePhone = function () {
-                    var cleaned = cleanIndianPhone(this.value);
-                    if (cleaned.length === 10) {
-                        this.value = cleaned;
+                phoneInput.setAttribute('maxlength', '10');
+
+                phoneInput.addEventListener('keydown', function (e) {
+                    // Allow navigation, editing and system shortcuts
+                    if (
+                        e.key === 'Backspace' ||
+                        e.key === 'Delete' ||
+                        e.key === 'Tab' ||
+                        e.key === 'Escape' ||
+                        e.key === 'Enter' ||
+                        e.key === 'ArrowLeft' ||
+                        e.key === 'ArrowRight' ||
+                        e.key === 'ArrowUp' ||
+                        e.key === 'ArrowDown' ||
+                        e.key === 'Home' ||
+                        e.key === 'End' ||
+                        e.ctrlKey || e.metaKey
+                    ) {
+                        return;
                     }
-                };
-                phoneInput.addEventListener('input', handlePhone);
-                phoneInput.addEventListener('change', handlePhone);
-                phoneInput.addEventListener('blur', function () {
+
+                    // Block any non-digit character completely
+                    if (!/^[0-9]$/.test(e.key)) {
+                        e.preventDefault();
+                        return;
+                    }
+
+                    // If already 10 digits and not replacing a selected range, prevent more digits
+                    var hasSelection = (this.selectionStart !== this.selectionEnd);
+                    if (this.value.length >= 10 && !hasSelection) {
+                        e.preventDefault();
+                        return;
+                    }
+                });
+
+                phoneInput.addEventListener('beforeinput', function (e) {
+                    if (e.data && !/^[0-9]+$/.test(e.data)) {
+                        e.preventDefault();
+                    }
+                });
+
+                // Paste: sanitize cleanly without chopping the front of the number
+                phoneInput.addEventListener('paste', function (e) {
+                    var pasted = (e.clipboardData || window.clipboardData).getData('text') || '';
+                    var d = cleanIndianPhone(pasted);
+                    if (d) {
+                        e.preventDefault();
+                        this.value = d;
+                    }
+                });
+
+                // Autofill on change
+                phoneInput.addEventListener('change', function () {
                     this.value = cleanIndianPhone(this.value);
                 });
             }
@@ -455,32 +533,115 @@ function mmn_lms_front_script()
             q('.mmn-x').onclick = closePopup;
             ov.addEventListener('mousedown', function (e) { if (e.target === ov) { closePopup(); } });
 
-            // Navigation between registration and login
-            q('.mmn-go-login').onclick = function () {
+            // Back button handlers
+            ov.querySelectorAll('.mmn-back-to-step1').forEach(function (btn) {
+                btn.onclick = function () {
+                    showErr(s1, '');
+                    s2.style.display = 'none';
+                    sLogin.style.display = 'none';
+                    sLoginOtp.style.display = 'none';
+                    s1.style.display = 'block';
+                    q('#mmn_reg_name').focus();
+                };
+            });
+
+            ov.querySelectorAll('.mmn-back-to-login').forEach(function (btn) {
+                btn.onclick = function () {
+                    showErr(sLogin, '');
+                    sLoginOtp.style.display = 'none';
+                    sLogin.style.display = 'block';
+                    q('#mmn_login_pass').focus();
+                };
+            });
+
+            // "Forgot password? Log in with email code"
+            q('.mmn-btn-forgot-otp').onclick = function () {
+                var btn = this;
                 showErr(sLogin, '');
-                s1.style.display = 'none';
-                s2.style.display = 'none';
-                sLogin.style.display = 'block';
-                q('.mmn-login-notice').textContent = 'Please log in with your registered email or mobile number to proceed to payment.';
-                q('#mmn_login_ident').value = q('#mmn_reg_email').value.trim() || q('#mmn_reg_phone').value.trim();
-                q('#mmn_login_pass').focus();
+                var ident = q('#mmn_login_ident').value.trim();
+                if (!ident) {
+                    showErr(sLogin, 'Please enter your registered email or mobile number.');
+                    return;
+                }
+                busy(btn, true, 'Sending code…');
+                post({
+                    action: 'mmn_login_send_otp',
+                    identifier: ident
+                }).then(function (d) {
+                    busy(btn, false);
+                    if (!d || !d.success) {
+                        showErr(sLogin, (d && d.data && d.data.message) || 'Could not send verification code.');
+                        return;
+                    }
+                    loginOtpToken = d.data.token;
+                    q('.mmn-login-otp-dest').textContent = d.data.email || ident;
+                    sLogin.style.display = 'none';
+                    sLoginOtp.style.display = 'block';
+                    q('#mmn_login_otp_code').value = '';
+                    q('#mmn_login_otp_code').focus();
+                }).catch(function (err) {
+                    busy(btn, false);
+                    showErr(sLogin, (err && err.message) || 'Could not connect. Please try again.');
+                });
             };
 
-            q('.mmn-back-to-reg').onclick = function () {
-                showErr(s1, '');
-                sLogin.style.display = 'none';
-                s2.style.display = 'none';
-                s1.style.display = 'block';
-                q('#mmn_reg_name').focus();
+            // Resend login OTP code
+            q('.mmn-login-otp-resend').onclick = function () {
+                var btn = this;
+                showErr(sLoginOtp, '');
+                var ident = q('#mmn_login_ident').value.trim();
+                busy(btn, true, 'Sending…');
+                post({
+                    action: 'mmn_login_send_otp',
+                    identifier: ident
+                }).then(function (d) {
+                    busy(btn, false);
+                    if (d && d.success) {
+                        loginOtpToken = d.data.token;
+                        showErr(sLoginOtp, '');
+                        alert(d.data.message || 'Verification code sent to your email.');
+                    } else {
+                        showErr(sLoginOtp, (d && d.data && d.data.message) || 'Could not resend code.');
+                    }
+                }).catch(function () {
+                    busy(btn, false);
+                    showErr(sLoginOtp, 'Could not resend code.');
+                });
             };
 
-            q('.mmn-edit-details').onclick = function () {
-                showErr(s1, '');
-                s2.style.display = 'none';
-                s1.style.display = 'block';
+            // Verify login OTP code and proceed to payment
+            q('.mmn-btn-verify-login-otp').onclick = function () {
+                var btn = this;
+                showErr(sLoginOtp, '');
+                var code = q('#mmn_login_otp_code').value.trim();
+                if (!code) {
+                    showErr(sLoginOtp, 'Please enter the 6-digit verification code.');
+                    return;
+                }
+                busy(btn, true, 'Verifying…');
+                post({
+                    action: 'mmn_login_verify_otp',
+                    token: loginOtpToken,
+                    code: code
+                }).then(function (d) {
+                    if (!d || !d.success) {
+                        busy(btn, false);
+                        showErr(sLoginOtp, (d && d.data && d.data.message) || 'Incorrect code. Please try again.');
+                        return;
+                    }
+                    if (d.data && d.data.nonce) {
+                        cfg.nonce = d.data.nonce;
+                    }
+                    cfg.loggedIn = true;
+                    closePopup();
+                    opts.done();
+                }).catch(function (err) {
+                    busy(btn, false);
+                    showErr(sLoginOtp, (err && err.message) || 'Verification failed. Please try again.');
+                });
             };
 
-            // Existing account login & pay button
+            // Existing account password login & pay
             q('.mmn-btn-login-pay').onclick = function () {
                 var btn = this;
                 showErr(sLogin, '');
@@ -488,7 +649,7 @@ function mmn_lms_front_script()
                 var pass = q('#mmn_login_pass').value;
 
                 if (!ident || !pass) {
-                    showErr(sLogin, 'Please enter your email/mobile and password.');
+                    showErr(sLogin, 'Please enter your password.');
                     return;
                 }
 
@@ -500,7 +661,7 @@ function mmn_lms_front_script()
                 }).then(function (d) {
                     busy(btn, false);
                     if (!d || !d.success) {
-                        showErr(sLogin, (d && d.data && d.data.message) || 'Invalid credentials. Please try again.');
+                        showErr(sLogin, (d && d.data && d.data.message) || 'Invalid password. Please try again.');
                         return;
                     }
                     if (d.data && d.data.nonce) {
@@ -521,8 +682,7 @@ function mmn_lms_front_script()
                 showErr(s1, '');
                 var name = q('#mmn_reg_name').value.trim();
                 var email = q('#mmn_reg_email').value.trim();
-                var rawPhone = q('#mmn_reg_phone').value.trim();
-                var phone = cleanIndianPhone(rawPhone);
+                var phone = cleanIndianPhone(q('#mmn_reg_phone').value.trim());
                 var pass = q('#mmn_reg_pass').value;
 
                 if (!name || !email || !phone || !pass) {
@@ -575,12 +735,12 @@ function mmn_lms_front_script()
                         return;
                     }
 
-                    // 3. Account exists with this phone or email: switch to clean login panel
+                    // 3. Account exists with this phone or email: switch to clean login panel with Back button
                     if (d.data && d.data.account_exists) {
                         s1.style.display = 'none';
                         sLogin.style.display = 'block';
-                        q('.mmn-login-notice').innerHTML = 'An account is already registered with <strong>' + esc(d.data.identifier || email) + '</strong>. Please enter your password to log in and pay.';
-                        q('#mmn_login_ident').value = d.data.identifier || email;
+                        q('.mmn-login-notice').innerHTML = 'An account is already registered with <strong>' + esc(d.data.identifier || ('+91 ' + phone)) + '</strong>. Please enter your password to log in and pay.';
+                        q('#mmn_login_ident').value = d.data.identifier || ('+91 ' + phone);
                         q('#mmn_login_pass').value = '';
                         q('#mmn_login_pass').focus();
                         return;
