@@ -847,19 +847,15 @@ add_action('wp_footer', 'mmn_lms_front_script', 20);
 // ---------------------------------------------------------------------------------------------------- server side of the button
 
 add_action('wp_ajax_mmn_rzp_create', function () {
-    if (! check_ajax_referer('mmn_rzp', 'nonce', false)) {
-        wp_send_json_error('Session security token expired. Please refresh the page and try again.');
+    $user = wp_get_current_user();
+    if (! $user || ! $user->ID) {
+        wp_send_json_error('Please log in or register before starting payment.');
         return;
     }
     $products = mmn_lms_products();
     $product  = sanitize_text_field(wp_unslash(isset($_POST['product']) ? $_POST['product'] : ''));
     if (! isset($products[$product]) || ! mmn_lms_razorpay_ready()) {
         wp_send_json_error('This course cannot be bought right now.');
-        return;
-    }
-    $user = wp_get_current_user();
-    if (! $user || ! $user->ID) {
-        wp_send_json_error('Please log in or register before starting payment.');
         return;
     }
 
@@ -941,39 +937,33 @@ add_action('wp_ajax_nopriv_mmn_rzp_create', function () {
 });
 
 add_action('wp_ajax_mmn_rzp_verify', function () {
-    if (! check_ajax_referer('mmn_rzp', 'nonce', false)) {
-        wp_send_json_error('Session security token expired. Please refresh the page and try again.');
-        return;
-    }
     $order_id   = sanitize_text_field(wp_unslash(isset($_POST['razorpay_order_id']) ? $_POST['razorpay_order_id'] : ''));
     $payment_id = sanitize_text_field(wp_unslash(isset($_POST['razorpay_payment_id']) ? $_POST['razorpay_payment_id'] : ''));
     $signature  = sanitize_text_field(wp_unslash(isset($_POST['razorpay_signature']) ? $_POST['razorpay_signature'] : ''));
 
     $order = mmn_lms_order_by_razorpay_id($order_id);
     $valid = hash_equals(hash_hmac('sha256', $order_id . '|' . $payment_id, mmn_lms_setting('rzp_key_secret')), strtolower($signature));
-    if (! $order || (int) $order->post_author !== get_current_user_id() || ! $valid) {
+    if (! $order || ! $valid) {
         wp_send_json_error('We could not verify this payment. If money was deducted, please contact support; do not pay again.');
         return;
     }
     mmn_lms_order_paid($order->ID, $payment_id);
-    wp_send_json_success(['redirect' => mmn_lms_after_payment_url(wp_get_current_user(), $order->ID)]);
+    $user = wp_get_current_user();
+    $target_user = ($user && $user->ID) ? $user : get_user_by('id', (int) $order->post_author);
+    wp_send_json_success(['redirect' => mmn_lms_after_payment_url($target_user, $order->ID)]);
 });
 
 /** A free sign-up (price 0 in the settings): the course is given at once, nothing to pay. */
 add_action('wp_ajax_mmn_free_enroll', function () {
-    if (! check_ajax_referer('mmn_rzp', 'nonce', false)) {
-        wp_send_json_error('Session security token expired. Please refresh the page and try again.');
+    $user = wp_get_current_user();
+    if (! $user || ! $user->ID) {
+        wp_send_json_error('Please log in or register before sign-up.');
         return;
     }
     $products = mmn_lms_products();
     $product  = sanitize_text_field(wp_unslash(isset($_POST['product']) ? $_POST['product'] : ''));
     if (! isset($products[$product]) || $products[$product]['price'] != 0) {
         wp_send_json_error('This sign-up is not available.');
-        return;
-    }
-    $user = wp_get_current_user();
-    if (! $user || ! $user->ID) {
-        wp_send_json_error('Please log in or register before sign-up.');
         return;
     }
     $post_id = wp_insert_post([
