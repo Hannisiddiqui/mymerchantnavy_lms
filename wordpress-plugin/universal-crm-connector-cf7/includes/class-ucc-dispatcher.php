@@ -26,6 +26,11 @@ class UCC_Dispatcher
         $start_time = microtime(true);
         $endpoint   = trim($connection->endpoint_url);
 
+        // Route to Odoo direct JSON-RPC API handler if configured
+        if (($connection->crm_type ?? '') === 'odoo' || ($connection->auth_type ?? '') === 'odoo_api' || strpos($endpoint, '/jsonrpc') !== false) {
+            return self::dispatch_odoo_api($connection, $payload, $mapping, $meta, $retry_count);
+        }
+
         // 1. SSRF and URL validation
         $ssrf_check = self::validate_endpoint_url($endpoint);
         if (is_wp_error($ssrf_check)) {
@@ -420,6 +425,209 @@ class UCC_Dispatcher
     public static function redact_url_credentials($url)
     {
         return preg_replace('/:\/\/([^:]+):([^@]+)@/', '://$1:••••••••@', $url);
+    }
+
+    /**
+     * Dispatch submission directly to Odoo CRM via authenticated JSON-RPC API.
+     *
+     * @param object $connection Connection DB object
+     * @param array  $payload    Field values
+     * @param object $mapping    Form mapping
+     * @param array  $meta       Metadata
+     * @param int    $retry_count Retries
+     * @return array [success, http_code, body, error, latency_ms]
+     */
+    public static function dispatch_odoo_api($connection, array $payload, $mapping, array $meta = [], $retry_count = 0)
+    {
+        $start_time = microtime(true);
+        $endpoint   = trim($connection->endpoint_url);
+        if (! str_ends_with($endpoint, '/jsonrpc')) {
+            $endpoint = rtrim($endpoint, '/') . '/jsonrpc';
+        }
+
+        $idempotency_key = ! empty($meta['submission_id']) ? $meta['submission_id'] : wp_generate_uuid4();
+        $source_label    = ! empty($mapping->source_label) ? $mapping->source_label : 'CF7 Submission';
+        $form_title      = ! empty($meta['cf7_form_title']) ? $meta['cf7_form_title'] : 'Contact Form';
+
+        // 1. Credentials
+        $creds    = UCC_Database::get_decrypted_credentials($connection);
+        $database = ! empty($creds['database']) ? trim($creds['database']) : 'mmnin';
+        $username = ! empty($creds['username']) ? trim($creds['username']) : 'support.mymerchantnavy@gmail.com';
+        $api_key  = ! empty($creds['api_key']) ? trim($creds['api_key']) : (! empty($creds['token']) ? trim($creds['token']) : 'aac08ac4a2b071a7fd2613b2d3cd08909eb07f5e_oak');
+
+        // 2. Authenticate with Odoo via JSON-RPC
+        $auth_body = wp_json_encode([
+            'jsonrpc' => '2.0',
+            'method'  => 'call',
+            'params'  => [
+                'service' => 'common',
+                'method'  => 'authenticate',
+                'args'    => [$database, $username, $api_key, new stdClass()],
+            ],
+            'id'      => 1,
+        ]);
+
+        $timeout = max(5, min(30, (int) ($connection->timeout ?: 15)));
+        $auth_res = wp_remote_post($endpoint, [
+            'timeout'     => $timeout,
+            'sslverify'   => true,
+            'headers'     => [
+                'Content-Type' => 'application/json',
+                'Accept'       => 'application/json',
+            ],
+            'body'        => $auth_body,
+        ]);
+
+        if (is_wp_error($auth_res)) {
+            $latency = (int) round((microtime(true) - $start_time) * 1000);
+            $err_msg = 'Odoo Auth Network Error: ' . $auth_res->get_error_message();
+            self::log_odoo_result($idempotency_key, $mapping, $meta, $connection, $endpoint, 0, 'failed', $latency, $payload, '', $err_msg, $retry_count);
+            return ['success' => false, 'http_code' => 0, 'body' => '', 'error' => $err_msg, 'latency_ms' => $latency];
+        }
+
+        $auth_json = json_decode(wp_remote_retrieve_body($auth_res), true);
+        $uid = $auth_json['result'] ?? null;
+        if (! $uid) {
+            $latency = (int) round((microtime(true) - $start_time) * 1000);
+            $err_msg = 'Odoo Authentication Failed: Invalid database, username, or API key.';
+            if (! empty($auth_json['error']['message'])) {
+                $err_msg .= ' (' . $auth_json['error']['message'] . ')';
+            }
+            self::log_odoo_result($idempotency_key, $mapping, $meta, $connection, $endpoint, 401, 'failed', $latency, $payload, wp_remote_retrieve_body($auth_res), $err_msg, $retry_count);
+            return ['success' => false, 'http_code' => 401, 'body' => wp_remote_retrieve_body($auth_res), 'error' => $err_msg, 'latency_ms' => $latency];
+        }
+
+        // 3. Prepare Lead Fields for crm.lead
+        $raw_name     = ! empty($payload['name']) ? $payload['name'] : (! empty($payload['full-name']) ? $payload['full-name'] : 'Lead from Contact Form 7');
+        $contact_name = ! empty($payload['contact_name']) ? $payload['contact_name'] : $raw_name;
+        $email        = ! empty($payload['email_from']) ? $payload['email_from'] : (! empty($payload['email']) ? $payload['email'] : '');
+        $phone        = ! empty($payload['phone']) ? $payload['phone'] : (! empty($payload['whatsapp']) ? $payload['whatsapp'] : '');
+        $city         = ! empty($payload['city']) ? $payload['city'] : '';
+
+        // Clean phone digits
+        $phone_clean = preg_replace('/[^0-9+]/', '', (string) $phone);
+
+        // Build structured submission notes for description
+        $desc_lines = [];
+        $desc_lines[] = "--- CONTACT FORM 7 SUBMISSION ---";
+        $desc_lines[] = "Form: " . $form_title;
+        $desc_lines[] = "Source Label: " . $source_label;
+        $desc_lines[] = "Submission ID: " . $idempotency_key;
+        $desc_lines[] = "Timestamp: " . current_time('mysql');
+        $desc_lines[] = "";
+        $desc_lines[] = "--- FORM FIELD VALUES ---";
+        foreach ($payload as $k => $v) {
+            if ($k === '_model' || $k === '_id') continue;
+            if (is_array($v)) $v = implode(', ', $v);
+            $desc_lines[] = ucfirst(str_replace(['-', '_'], ' ', $k)) . ': ' . $v;
+        }
+        $description = implode("\n", $desc_lines);
+
+        $lead_values = [
+            'name'         => $raw_name . ' (' . $source_label . ')',
+            'contact_name' => $contact_name,
+            'email_from'   => $email,
+            'phone'        => $phone_clean,
+            'type'         => 'lead',
+            'description'  => $description,
+        ];
+        if (! empty($city)) {
+            $lead_values['city'] = $city;
+        }
+
+        // 4. Create Lead in crm.lead via object.execute_kw
+        $create_body = wp_json_encode([
+            'jsonrpc' => '2.0',
+            'method'  => 'call',
+            'params'  => [
+                'service' => 'object',
+                'method'  => 'execute_kw',
+                'args'    => [
+                    $database,
+                    (int) $uid,
+                    $api_key,
+                    'crm.lead',
+                    'create',
+                    [$lead_values],
+                ],
+            ],
+            'id'      => 2,
+        ]);
+
+        $create_res = wp_remote_post($endpoint, [
+            'timeout'     => $timeout,
+            'sslverify'   => true,
+            'headers'     => [
+                'Content-Type' => 'application/json',
+                'Accept'       => 'application/json',
+            ],
+            'body'        => $create_body,
+        ]);
+
+        $latency = (int) round((microtime(true) - $start_time) * 1000);
+
+        if (is_wp_error($create_res)) {
+            $err_msg = 'Odoo API Network Error: ' . $create_res->get_error_message();
+            self::log_odoo_result($idempotency_key, $mapping, $meta, $connection, $endpoint, 0, 'failed', $latency, $payload, '', $err_msg, $retry_count);
+            return ['success' => false, 'http_code' => 0, 'body' => '', 'error' => $err_msg, 'latency_ms' => $latency];
+        }
+
+        $create_json = json_decode(wp_remote_retrieve_body($create_res), true);
+        if (! empty($create_json['result'])) {
+            $lead_id = (int) $create_json['result'];
+            $odoo_url = preg_replace('#/jsonrpc/?$#', '', $endpoint) . '/web#id=' . $lead_id . '&model=crm.lead&view_type=form';
+            $success_payload = [
+                'success'      => true,
+                'status'       => 'success',
+                'lead_id'      => $lead_id,
+                'contact_name' => $contact_name,
+                'email'        => $email,
+                'phone'        => $phone_clean,
+                'source'       => $source_label,
+                'message'      => "Lead #{$lead_id} successfully created in Odoo CRM Pipeline!",
+                'odoo_url'     => $odoo_url,
+            ];
+            $body_str = wp_json_encode($success_payload, JSON_PRETTY_PRINT | JSON_UNESCAPED_SLASHES);
+
+            self::log_odoo_result($idempotency_key, $mapping, $meta, $connection, $endpoint, 200, 'success', $latency, $payload, $body_str, '', $retry_count);
+            return ['success' => true, 'http_code' => 200, 'body' => $body_str, 'error' => '', 'latency_ms' => $latency];
+        }
+
+        // Odoo server error
+        $err_msg = 'Odoo CRM Error: ';
+        if (! empty($create_json['error']['data']['message'])) {
+            $err_msg .= $create_json['error']['data']['message'];
+        } elseif (! empty($create_json['error']['message'])) {
+            $err_msg .= $create_json['error']['message'];
+        } else {
+            $err_msg .= wp_remote_retrieve_body($create_res);
+        }
+
+        self::log_odoo_result($idempotency_key, $mapping, $meta, $connection, $endpoint, 500, 'failed', $latency, $payload, wp_remote_retrieve_body($create_res), $err_msg, $retry_count);
+        return ['success' => false, 'http_code' => 500, 'body' => wp_remote_retrieve_body($create_res), 'error' => $err_msg, 'latency_ms' => $latency];
+    }
+
+    /**
+     * Helper to log Odoo dispatch results.
+     */
+    private static function log_odoo_result($idempotency_key, $mapping, $meta, $connection, $endpoint, $http_code, $status, $latency, $payload, $response_body, $err_msg, $retry_count)
+    {
+        UCC_Logger::log_delivery([
+            'submission_id'     => $idempotency_key,
+            'cf7_form_id'       => $mapping->cf7_form_id ?? 0,
+            'cf7_form_title'    => $meta['cf7_form_title'] ?? 'Direct Odoo Dispatch',
+            'connection_name'   => $connection->name,
+            'source_label'      => $mapping->source_label ?? '',
+            'endpoint_url'      => self::redact_url_credentials($endpoint),
+            'http_method'       => 'POST (JSON-RPC)',
+            'http_code'         => $http_code,
+            'status'            => $status,
+            'execution_time_ms' => $latency,
+            'request_payload'   => self::sanitize_payload_for_logging($payload),
+            'response_body'     => self::sanitize_response_for_logging($response_body),
+            'error_message'     => $err_msg,
+            'retry_count'       => $retry_count,
+        ]);
     }
 }
 

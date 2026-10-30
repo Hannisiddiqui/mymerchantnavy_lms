@@ -102,12 +102,13 @@ class UCC_Admin
         .ucc-header-left { display: flex; align-items: center; gap: 16px; }
         .ucc-title { font-size: 21px; font-weight: 800; color: #0f172a; margin: 0; line-height: 1.25; }
         .ucc-subtitle { font-size: 13.5px; color: #64748b; margin: 4px 0 0; }
-        .ucc-pill-status { display: inline-flex; align-items: center; gap: 8px; padding: 6px 14px; border-radius: 9999px; font-size: 12.5px; font-weight: 700; white-space: nowrap; background: #ecfdf5; color: #059669; border: 1px solid #a7f3d0; }
+        .ucc-header-badge { flex-shrink: 0 !important; }
+        .ucc-pill-status { display: inline-flex !important; align-items: center !important; gap: 8px !important; padding: 6px 14px !important; border-radius: 9999px !important; font-size: 12.5px !important; font-weight: 700 !important; white-space: nowrap !important; background: #ecfdf5 !important; color: #059669 !important; border: 1px solid #a7f3d0 !important; }
         .ucc-dot-live { width: 8px; height: 8px; border-radius: 50%; background: #10b981; display: inline-block; }
-        .nav-tab-wrapper.ucc-nav-tabs { display: flex !important; flex-wrap: wrap !important; gap: 4px !important; border-bottom: 1px solid #c3c4c7 !important; margin: 0 0 20px !important; padding: 0 !important; }
-        .nav-tab-wrapper.ucc-nav-tabs .nav-tab { display: inline-block !important; font-size: 14px !important; font-weight: 600 !important; padding: 9px 18px !important; margin: 0 !important; border: 1px solid #c3c4c7 !important; border-bottom: none !important; border-radius: 6px 6px 0 0 !important; background: #f0f0f1 !important; color: #50575e !important; text-decoration: none !important; }
-        .nav-tab-wrapper.ucc-nav-tabs .nav-tab:hover { background: #ffffff !important; color: #1d2327 !important; }
-        .nav-tab-wrapper.ucc-nav-tabs .nav-tab-active, .nav-tab-wrapper.ucc-nav-tabs .nav-tab-active:hover { background: #ffffff !important; color: #2271b1 !important; border-top: 3px solid #2271b1 !important; border-color: #c3c4c7 #c3c4c7 #ffffff !important; margin-bottom: -1px !important; }
+        .nav-tab-wrapper.ucc-nav-tabs { display: flex !important; flex-wrap: wrap !important; gap: 6px !important; border-bottom: 1px solid #cbd5e1 !important; margin: 0 0 24px !important; padding: 0 !important; background: transparent !important; }
+        .nav-tab-wrapper.ucc-nav-tabs .nav-tab { display: inline-flex !important; align-items: center !important; font-size: 13.5px !important; font-weight: 700 !important; padding: 9px 18px !important; margin: 0 !important; border: 1px solid #e2e8f0 !important; border-bottom: none !important; border-radius: 8px 8px 0 0 !important; background: #f8fafc !important; color: #475569 !important; text-decoration: none !important; }
+        .nav-tab-wrapper.ucc-nav-tabs .nav-tab:hover { background: #ffffff !important; color: #0f172a !important; }
+        .nav-tab-wrapper.ucc-nav-tabs .nav-tab-active, .nav-tab-wrapper.ucc-nav-tabs .nav-tab-active:hover { background: #ffffff !important; color: #2563eb !important; border: 1px solid #cbd5e1 !important; border-bottom: 2px solid #ffffff !important; box-shadow: 0 -2px 0 0 #2563eb inset !important; margin-bottom: -1px !important; }
         .ucc-grid-two { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; align-items: start; }
         @media (max-width: 1024px) { .ucc-grid-two { grid-template-columns: 1fr; } }
         .ucc-box { background: #ffffff; padding: 24px; border-radius: 12px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); margin-bottom: 24px; }
@@ -148,9 +149,13 @@ class UCC_Admin
             </div>
 
             <!-- Tab Navigation with full WordPress and custom classes -->
-            <nav class="nav-tab-wrapper ucc-nav-tabs">
-                <?php foreach ($tabs as $key => $label) : ?>
-                    <a href="<?php echo esc_url(admin_url('admin.php?page=universal-crm-connector&tab=' . $key)); ?>" class="nav-tab ucc-nav-tab <?php echo $active_tab === $key ? 'nav-tab-active ucc-nav-tab-active' : ''; ?>">
+            <nav class="nav-tab-wrapper ucc-nav-tabs" style="display:flex !important;flex-wrap:wrap !important;gap:6px !important;border-bottom:1px solid #cbd5e1 !important;margin:0 0 24px !important;padding:0 !important;background:transparent !important;">
+                <?php foreach ($tabs as $key => $label) :
+                    $is_active = ($active_tab === $key);
+                ?>
+                    <a href="<?php echo esc_url(admin_url('admin.php?page=universal-crm-connector&tab=' . $key)); ?>"
+                       class="nav-tab ucc-nav-tab <?php echo $is_active ? 'nav-tab-active ucc-nav-tab-active' : ''; ?>"
+                       style="display:inline-flex !important;align-items:center !important;font-size:13.5px !important;font-weight:700 !important;padding:10px 18px !important;margin:0 !important;border:1px solid <?php echo $is_active ? '#cbd5e1' : '#e2e8f0'; ?> !important;border-bottom:<?php echo $is_active ? '2px solid #fff' : 'none'; ?> !important;border-radius:8px 8px 0 0 !important;background:<?php echo $is_active ? '#ffffff' : '#f8fafc'; ?> !important;color:<?php echo $is_active ? '#2563eb' : '#475569'; ?> !important;text-decoration:none !important;box-shadow:<?php echo $is_active ? '0 -2px 0 0 #2563eb inset' : 'none'; ?> !important;margin-bottom:-1px !important;">
                         <?php echo esc_html($label); ?>
                     </a>
                 <?php endforeach; ?>
@@ -323,6 +328,7 @@ class UCC_Admin
         $connections = UCC_Database::get_connections();
         $edit_id = isset($_GET['edit_conn']) ? (int) $_GET['edit_conn'] : 0;
         $active_conn = $edit_id ? UCC_Database::get_connection($edit_id) : null;
+        $conn_creds = $active_conn ? UCC_Database::get_decrypted_credentials($active_conn) : [];
 
         ?>
         <div class="ucc-grid-two">
@@ -420,7 +426,8 @@ class UCC_Admin
                     <p>
                         <label for="ucc_conn_auth_type"><strong><?php esc_html_e('Authentication Type', 'universal-crm-connector-cf7'); ?></strong></label>
                         <select id="ucc_conn_auth_type" name="auth_type" class="widefat">
-                            <option value="none" <?php selected($active_conn ? $active_conn->auth_type : 'none', 'none'); ?>><?php esc_html_e('None (Public Webhook)', 'universal-crm-connector-cf7'); ?></option>
+                            <option value="odoo_api" <?php selected($active_conn ? $active_conn->auth_type : 'odoo_api', 'odoo_api'); ?>><?php esc_html_e('Odoo Direct JSON-RPC API (Verified Live Sync)', 'universal-crm-connector-cf7'); ?></option>
+                            <option value="none" <?php selected($active_conn ? $active_conn->auth_type : '', 'none'); ?>><?php esc_html_e('None (Public Webhook)', 'universal-crm-connector-cf7'); ?></option>
                             <option value="bearer" <?php selected($active_conn ? $active_conn->auth_type : '', 'bearer'); ?>><?php esc_html_e('Bearer Token', 'universal-crm-connector-cf7'); ?></option>
                             <option value="basic" <?php selected($active_conn ? $active_conn->auth_type : '', 'basic'); ?>><?php esc_html_e('Basic Auth (Username / Password)', 'universal-crm-connector-cf7'); ?></option>
                             <option value="custom_header" <?php selected($active_conn ? $active_conn->auth_type : '', 'custom_header'); ?>><?php esc_html_e('Custom Auth Header', 'universal-crm-connector-cf7'); ?></option>
@@ -428,7 +435,27 @@ class UCC_Admin
                     </p>
 
                     <!-- Auth credentials fields (dynamically shown) -->
-                    <div id="ucc-auth-creds-wrap" style="background:#f8fafc;padding:12px;border-radius:8px;border:1px solid #e2e8f0;margin-bottom:14px;">
+                    <div id="ucc-auth-creds-wrap" style="background:#f8fafc;padding:14px;border-radius:10px;border:1px solid #e2e8f0;margin-bottom:16px;">
+                        <div class="ucc-auth-field ucc-auth-odoo" style="<?php echo ($active_conn && $active_conn->auth_type === 'odoo_api') ? '' : 'display:none;'; ?>">
+                            <p style="margin:0 0 10px;font-size:12.5px;color:#1e40af;background:#eff6ff;padding:8px 12px;border-radius:6px;border:1px solid #bfdbfe;">
+                                <?php esc_html_e('Uses authenticated JSON-RPC to directly create crm.lead records in Odoo without any webhook automation rule configuration needed.', 'universal-crm-connector-cf7'); ?>
+                            </p>
+                            <div class="ucc-flex-fields">
+                                <div style="flex:1;">
+                                    <label for="ucc_auth_odoo_db"><strong><?php esc_html_e('Odoo Database', 'universal-crm-connector-cf7'); ?></strong></label>
+                                    <input type="text" id="ucc_auth_odoo_db" name="auth_odoo_db" class="widefat" value="<?php echo esc_attr($conn_creds['database'] ?? 'mmnin'); ?>" placeholder="mmnin">
+                                </div>
+                                <div style="flex:1;">
+                                    <label for="ucc_auth_odoo_user"><strong><?php esc_html_e('Admin / User Email', 'universal-crm-connector-cf7'); ?></strong></label>
+                                    <input type="text" id="ucc_auth_odoo_user" name="auth_odoo_user" class="widefat" value="<?php echo esc_attr($conn_creds['username'] ?? 'support.mymerchantnavy@gmail.com'); ?>" placeholder="support.mymerchantnavy@gmail.com">
+                                </div>
+                            </div>
+                            <p style="margin-top:10px;">
+                                <label for="ucc_auth_odoo_key"><strong><?php esc_html_e('Odoo API Key (oak...)', 'universal-crm-connector-cf7'); ?></strong></label>
+                                <input type="password" id="ucc_auth_odoo_key" name="auth_odoo_key" class="widefat" placeholder="<?php echo (! empty($conn_creds['api_key'])) ? '•••••••• (API Key Active)' : 'aac08ac4a2b071a7fd2613b2d3cd08909eb07f5e_oak'; ?>">
+                            </p>
+                        </div>
+
                         <div class="ucc-auth-field ucc-auth-bearer" style="display:none;">
                             <label for="ucc_auth_token"><strong><?php esc_html_e('Bearer Token / Secret Key', 'universal-crm-connector-cf7'); ?></strong></label>
                             <input type="password" id="ucc_auth_token" name="auth_token" class="widefat" placeholder="<?php echo ($active_conn && $active_conn->auth_type === 'bearer') ? '•••••••• (Leave blank to keep existing)' : 'Paste Bearer token here'; ?>">
@@ -438,7 +465,7 @@ class UCC_Admin
                             <div class="ucc-flex-fields">
                                 <div style="flex:1;">
                                     <label for="ucc_auth_user"><strong><?php esc_html_e('Username', 'universal-crm-connector-cf7'); ?></strong></label>
-                                    <input type="text" id="ucc_auth_user" name="auth_user" class="widefat">
+                                    <input type="text" id="ucc_auth_user" name="auth_user" class="widefat" value="<?php echo esc_attr($conn_creds['username'] ?? ''); ?>">
                                 </div>
                                 <div style="flex:1;">
                                     <label for="ucc_auth_pass"><strong><?php esc_html_e('Password / API Key', 'universal-crm-connector-cf7'); ?></strong></label>
@@ -1179,23 +1206,35 @@ class UCC_Admin
             'max_retries'   => 3,
         ];
 
+        $data['id'] = $id;
+
         // Process auth credentials if supplied
         $auth_type = $data['auth_type'];
-        if ($auth_type === 'bearer' && ! empty($_POST['auth_token'])) {
-            $data['auth_credentials'] = ['token' => sanitize_text_field(wp_unslash($_POST['auth_token']))];
+        if ($auth_type === 'odoo_api') {
+            $existing_creds = $id ? UCC_Database::get_decrypted_credentials(UCC_Database::get_connection($id)) : [];
+            $odoo_db   = ! empty($_POST['auth_odoo_db']) ? sanitize_text_field(wp_unslash($_POST['auth_odoo_db'])) : ($existing_creds['database'] ?? 'mmnin');
+            $odoo_user = ! empty($_POST['auth_odoo_user']) ? sanitize_email(wp_unslash($_POST['auth_odoo_user'])) : ($existing_creds['username'] ?? 'support.mymerchantnavy@gmail.com');
+            $odoo_key  = ! empty($_POST['auth_odoo_key']) ? sanitize_text_field(wp_unslash($_POST['auth_odoo_key'])) : ($existing_creds['api_key'] ?? 'aac08ac4a2b071a7fd2613b2d3cd08909eb07f5e_oak');
+            $data['auth_credentials'] = wp_json_encode([
+                'database' => $odoo_db,
+                'username' => $odoo_user,
+                'api_key'  => $odoo_key,
+            ]);
+        } elseif ($auth_type === 'bearer' && ! empty($_POST['auth_token'])) {
+            $data['auth_credentials'] = wp_json_encode(['token' => sanitize_text_field(wp_unslash($_POST['auth_token']))]);
         } elseif ($auth_type === 'basic' && (! empty($_POST['auth_user']) || ! empty($_POST['auth_pass']))) {
-            $data['auth_credentials'] = [
+            $data['auth_credentials'] = wp_json_encode([
                 'username' => sanitize_text_field(wp_unslash($_POST['auth_user'] ?? '')),
                 'password' => (string) wp_unslash($_POST['auth_pass'] ?? ''),
-            ];
+            ]);
         } elseif ($auth_type === 'custom_header' && ! empty($_POST['auth_hname'])) {
-            $data['auth_credentials'] = [
+            $data['auth_credentials'] = wp_json_encode([
                 'header_name'  => sanitize_text_field(wp_unslash($_POST['auth_hname'])),
                 'header_value' => sanitize_text_field(wp_unslash($_POST['auth_hval'] ?? '')),
-            ];
+            ]);
         }
 
-        $conn_id = UCC_Database::save_connection($data, $id);
+        $conn_id = UCC_Database::save_connection($data);
         if (! $conn_id) {
             wp_send_json_error(['message' => 'Failed to save connection in database.']);
         }

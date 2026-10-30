@@ -141,6 +141,7 @@ function mmn_lms_front_script()
         'ajax'     => admin_url('admin-ajax.php'),
         'nonce'    => is_user_logged_in() ? wp_create_nonce('mmn_rzp') : '',
         'loggedIn' => is_user_logged_in(),
+        'userId'   => get_current_user_id() ?: '',
         'products' => (object) $products,
         'lmsUrl'   => rtrim(mmn_lms_setting('app_url'), '/') . '/login',
         'site'     => get_bloginfo('name'),
@@ -306,6 +307,18 @@ function mmn_lms_front_script()
                         } else if (typeof d.data === 'object' && d.data.message) {
                             errStr = d.data.message;
                         }
+                    }
+                    // If server asked user to log in or register, open popup seamlessly without an error
+                    if (errStr.indexOf('log in') !== -1 || errStr.indexOf('register') !== -1) {
+                        cfg.loggedIn = false;
+                        ui.end();
+                        openRegistration({
+                            product: product,
+                            done: function () {
+                                purchase(product, toastUI());
+                            }
+                        });
+                        return;
                     }
                     throw new Error(errStr);
                 }

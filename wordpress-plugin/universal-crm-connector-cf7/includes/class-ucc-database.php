@@ -90,7 +90,7 @@ class UCC_Database
     }
 
     /**
-     * Synchronize live Odoo webhook endpoint and real site Contact Form 7 forms (8612, 8795).
+     * Synchronize live Odoo JSON-RPC API connection and real site Contact Form 7 forms (8612, 8795).
      */
     public static function sync_live_odoo_and_forms()
     {
@@ -98,31 +98,43 @@ class UCC_Database
         $table_connections = $wpdb->prefix . 'ucc_crm_connections';
         $table_mappings    = $wpdb->prefix . 'ucc_form_mappings';
 
-        $real_odoo_url = 'https://mmnin.odoo.com/web/hook/4220c8b3-3e63-46fe-9302-6c5f40fe29df';
+        $real_odoo_url = 'https://mmnin.odoo.com/jsonrpc';
+        $odoo_creds_json = wp_json_encode([
+            'database' => 'mmnin',
+            'username' => 'support.mymerchantnavy@gmail.com',
+            'api_key'  => 'aac08ac4a2b071a7fd2613b2d3cd08909eb07f5e_oak',
+        ]);
+        $encrypted_creds = self::encrypt_secret($odoo_creds_json);
 
-        // 1. Update existing demo connection if pointing to dummy URL or create it
-        $existing_conn = $wpdb->get_row("SELECT * FROM $table_connections WHERE endpoint_url LIKE '%myodoo.example.com%' OR crm_type = 'odoo' ORDER BY id ASC LIMIT 1");
+        // 1. Update existing Odoo connection or insert direct JSON-RPC connection
+        $existing_conn = $wpdb->get_row("SELECT * FROM $table_connections WHERE endpoint_url LIKE '%odoo.com%' OR endpoint_url LIKE '%myodoo.example.com%' OR crm_type = 'odoo' ORDER BY id ASC LIMIT 1");
         if ($existing_conn) {
             $wpdb->update($table_connections, [
-                'name'         => 'MMN Odoo CRM Lead Webhook',
-                'crm_type'     => 'odoo',
-                'endpoint_url' => $real_odoo_url,
-                'http_method'  => 'POST',
-                'content_type' => 'application/json',
-                'timeout'      => 15,
+                'name'             => 'MMN Odoo Enterprise CRM (Direct API)',
+                'crm_type'         => 'odoo',
+                'endpoint_url'     => $real_odoo_url,
+                'http_method'      => 'POST',
+                'content_type'     => 'application/json',
+                'auth_type'        => 'odoo_api',
+                'auth_credentials' => $encrypted_creds,
+                'timeout'          => 15,
+                'retry_enabled'    => 1,
+                'max_retries'      => 3,
             ], ['id' => $existing_conn->id]);
             $conn_id = $existing_conn->id;
         } else {
             $wpdb->insert($table_connections, [
-                'name'         => 'MMN Odoo CRM Lead Webhook',
-                'crm_type'     => 'odoo',
-                'endpoint_url' => $real_odoo_url,
-                'http_method'  => 'POST',
-                'content_type' => 'application/json',
-                'timeout'      => 15,
-                'retry_enabled'=> 1,
-                'max_retries'  => 3,
-                'created_at'   => current_time('mysql'),
+                'name'             => 'MMN Odoo Enterprise CRM (Direct API)',
+                'crm_type'         => 'odoo',
+                'endpoint_url'     => $real_odoo_url,
+                'http_method'      => 'POST',
+                'content_type'     => 'application/json',
+                'auth_type'        => 'odoo_api',
+                'auth_credentials' => $encrypted_creds,
+                'timeout'          => 15,
+                'retry_enabled'    => 1,
+                'max_retries'      => 3,
+                'created_at'       => current_time('mysql'),
             ]);
             $conn_id = $wpdb->insert_id;
         }
@@ -463,6 +475,25 @@ class UCC_Database
         [$iv, $ciphertext] = explode('::', $decoded, 2);
         $key = substr(hash('sha256', wp_salt('auth')), 0, 32);
         return openssl_decrypt($ciphertext, 'aes-256-cbc', $key, 0, $iv);
+    }
+
+    /**
+     * Get decrypted credentials as structured array.
+     */
+    public static function get_decrypted_credentials($connection)
+    {
+        if (empty($connection) || empty($connection->auth_credentials)) {
+            return [];
+        }
+        $raw = self::decrypt_secret($connection->auth_credentials);
+        if (empty($raw)) {
+            return [];
+        }
+        $decoded = json_decode($raw, true);
+        if (is_array($decoded)) {
+            return $decoded;
+        }
+        return ['token' => $raw, 'password' => $raw, 'api_key' => $raw];
     }
 }
 

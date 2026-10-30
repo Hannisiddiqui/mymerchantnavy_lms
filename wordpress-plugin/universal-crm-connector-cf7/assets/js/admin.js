@@ -16,6 +16,8 @@
                 $('.ucc-auth-basic').show();
             } else if (selected === 'custom_header') {
                 $('.ucc-auth-custom').show();
+            } else if (selected === 'odoo_api') {
+                $('.ucc-auth-odoo').show();
             }
         }
         $('#ucc_conn_auth_type').on('change', updateAuthFields);
