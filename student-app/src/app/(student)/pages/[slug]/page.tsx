@@ -1,4 +1,5 @@
 "use client";
+import { cleanHtml } from "@/lib/sanitize";
 
 import { use, useState } from "react";
 import Link from "next/link";
@@ -62,7 +63,7 @@ export default function CustomDynamicPage({ params }: { params: Promise<{ slug: 
         <div className="rounded-2xl border border-line bg-card p-6 sm:p-8 dark:border-slate-800 dark:bg-slate-900 shadow-sm">
           <div
             className="prose prose-slate max-w-none dark:prose-invert prose-headings:font-bold prose-a:text-brand-600 dark:prose-a:text-brand-400"
-            dangerouslySetInnerHTML={{ __html: page.content }}
+            dangerouslySetInnerHTML={{ __html: cleanHtml(page.content) }}
           />
         </div>
       )}
@@ -171,7 +172,7 @@ function RichTextBlock({ data }: { data: Record<string, any> }) {
       )}
       <div
         className="prose prose-slate max-w-none dark:prose-invert prose-headings:font-bold prose-a:text-brand-600 dark:prose-a:text-brand-400"
-        dangerouslySetInnerHTML={{ __html: data.body || "" }}
+        dangerouslySetInnerHTML={{ __html: cleanHtml(data.body) }}
       />
     </div>
   );
@@ -387,7 +388,7 @@ function SplitContentBlock({ data }: { data: Record<string, any> }) {
         {data.body && (
           <div
             className="prose prose-slate max-w-none text-xs sm:text-sm dark:prose-invert"
-            dangerouslySetInnerHTML={{ __html: data.body }}
+            dangerouslySetInnerHTML={{ __html: cleanHtml(data.body) }}
           />
         )}
         {data.button_text && data.button_url && (

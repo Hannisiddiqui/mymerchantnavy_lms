@@ -3,6 +3,8 @@
 namespace App\Models;
 
 use App\Enums\AdminRole;
+use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthentication;
+use Filament\Auth\MultiFactor\App\Contracts\HasAppAuthenticationRecovery;
 use Filament\Models\Contracts\FilamentUser;
 use Filament\Panel;
 use Illuminate\Foundation\Auth\User as Authenticatable;
@@ -14,7 +16,7 @@ use Illuminate\Validation\ValidationException;
  * Admin panel user (admin.mymerchantnavy.com).
  * Super admin is strictly support.mymerchantnavy@gmail.com with highest authority.
  */
-class Admin extends Authenticatable implements FilamentUser
+class Admin extends Authenticatable implements FilamentUser, HasAppAuthentication, HasAppAuthenticationRecovery
 {
     use HasFactory, Notifiable;
 
@@ -22,7 +24,7 @@ class Admin extends Authenticatable implements FilamentUser
 
     protected $fillable = ['name', 'email', 'password', 'role', 'permissions'];
 
-    protected $hidden = ['password', 'remember_token'];
+    protected $hidden = ['password', 'remember_token', 'app_authentication_secret', 'app_authentication_recovery_codes'];
 
     protected function casts(): array
     {
@@ -30,6 +32,8 @@ class Admin extends Authenticatable implements FilamentUser
             'password' => 'hashed',
             'role' => AdminRole::class,
             'permissions' => 'array',
+            'app_authentication_secret' => 'encrypted',
+            'app_authentication_recovery_codes' => 'encrypted:array',
         ];
     }
 
@@ -53,6 +57,40 @@ class Admin extends Authenticatable implements FilamentUser
                 throw new \Exception('The Super Admin account cannot be deleted.');
             }
         });
+    }
+
+    // ---- two-step verification (Filament app authentication) ----
+
+    public function getAppAuthenticationSecret(): ?string
+    {
+        return $this->app_authentication_secret;
+    }
+
+    public function saveAppAuthenticationSecret(?string $secret): void
+    {
+        $this->app_authentication_secret = $secret;
+        $this->save();
+    }
+
+    public function getAppAuthenticationHolderName(): string
+    {
+        return $this->email;
+    }
+
+    public function getAppAuthenticationRecoveryCodes(): ?array
+    {
+        return $this->app_authentication_recovery_codes;
+    }
+
+    public function saveAppAuthenticationRecoveryCodes(?array $codes): void
+    {
+        $this->app_authentication_recovery_codes = $codes;
+        $this->save();
+    }
+
+    public function hasTwoFactor(): bool
+    {
+        return filled($this->app_authentication_secret);
     }
 
     public function isSuperAdmin(): bool

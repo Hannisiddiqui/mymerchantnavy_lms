@@ -5,7 +5,10 @@ namespace App\Filament\Resources;
 use App\Enums\AdminRole;
 use App\Filament\Resources\AdminResource\Pages;
 use App\Models\Admin;
+use App\Models\ActivityLog;
+use Filament\Actions\Action;
 use Filament\Actions\DeleteAction;
+use Filament\Notifications\Notification;
 use Filament\Actions\EditAction;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
@@ -168,6 +171,19 @@ class AdminResource extends Resource
                 TextColumn::make('created_at')->label('Added')->dateTime('d M Y'),
             ])
             ->recordActions([
+                Action::make('reset2fa')
+                    ->label('Reset two-step')
+                    ->icon('heroicon-o-key')
+                    ->color('warning')
+                    ->visible(fn (Admin $record) => (auth('admin')->user()?->isSuperAdmin() ?? false) && $record->hasTwoFactor() && ! $record->isSuperAdmin())
+                    ->requiresConfirmation()
+                    ->modalHeading('Reset two-step verification?')
+                    ->modalDescription('Use this when the admin lost their phone. They will set up the authenticator app again at their next login.')
+                    ->action(function (Admin $record) {
+                        $record->forceFill(['app_authentication_secret' => null, 'app_authentication_recovery_codes' => null])->save();
+                        ActivityLog::record(event: 'admin.2fa_reset', description: "Super Admin reset two-step verification for {$record->email}.", subject: $record, admin: auth('admin')->user());
+                        Notification::make()->title('Two-step verification reset')->success()->send();
+                    }),
                 EditAction::make()
                     ->visible(fn (Admin $record) => static::canEdit($record)),
                 DeleteAction::make()

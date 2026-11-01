@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     ->withMiddleware(function (Middleware $middleware): void {
         // Behind Nginx / a CDN the app must trust the proxy's headers, or HTTPS links and client IPs come out wrong.
         $middleware->trustProxies(at: env('TRUSTED_PROXIES', '*'));
+        $middleware->append(\App\Http\Middleware\SecurityHeaders::class);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
         //

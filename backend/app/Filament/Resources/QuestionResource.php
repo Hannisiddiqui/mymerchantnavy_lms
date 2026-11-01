@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SuperAdminOnlyDeletes;
 use App\Filament\Resources\QuestionResource\Pages;
 use App\Filament\Support\QuestionForm;
 use App\Models\Question;
@@ -31,6 +32,8 @@ use Illuminate\Support\Facades\DB;
  */
 class QuestionResource extends Resource
 {
+    use SuperAdminOnlyDeletes;
+
     protected static ?string $model = Question::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-archive-box';

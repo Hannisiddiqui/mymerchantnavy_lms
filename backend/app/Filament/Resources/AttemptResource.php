@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SuperAdminOnlyDeletes;
 use App\Filament\Resources\AttemptResource\Pages\ListAttempts;
 use App\Models\TestAttempt;
 use Filament\Resources\Resource;
@@ -12,6 +13,8 @@ use Filament\Tables\Table;
 /** Report: every test attempt by every student (read-only). */
 class AttemptResource extends Resource
 {
+    use SuperAdminOnlyDeletes;
+
     protected static ?string $model = TestAttempt::class;
 
     protected static ?string $modelLabel = 'result';

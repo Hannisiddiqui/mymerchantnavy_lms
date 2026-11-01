@@ -14,8 +14,24 @@ export async function sendOtp(identifier: string): Promise<void> {
   await request("/auth/otp/send", { method: "POST", body: JSON.stringify(identity(identifier)) });
 }
 
-/** Returns whether the student still has to complete their profile. */
-export async function verifyOtp(identifier: string, code: string): Promise<{ needsProfile: boolean }> {
+/** After the emailed code, a student with two-step verification must still enter the code of their authenticator app. */
+export type LoginResult = { needsProfile: boolean; requiresTwoFactor?: false } | { requiresTwoFactor: true; challenge: string };
+
+const CHALLENGE_KEY = "mmn.2fa";
+export const twoFactorChallenge = {
+  set: (challenge: string, redirect: string | null = null) => window.sessionStorage.setItem(CHALLENGE_KEY, JSON.stringify({ challenge, redirect })),
+  get: (): { challenge: string; redirect: string | null } | null => {
+    try {
+      return JSON.parse(window.sessionStorage.getItem(CHALLENGE_KEY) ?? "null");
+    } catch {
+      return null;
+    }
+  },
+  clear: () => window.sessionStorage.removeItem(CHALLENGE_KEY),
+};
+
+/** Returns whether the student still has to complete their profile (or that a two-step code is needed). */
+export async function verifyOtp(identifier: string, code: string): Promise<LoginResult> {
   if (USE_MOCK) {
     await mockDelay(500);
     if (!/^\d{6}$/.test(code)) throw new Error("Enter the 6-digit code we sent you");
@@ -31,23 +47,39 @@ export async function verifyOtp(identifier: string, code: string): Promise<{ nee
     }
     return { needsProfile: !student.name };
   }
-  const data = await request<{ token: string; needsProfile: boolean }>("/auth/otp/verify", {
+  const data = await request<{ token?: string; needsProfile?: boolean; requiresTwoFactor?: boolean; challenge?: string }>("/auth/otp/verify", {
     method: "POST",
     body: JSON.stringify({ ...identity(identifier), code, device_name: navigator.userAgent }),
   });
+  if (data.requiresTwoFactor && data.challenge) return { requiresTwoFactor: true, challenge: data.challenge };
+  tokenStore.set(data.token as string);
+  return { needsProfile: Boolean(data.needsProfile) };
+}
+
+/** The second step of a login with two-step verification: the 6-digit app code, or a recovery code. */
+export async function completeTwoFactor(challenge: string, code: string): Promise<{ needsProfile: boolean }> {
+  const data = await request<{ token: string; needsProfile: boolean }>("/auth/2fa/challenge", {
+    method: "POST",
+    body: JSON.stringify({ challenge, code: code.trim() }),
+  });
   tokenStore.set(data.token);
+  twoFactorChallenge.clear();
   return { needsProfile: data.needsProfile };
 }
 
 /** The "go to my course" link from the WordPress site: a one-time token signs the student in without a code. */
-export async function ssoLogin(token: string): Promise<{ needsProfile: boolean; redirect: string | null }> {
+export async function ssoLogin(token: string): Promise<{ needsProfile: boolean; redirect: string | null; requiresTwoFactor?: boolean }> {
   if (USE_MOCK) throw new Error("Sign-in links need the real backend.");
-  const data = await request<{ token: string; needsProfile: boolean; redirect: string | null }>("/auth/sso", {
+  const data = await request<{ token?: string; needsProfile?: boolean; redirect: string | null; requiresTwoFactor?: boolean; challenge?: string }>("/auth/sso", {
     method: "POST",
     body: JSON.stringify({ token, device_name: navigator.userAgent }),
   });
-  tokenStore.set(data.token);
-  return { needsProfile: data.needsProfile, redirect: data.redirect };
+  if (data.requiresTwoFactor && data.challenge) {
+    twoFactorChallenge.set(data.challenge, data.redirect);
+    return { needsProfile: false, redirect: data.redirect, requiresTwoFactor: true };
+  }
+  tokenStore.set(data.token as string);
+  return { needsProfile: Boolean(data.needsProfile), redirect: data.redirect };
 }
 
 export async function logout(): Promise<void> {

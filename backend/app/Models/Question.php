@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\SanitizesHtml;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\BelongsToMany;
@@ -11,6 +12,11 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 /** Question-bank entry: 4-option single-correct MCQ. Body and explanation are HTML with LaTeX. */
 class Question extends Model
 {
+    use SanitizesHtml;
+
+    /** HTML columns that are cleaned on save. */
+    protected array $htmlFields = ['body', 'explanation'];
+
     protected $fillable = ['subject_id', 'chapter_id', 'body', 'explanation', 'difficulty'];
 
     public function options(): HasMany

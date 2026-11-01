@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SuperAdminOnlyDeletes;
 use App\Enums\ReportReason;
 use App\Enums\ReportStatus;
 use App\Filament\Resources\QuestionReportResource\Pages\ListQuestionReports;
@@ -38,6 +39,8 @@ use Illuminate\Support\Str;
  */
 class QuestionReportResource extends Resource
 {
+    use SuperAdminOnlyDeletes;
+
     protected static ?string $model = QuestionReport::class;
 
     protected static ?string $modelLabel = 'question report';

@@ -26,7 +26,11 @@ export default function SsoPage() {
     }
     api.auth
       .ssoLogin(token)
-      .then(({ needsProfile, redirect }) => {
+      .then(({ needsProfile, redirect, requiresTwoFactor }) => {
+        if (requiresTwoFactor) {
+          router.replace("/login/two-step");
+          return;
+        }
         // the page to open (e.g. the course just bought); only ever a path on this site
         const target = redirect && /^\/[\w/-]*$/.test(redirect) && !redirect.includes("//") ? redirect : "/my-courses";
         router.replace(needsProfile ? "/onboarding" : target);

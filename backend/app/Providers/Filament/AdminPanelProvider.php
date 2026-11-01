@@ -2,6 +2,8 @@
 
 namespace App\Providers\Filament;
 
+use App\Models\Setting;
+use Filament\Auth\MultiFactor\App\AppAuthentication;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -34,6 +36,14 @@ class AdminPanelProvider extends PanelProvider
             ->domain(config('lms.admin_domain'))
             ->authGuard('admin')
             ->login()
+            ->profile()
+            // Two-step verification (authenticator app + recovery codes). The Super Admin account always needs it;
+            // for every other admin it is on by default and can be switched under Settings > Security.
+            ->multiFactorAuthentication(
+                [AppAuthentication::make()->recoverable()],
+                isRequired: fn (): bool => (bool) (auth('admin')->user()?->isSuperAdmin()
+                    || filter_var(Setting::get('admin_2fa_required', '1'), FILTER_VALIDATE_BOOLEAN)),
+            )
             ->brandName('My Merchant Navy')
             ->font('Inter')
             ->sidebarCollapsibleOnDesktop()

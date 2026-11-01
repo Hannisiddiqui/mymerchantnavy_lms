@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SuperAdminOnlyDeletes;
 use App\Filament\Resources\CourseResource\Pages;
 use App\Filament\Resources\CourseResource\RelationManagers\StudentsRelationManager;
 use App\Models\Course;
@@ -24,6 +25,8 @@ use Illuminate\Support\Str;
 
 class CourseResource extends Resource
 {
+    use SuperAdminOnlyDeletes;
+
     protected static ?string $model = Course::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-book-open';
@@ -49,13 +52,16 @@ class CourseResource extends Resource
                 ->afterStateUpdated(fn (Set $set, ?string $state, string $operation) => $operation === 'create' ? $set('slug', Str::slug($state)) : null),
             TextInput::make('slug')->required()->unique(ignoreRecord: true)->helperText('Used in the course link.'),
             TextInput::make('wordpress_product_id')->label('WordPress product ID')->maxLength(191)
+                ->disabled(fn () => ! (auth('admin')->user()?->isSuperAdmin() ?? false))->dehydrated(fn () => auth('admin')->user()?->isSuperAdmin() ?? false)
                 ->helperText('The id the WordPress shop sends when this course is bought. Several ids can be separated by commas. Leave empty if it is not sold there.'),
             Toggle::make('is_active')->label('Active')->default(true)->helperText('Inactive courses are hidden from students.'),
             Textarea::make('description')->rows(3)->columnSpanFull(),
             FileUpload::make('thumbnail_path')->label('Thumbnail')->image()->disk('public')->directory('course-thumbnails'),
 
             Section::make('Course Validity & Expiry Rules')
-                ->description('Access duration calculated automatically from student confirmed purchase date.')
+                ->description('Access duration calculated automatically from student confirmed purchase date. Only the Super Admin can change it (it decides how long paying students keep access).')
+                ->disabled(fn () => ! (auth('admin')->user()?->isSuperAdmin() ?? false))
+                ->dehydrated(fn () => auth('admin')->user()?->isSuperAdmin() ?? false)
                 ->schema([
                     Select::make('validity_type')
                         ->label('Validity Period')

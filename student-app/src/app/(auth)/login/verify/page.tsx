@@ -57,9 +57,14 @@ export default function VerifyOtpPage() {
     if (!identity || code.length !== LENGTH) return;
     setLoading(true);
     try {
-      const { needsProfile } = await api.auth.verifyOtp(identity, code);
+      const result = await api.auth.verifyOtp(identity, code);
       loginIdentity.clear();
-      router.replace(needsProfile ? "/onboarding" : "/my-courses");
+      if (result.requiresTwoFactor) {
+        api.auth.twoFactorChallenge.set(result.challenge);
+        router.replace("/login/two-step");
+        return;
+      }
+      router.replace(result.needsProfile ? "/onboarding" : "/my-courses");
     } catch (err) {
       setError(err instanceof Error ? err.message : "Invalid code");
       setLoading(false);

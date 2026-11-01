@@ -14,6 +14,7 @@ use App\Http\Controllers\Api\V1\ProfileController;
 use App\Http\Controllers\Api\V1\QuestionReportController;
 use App\Http\Controllers\Api\V1\SupportController;
 use App\Http\Controllers\Api\V1\TestController;
+use App\Http\Controllers\Api\V1\TwoFactorController;
 use App\Http\Controllers\Api\V1\WordPressController;
 use App\Http\Middleware\VerifyWordPressSignature;
 use Illuminate\Support\Facades\Route;
@@ -39,12 +40,13 @@ Route::prefix('v1')->group(function () {
     Route::get('support/config', [SupportController::class, 'config']);
     Route::get('support/my-queries', [SupportController::class, 'myQueries']);
     Route::get('page-visibility', [SupportController::class, 'pageVisibility']);
-    Route::post('support/query', [SupportController::class, 'sendQuery'])->middleware('throttle:30,1');
+    Route::post('support/query', [SupportController::class, 'sendQuery'])->middleware('throttle:6,1');
 
     // ---- Login (public, rate-limited) ----
     Route::middleware('throttle:otp')->group(function () {
         Route::post('auth/otp/send', [AuthController::class, 'sendOtp']);
         Route::post('auth/otp/verify', [AuthController::class, 'verifyOtp']);
+        Route::post('auth/2fa/challenge', [TwoFactorController::class, 'challenge']);
     });
 
     // ---- WordPress link (docs/WORDPRESS.md): signed messages from the shop, and the one-time sign-in link ----
@@ -67,6 +69,10 @@ Route::prefix('v1')->group(function () {
         // Profile & devices
         Route::get('me', [ProfileController::class, 'show']);
         Route::put('me', [ProfileController::class, 'update']);
+        Route::get('me/two-factor', [TwoFactorController::class, 'status']);
+        Route::post('me/two-factor/setup', [TwoFactorController::class, 'setup'])->middleware('throttle:10,1');
+        Route::post('me/two-factor/confirm', [TwoFactorController::class, 'confirm'])->middleware('throttle:10,1');
+        Route::post('me/two-factor/disable', [TwoFactorController::class, 'disable'])->middleware('throttle:10,1');
         Route::get('me/devices', [ProfileController::class, 'devices']);
         Route::delete('me/devices/{id}', [ProfileController::class, 'destroyDevice'])->whereNumber('id');
 

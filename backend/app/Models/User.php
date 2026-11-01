@@ -33,7 +33,7 @@ class User extends Authenticatable
         'is_active',
     ];
 
-    protected $hidden = ['remember_token'];
+    protected $hidden = ['remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_last_step'];
 
     protected $attributes = ['is_active' => true];
 
@@ -44,6 +44,9 @@ class User extends Authenticatable
             'email_verified_at' => 'datetime',
             'profile_completed_at' => 'datetime',
             'is_active' => 'boolean',
+            'two_factor_secret' => 'encrypted',
+            'two_factor_recovery_codes' => 'encrypted:array',
+            'two_factor_confirmed_at' => 'datetime',
         ];
     }
 

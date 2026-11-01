@@ -61,7 +61,7 @@ class AuditObserver
         }
 
         // Never write secrets to the log (only the fact that they changed), and keep long text short.
-        $secret = ['password', 'remember_token', 'two_factor_secret'];
+        $secret = ['password', 'remember_token', 'two_factor_secret', 'two_factor_recovery_codes', 'two_factor_last_step', 'app_authentication_secret', 'app_authentication_recovery_codes'];
         $old = [];
         foreach ($dirty as $field => $value) {
             if (in_array($field, $secret, true)) {

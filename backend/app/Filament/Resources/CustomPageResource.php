@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SuperAdminOnlyDeletes;
 use App\Filament\Resources\CustomPageResource\Pages;
 use App\Models\CustomPage;
 use Filament\Actions\BulkActionGroup;
@@ -29,6 +30,8 @@ use Illuminate\Support\Str;
 
 class CustomPageResource extends Resource
 {
+    use SuperAdminOnlyDeletes;
+
     protected static ?string $model = CustomPage::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-plus';

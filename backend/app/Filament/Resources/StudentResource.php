@@ -66,7 +66,9 @@ class StudentResource extends Resource
     {
         return $schema->components([
             TextInput::make('email')->label('Email address')->email()->required()->unique(ignoreRecord: true)
-                ->helperText('This is what the student logs in with: a one-time code is emailed to it.'),
+                ->disabled(fn (string $operation) => $operation === 'edit' && ! (auth('admin')->user()?->isSuperAdmin() ?? false))
+                ->dehydrated(fn (string $operation) => $operation !== 'edit' || (auth('admin')->user()?->isSuperAdmin() ?? false))
+                ->helperText('This is what the student logs in with: a one-time code is emailed to it. Changing it is Super Admin only (it would hand the account to a new owner).'),
             TextInput::make('phone')->label('Mobile number (optional)')->regex('/^[6-9]\d{9}$/')->unique(ignoreRecord: true)
                 ->helperText('10 digits. Only used to contact the student.'),
             Toggle::make('is_active')->label('Account active')->default(true)->inline(false)
@@ -219,6 +221,17 @@ class StudentResource extends Resource
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close')
                     ->modalWidth('3xl'),
+
+                Action::make('reset2fa')->label('Reset two-step')->icon('heroicon-o-key')->color('warning')
+                    ->visible(fn (User $record) => (auth('admin')->user()?->isSuperAdmin() ?? false) && $record->two_factor_confirmed_at !== null)
+                    ->requiresConfirmation()
+                    ->modalDescription('Use this when the student lost their authenticator app. Their two-step verification is switched off and they can set it up again.')
+                    ->action(function (User $record) {
+                        app(\App\Services\Auth\StudentTwoFactor::class)->clear($record);
+                        $record->tokens()->delete();
+                        \App\Models\ActivityLog::record(event: 'student.2fa_reset', description: "Super Admin reset two-step verification for {$record->email}.", subject: $record, admin: auth('admin')->user(), student: $record);
+                        Notification::make()->title('Two-step verification reset')->success()->send();
+                    }),
 
                 EditAction::make(),
 
