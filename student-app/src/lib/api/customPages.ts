@@ -32,6 +32,10 @@ export interface CustomPageDetail extends CustomPageListItem {
   blocks?: CustomPageBlock[] | null;
   meta_description?: string | null;
   updated_at?: string;
+  theme?: string | null;
+  width?: string | null;
+  show_header?: boolean | null;
+  cover_image_url?: string | null;
 }
 
 export async function list(): Promise<CustomPageListItem[]> {

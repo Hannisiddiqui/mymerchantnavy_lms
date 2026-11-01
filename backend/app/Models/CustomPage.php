@@ -15,8 +15,17 @@ class CustomPage extends Model
     protected array $htmlFields = ['content'];
 
     /** Blocks hold HTML in "body" and web addresses in the *url fields: both are cleaned. */
+    /** Pages that are published and inside their schedule. */
+    public function scopeLive($query)
+    {
+        return $query->where('is_published', true)
+            ->where(fn ($q) => $q->whereNull('publish_at')->orWhere('publish_at', '<=', now()))
+            ->where(fn ($q) => $q->whereNull('unpublish_at')->orWhere('unpublish_at', '>', now()));
+    }
+
     protected function sanitizeExtra(): void
     {
+        $this->cover_image_url = $this->cover_image_url ? (\App\Support\HtmlSanitizer::url($this->cover_image_url, ['http', 'https']) ?: null) : null;
         $clean = function (array $blocks) use (&$clean): array {
             foreach ($blocks as $key => $value) {
                 if (is_array($value)) {
@@ -48,6 +57,14 @@ class CustomPage extends Model
         'is_published',
         'show_in_sidebar',
         'sort_order',
+        'theme',
+        'width',
+        'show_header',
+        'cover_image_url',
+        'access',
+        'access_course_ids',
+        'publish_at',
+        'unpublish_at',
     ];
 
     protected $casts = [
@@ -55,6 +72,10 @@ class CustomPage extends Model
         'is_published' => 'boolean',
         'show_in_sidebar' => 'boolean',
         'sort_order' => 'integer',
+        'show_header' => 'boolean',
+        'access_course_ids' => 'array',
+        'publish_at' => 'datetime',
+        'unpublish_at' => 'datetime',
     ];
 
     protected static function booted(): void

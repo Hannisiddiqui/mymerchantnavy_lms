@@ -61,3 +61,10 @@ Also: HTTPS everywhere (force it in hPanel), keep `.env` outside the web root (t
 1. `php artisan migrate --force` (adds the two-step columns). The deploy workflow does this.
 2. The Super Admin signs in, opens Profile and sets up the authenticator app (optional but recommended). Save the recovery codes.
 3. Rebuild the student site in hPanel (Node.js Web App) so students get the two-step screens and the new protections.
+
+## Page Builder (Page Builder in the admin panel)
+
+Each custom page has: colour theme, width, optional cover image and title bar, a schedule (go live / hide on), and who may open it (every
+logged-in student, only students of chosen courses, or anyone with the link). 22 section types, including text columns, buttons, photo
+gallery, steps/timeline, table, downloads, batches for sale, countdown, checklist, spacer and custom HTML. Everything an admin types is
+cleaned when saved and again when shown (no scripts, no `javascript:` links, only YouTube/Vimeo players).

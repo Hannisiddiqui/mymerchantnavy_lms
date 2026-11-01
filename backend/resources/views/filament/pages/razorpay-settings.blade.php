@@ -26,7 +26,7 @@
     @if ($found)
         <div class="mmn-card">
             <div class="mmn-stat-label">Razorpay says</div>
-            <table class="mmn-table">
+            <table class="mmn-table mmn-kv">
                 <tr><th>ID</th><td><code>{{ $found['id'] }}</code></td></tr>
                 <tr><th>Status</th><td>{{ ucfirst($found['status']) }}</td></tr>
                 <tr><th>Amount</th><td>₹{{ number_format($found['amount'], 2) }}</td></tr>

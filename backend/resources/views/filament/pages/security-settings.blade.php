@@ -21,13 +21,12 @@
             <div class="mmn-card">
                 <div class="mmn-stat-label">Admin accounts</div>
                 <div class="mmn-table-wrap">
-                    <table class="mmn-table mmn-table-wide">
-                        <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Two-step</th></tr></thead>
+                    <table class="mmn-table">
+                        <thead><tr><th>Admin</th><th>Role</th><th>Two-step</th></tr></thead>
                         <tbody>
                         @foreach ($this->admins() as $a)
                             <tr>
-                                <td>{{ $a->name }}</td>
-                                <td>{{ $a->email }}</td>
+                                <td><strong>{{ $a->name }}</strong><br><span class="mmn-muted" style="margin:0">{{ $a->email }}</span></td>
                                 <td>{{ $a->role?->label() }}</td>
                                 <td>
                                     @if ($a->hasTwoFactor())

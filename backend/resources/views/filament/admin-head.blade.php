@@ -257,7 +257,7 @@
     .mmn-table td { padding: .6rem .75rem; border-top: 1px solid var(--gray-200); vertical-align: top; }
     .dark .mmn-table td { border-top-color: rgba(255,255,255,.08); }
     .mmn-table-wide { min-width: 720px; }
-    .mmn-table:not(.mmn-table-wide) th { width: 11rem; }
+    .mmn-kv th { width: 11rem; }
 
     /* the cards follow the panel theme in light and dark */
     .mmn-card, .mmn-action-card { background-color: #fff; border-color: var(--gray-200); }
