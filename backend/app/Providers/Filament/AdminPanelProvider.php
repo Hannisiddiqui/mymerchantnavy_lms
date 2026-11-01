@@ -37,12 +37,13 @@ class AdminPanelProvider extends PanelProvider
             ->authGuard('admin')
             ->login()
             ->profile()
-            // Two-step verification (authenticator app + recovery codes). The Super Admin account always needs it;
-            // for every other admin it is on by default and can be switched under Settings > Security.
+            // Two-step verification (authenticator app + recovery codes). Every admin can switch it on after logging in
+            // (profile page, top right). It only becomes compulsory if the Super Admin turns on "Require two-step" under
+            // Super Admin > Security; the Super Admin's own account is never forced into it.
             ->multiFactorAuthentication(
                 [AppAuthentication::make()->recoverable()],
-                isRequired: fn (): bool => (bool) (auth('admin')->user()?->isSuperAdmin()
-                    || filter_var(Setting::get('admin_2fa_required', '1'), FILTER_VALIDATE_BOOLEAN)),
+                isRequired: fn (): bool => ! (auth('admin')->user()?->isSuperAdmin() ?? false)
+                    && filter_var(Setting::get('admin_2fa_required', '0'), FILTER_VALIDATE_BOOLEAN),
             )
             ->brandName('My Merchant Navy')
             ->font('Inter')
@@ -73,6 +74,6 @@ class AdminPanelProvider extends PanelProvider
                 DisableBladeIconComponents::class,
                 DispatchServingFilamentEvent::class,
             ])
-            ->authMiddleware([Authenticate::class]);
+            ->authMiddleware([Authenticate::class, \App\Http\Middleware\RestrictPreviewAdmin::class]);
     }
 }

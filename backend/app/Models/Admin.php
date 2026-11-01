@@ -98,6 +98,11 @@ class Admin extends Authenticatable implements FilamentUser, HasAppAuthenticatio
         return strtolower((string) $this->email) === self::SUPER_ADMIN_EMAIL;
     }
 
+    public function isStudentPreview(): bool
+    {
+        return $this->role === AdminRole::StudentPreview;
+    }
+
     public function isSiteManager(): bool
     {
         return $this->role === AdminRole::SiteManager;

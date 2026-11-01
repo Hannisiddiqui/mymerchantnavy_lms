@@ -25,18 +25,18 @@ class PlatformStats extends StatsOverviewWidget
         $hasExpiresAt = Schema::hasColumn('enrollments', 'expires_at');
         $hasPurchaseType = Schema::hasColumn('enrollments', 'purchase_type');
 
-        $totalStudents = User::count();
+        $totalStudents = User::real()->count();
         $paidStudents = $hasPurchaseType ? User::withPaidEnrollment()->count() : 0;
         $freeStudents = $hasPurchaseType ? User::withFreeEnrollment()->count() : 0;
         $studentsWithoutCourse = User::withoutCourses()->count();
 
-        $activeEnrollments = $hasExpiresAt ? Enrollment::active()->count() : Enrollment::count();
-        $expiredEnrollments = $hasExpiresAt ? Enrollment::expired()->count() : 0;
-        $testsToday = TestAttempt::whereDate('submitted_at', today())->count();
+        $activeEnrollments = $hasExpiresAt ? Enrollment::real()->active()->count() : Enrollment::real()->count();
+        $expiredEnrollments = $hasExpiresAt ? Enrollment::real()->expired()->count() : 0;
+        $testsToday = TestAttempt::real()->whereDate('submitted_at', today())->count();
 
         return [
             Stat::make('Total Students', $totalStudents)
-                ->description(User::whereDate('created_at', today())->count() . ' registered today')
+                ->description(User::real()->whereDate('created_at', today())->count() . ' registered today')
                 ->descriptionIcon('heroicon-m-user-plus')
                 ->icon('heroicon-o-academic-cap')
                 ->color('primary')
@@ -78,7 +78,7 @@ class PlatformStats extends StatsOverviewWidget
                 ->url(StudentResource::getUrl('index', ['tableFilters[enrollment_status][value]' => 'expired'])),
 
             Stat::make('Tests Taken Today', $testsToday)
-                ->description(TestAttempt::whereNotNull('submitted_at')->count() . ' total test attempts')
+                ->description(TestAttempt::real()->whereNotNull('submitted_at')->count() . ' total test attempts')
                 ->descriptionIcon('heroicon-m-clipboard-document-check')
                 ->icon('heroicon-o-chart-bar')
                 ->color('primary')

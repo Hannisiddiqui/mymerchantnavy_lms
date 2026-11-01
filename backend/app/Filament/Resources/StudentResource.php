@@ -62,6 +62,11 @@ class StudentResource extends Resource
         return auth('admin')->user()?->isSuperAdmin() ?? false;
     }
 
+    public static function getEloquentQuery(): \Illuminate\Database\Eloquent\Builder
+    {
+        return parent::getEloquentQuery()->real();
+    }
+
     public static function form(Schema $schema): Schema
     {
         return $schema->components([

@@ -90,6 +90,7 @@ class AdminResource extends Resource
                         AdminRole::SiteManager->value => 'Site Manager (Student Support & WhatsApp Chat Manager)',
                         AdminRole::Manager->value => 'Manager (Content and question editor)',
                         AdminRole::Support->value => 'Support (Student assistance)',
+                        AdminRole::StudentPreview->value => 'Student (view only: can open the student dashboard to check courses, nothing else)',
                     ];
                 })
                 ->default(AdminRole::Admin->value)

@@ -10,6 +10,14 @@ use Illuminate\Database\Eloquent\Model;
  */
 trait SuperAdminOnlyDeletes
 {
+    /** The "Student (view only)" role sees none of the management screens: only the student preview. */
+    public static function canViewAny(): bool
+    {
+        $admin = auth('admin')->user();
+
+        return $admin && ! $admin->isStudentPreview() && parent::canViewAny();
+    }
+
     public static function canDelete(Model $record): bool
     {
         return auth('admin')->user()?->isSuperAdmin() ?? false;

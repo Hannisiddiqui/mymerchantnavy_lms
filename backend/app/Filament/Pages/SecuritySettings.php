@@ -36,7 +36,7 @@ class SecuritySettings extends Page
     public function mount(): void
     {
         $this->form->fill([
-            'admin_2fa_required' => filter_var(Setting::get('admin_2fa_required', '1'), FILTER_VALIDATE_BOOLEAN),
+            'admin_2fa_required' => filter_var(Setting::get('admin_2fa_required', '0'), FILTER_VALIDATE_BOOLEAN),
             'student_2fa_enabled' => filter_var(Setting::get('student_2fa_enabled', '1'), FILTER_VALIDATE_BOOLEAN),
         ]);
     }
@@ -45,11 +45,11 @@ class SecuritySettings extends Page
     {
         return $schema->statePath('data')->components([
             Section::make('Two-step verification')
-                ->description('Your own Super Admin account always needs it. These switches decide the rest.')
+                ->description('Everyone can switch two-step verification on for their own account after logging in (profile page). Admins: top-right menu > Profile. Students: My Profile on the student site. These switches decide the rest.')
                 ->schema([
                     Toggle::make('admin_2fa_required')
-                        ->label('Require two-step verification for every admin')
-                        ->helperText('Each admin is asked to set up an authenticator app at their next login and enters a 6-digit code every time. Keep this ON.'),
+                        ->label('Force two-step verification for every admin (except you)')
+                        ->helperText('When ON, each admin is made to set up an authenticator app at their next login. Leave OFF to let admins choose. Your own Super Admin account is never forced, but we strongly recommend turning it on for yourself.'),
                     Toggle::make('student_2fa_enabled')
                         ->label('Let students turn on two-step verification')
                         ->helperText('Adds a switch under My Profile on the student site. Students who turned it on keep being asked until they turn it off.'),
@@ -88,7 +88,7 @@ class SecuritySettings extends Page
             ['ok' => in_array(config('session.same_site'), ['lax', 'strict'], true), 'title' => 'Login cookies are same-site only', 'hint' => 'Set SESSION_SAME_SITE=lax (or strict).'],
             ['ok' => (bool) config('session.encrypt'), 'title' => 'Sessions are encrypted', 'hint' => 'Set SESSION_ENCRYPT=true.'],
             ['ok' => config('queue.default') !== 'sync' || config('app.env') !== 'production', 'title' => 'Emails go through the queue', 'hint' => 'Use QUEUE_CONNECTION=database in production.'],
-            ['ok' => (bool) $super?->hasTwoFactor(), 'title' => 'Your Super Admin account has two-step verification', 'hint' => 'Open your profile (top right) and set up the authenticator app.'],
+            ['ok' => (bool) $super?->hasTwoFactor(), 'title' => 'Your Super Admin account has two-step verification (recommended)', 'hint' => 'Top-right menu > Profile > Two-factor authentication > Set up.'],
             ['ok' => filled(config('lms.wordpress.secret')) && strlen((string) config('lms.wordpress.secret')) >= 32, 'title' => 'The WordPress link secret is long and random', 'hint' => 'Run tools/set-wp-secret.sh on the server.'],
         ];
     }

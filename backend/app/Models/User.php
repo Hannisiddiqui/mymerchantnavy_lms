@@ -50,6 +50,12 @@ class User extends Authenticatable
         ];
     }
 
+    /** Real students only: the preview accounts admins use to look at the student site are left out of counts and reports. */
+    public function scopeReal($query)
+    {
+        return $query->where('users.is_preview', false);
+    }
+
     protected static function booted(): void
     {
         // Switching a student to inactive also ends every session they have open, so the block takes effect at once.

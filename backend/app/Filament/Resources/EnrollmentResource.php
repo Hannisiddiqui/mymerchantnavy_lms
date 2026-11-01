@@ -27,6 +27,13 @@ class EnrollmentResource extends Resource
 
     protected static ?int $navigationSort = 1;
 
+    public static function canViewAny(): bool
+    {
+        $admin = auth('admin')->user();
+
+        return $admin && ! $admin->isStudentPreview();
+    }
+
     public static function canCreate(): bool
     {
         return false;
@@ -35,7 +42,7 @@ class EnrollmentResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['user', 'course']))
+            ->modifyQueryUsing(fn ($query) => $query->real()->with(['user', 'course']))
             ->columns([
                 TextColumn::make('purchase_date')->label('Purchased on')->dateTime('d M Y, h:i A')->sortable()
                     ->description(fn (Enrollment $r) => $r->purchase_date?->diffForHumans()),

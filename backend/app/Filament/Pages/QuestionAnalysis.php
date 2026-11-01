@@ -19,6 +19,13 @@ use Illuminate\Support\Str;
  */
 class QuestionAnalysis extends Page implements HasTable
 {
+    public static function canAccess(): bool
+    {
+        $admin = auth('admin')->user();
+
+        return $admin && ! $admin->isStudentPreview();
+    }
+
     use InteractsWithTable;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-presentation-chart-line';

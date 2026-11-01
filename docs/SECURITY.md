@@ -5,9 +5,13 @@ live checklist of the server settings below.
 
 ## Built in
 
-- **Two-step verification for admins.** Every admin signs in with password + a 6-digit authenticator code (recovery codes are given at
-  set-up). The Super Admin account always needs it; for others it is on by default (Super Admin > Security). Lost phone: Settings >
-  Admins > **Reset two-step**.
+- **Two-step verification for admins.** Optional for everyone: after logging in, open the top-right menu > **Profile** > Two-factor
+  authentication > Set up (needs your password, then a code from the authenticator app; recovery codes are shown once). The Super Admin
+  can force it for all other admins under Super Admin > Security. Lost phone: Settings > Admins > **Reset two-step**.
+  Forgot your password? While logged in: Profile > New password > Save. Otherwise reset it on the server:
+  `php artisan lms:create-admin support.mymerchantnavy@gmail.com --password='NewStrongPassword'`.
+- **Student (view only) role.** Create an admin with this role (Settings > Admins). They can only open **View as student**: the student
+  site opens signed in as a private preview student with that one course. Preview students are left out of all counts, purchases, results and rankings.
 - **Optional two-step verification for students.** Under My Profile on the student site; the Super Admin can switch the feature off or
   reset one student (Students > Reset two-step). Codes work once; recovery codes work once; 5 wrong tries end the login attempt.
 - **Only the Super Admin can delete** courses, tests, questions, batches, pages, imports, queries and students (deleting is permanent),
@@ -53,5 +57,5 @@ Also: HTTPS everywhere (force it in hPanel), keep `.env` outside the web root (t
 ## After deploying this update
 
 1. `php artisan migrate --force` (adds the two-step columns). The deploy workflow does this.
-2. The Super Admin signs in once and is taken to **set up the authenticator app**. Save the recovery codes.
+2. The Super Admin signs in, opens Profile and sets up the authenticator app (optional but recommended). Save the recovery codes.
 3. Rebuild the student site in hPanel (Node.js Web App) so students get the two-step screens and the new protections.
