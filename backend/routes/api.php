@@ -63,7 +63,7 @@ Route::prefix('v1')->group(function () {
         ->whereNumber(['content', 'page'])->middleware('signed')->name('pdf.page');
 
     // ---- Logged-in student ----
-    Route::middleware(['auth:sanctum', 'throttle:api'])->group(function () {
+    Route::middleware(['auth:sanctum', \App\Http\Middleware\EnforceStudentTwoFactor::class, 'throttle:api'])->group(function () {
         Route::post('auth/logout', [AuthController::class, 'logout']);
 
         // Profile & devices

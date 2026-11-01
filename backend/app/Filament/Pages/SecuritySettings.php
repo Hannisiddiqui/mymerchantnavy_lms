@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Models\ActivityLog;
 use App\Models\Admin;
 use App\Models\Setting;
+use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
@@ -37,7 +38,7 @@ class SecuritySettings extends Page
     {
         $this->form->fill([
             'admin_2fa_required' => filter_var(Setting::get('admin_2fa_required', '0'), FILTER_VALIDATE_BOOLEAN),
-            'student_2fa_enabled' => filter_var(Setting::get('student_2fa_enabled', '1'), FILTER_VALIDATE_BOOLEAN),
+            'student_2fa_mode' => \App\Services\Auth\StudentTwoFactor::mode(),
         ]);
     }
 
@@ -45,14 +46,20 @@ class SecuritySettings extends Page
     {
         return $schema->statePath('data')->components([
             Section::make('Two-step verification')
-                ->description('Everyone can switch two-step verification on for their own account after logging in (profile page). Admins: top-right menu > Profile. Students: My Profile on the student site. These switches decide the rest.')
+                ->description('Admins switch it on from the top-right menu > Profile (you can force it below). Students are controlled by the setting below.')
                 ->schema([
                     Toggle::make('admin_2fa_required')
                         ->label('Force two-step verification for every admin (except you)')
                         ->helperText('When ON, each admin is made to set up an authenticator app at their next login. Leave OFF to let admins choose. Your own Super Admin account is never forced, but we strongly recommend turning it on for yourself.'),
-                    Toggle::make('student_2fa_enabled')
-                        ->label('Let students turn on two-step verification')
-                        ->helperText('Adds a switch under My Profile on the student site. Students who turned it on keep being asked until they turn it off.'),
+                    Select::make('student_2fa_mode')
+                        ->label('Two-step verification for students')
+                        ->options([
+                            'required' => 'Compulsory: every student must set it up (recommended)',
+                            'optional' => 'Optional: students choose under My Profile',
+                            'off' => 'Off: students are never asked',
+                        ])
+                        ->native(false)->selectablePlaceholder(false)
+                        ->helperText('Compulsory: after their emailed login code, a student who has not set it up is taken to a set-up screen and cannot open anything else until it is done. They cannot turn it off themselves. Lost phone: Students > Reset two-step.'),
                 ])->columns(1),
         ]);
     }
@@ -61,12 +68,12 @@ class SecuritySettings extends Page
     {
         $d = $this->form->getState();
         Setting::set('admin_2fa_required', $d['admin_2fa_required'] ? '1' : '0', 'Require two-step verification for every admin.');
-        Setting::set('student_2fa_enabled', $d['student_2fa_enabled'] ? '1' : '0', 'Allow students to use two-step verification.');
+        Setting::set('student_2fa_mode', $d['student_2fa_mode'], 'Students and two-step verification: required, optional or off.');
 
         ActivityLog::record(
             event: 'security.settings_updated',
             description: 'Super Admin updated the two-step verification rules.',
-            properties: ['admin_2fa_required' => (bool) $d['admin_2fa_required'], 'student_2fa_enabled' => (bool) $d['student_2fa_enabled']],
+            properties: ['admin_2fa_required' => (bool) $d['admin_2fa_required'], 'student_2fa_mode' => $d['student_2fa_mode']],
             admin: auth('admin')->user()
         );
 

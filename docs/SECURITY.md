@@ -12,8 +12,10 @@ live checklist of the server settings below.
   `php artisan lms:create-admin support.mymerchantnavy@gmail.com --password='NewStrongPassword'`.
 - **Student (view only) role.** Create an admin with this role (Settings > Admins). They can only open **View as student**: the student
   site opens signed in as a private preview student with that one course. Preview students are left out of all counts, purchases, results and rankings.
-- **Optional two-step verification for students.** Under My Profile on the student site; the Super Admin can switch the feature off or
-  reset one student (Students > Reset two-step). Codes work once; recovery codes work once; 5 wrong tries end the login attempt.
+- **Two-step verification for students: compulsory by default.** After the emailed login code a student who has not set it up is taken to a
+  set-up screen (authenticator app + recovery codes) and the server refuses everything else until it is done; they cannot turn it off.
+  The Super Admin chooses **Compulsory / Optional / Off** under Super Admin > Security, and can reset one student (Students > Reset two-step).
+  Codes work once; recovery codes work once; wrong guesses are limited. Admins' preview students are exempt.
 - **Only the Super Admin can delete** courses, tests, questions, batches, pages, imports, queries and students (deleting is permanent),
   change a course's validity or WordPress product id, change a student's login email, manage admins, coupons, Razorpay, security,
   purchase emails, session limits and notification settings.

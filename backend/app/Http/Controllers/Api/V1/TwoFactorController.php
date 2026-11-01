@@ -18,6 +18,7 @@ class TwoFactorController extends Controller
     {
         return response()->json(['data' => [
             'available' => StudentTwoFactor::featureOn(),
+            'required' => StudentTwoFactor::requiredFor($request->user()),
             'enabled' => $this->twoFactor->enabledFor($request->user()),
         ]]);
     }
@@ -41,6 +42,7 @@ class TwoFactorController extends Controller
 
     public function disable(Request $request): JsonResponse
     {
+        abort_if(StudentTwoFactor::requiredFor($request->user()), 403, 'Two-step verification is compulsory for all students and cannot be turned off.');
         $code = (string) $request->validate(['code' => ['required', 'string', 'max:20']])['code'];
         abort_unless($this->twoFactor->disable($request->user(), $code), 422, 'That code is not right.');
 

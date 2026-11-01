@@ -11,7 +11,7 @@ import { Card, CardHeader } from "@/components/ui/Card";
 type Step = "idle" | "scan" | "codes" | "off";
 
 /** Student switch for two-step verification (authenticator app). Lives on My Profile. */
-export function TwoFactorCard() {
+export function TwoFactorCard({ onEnabled }: { onEnabled?: () => void }) {
   const [status, setStatus] = useState<api.twoFactor.TwoFactorStatus | null>(null);
   const [step, setStep] = useState<Step>("idle");
   const [secret, setSecret] = useState("");
@@ -48,7 +48,7 @@ export function TwoFactorCard() {
     try {
       const res = await api.twoFactor.confirm(code);
       setCodes(res.recoveryCodes);
-      setStatus({ available: true, enabled: true });
+      setStatus((s) => (s ? { ...s, enabled: true } : s));
       setStep("codes");
     } catch (e) {
       setError(e instanceof Error ? e.message : "That code is not right.");
@@ -61,7 +61,7 @@ export function TwoFactorCard() {
     setError("");
     try {
       await api.twoFactor.disable(code);
-      setStatus({ available: true, enabled: false });
+      setStatus((s) => (s ? { ...s, enabled: false } : s));
       setStep("idle");
       setCode("");
     } catch (e) {
@@ -99,7 +99,11 @@ export function TwoFactorCard() {
             </p>
             {error && <p className="text-sm font-medium text-red-600">{error}</p>}
             {status.enabled ? (
-              <Button variant="outline" onClick={() => { setStep("off"); setCode(""); setError(""); }}>Turn off</Button>
+              status.required ? (
+                <p className="text-xs text-slate-500">Two-step verification is compulsory for all students, so it cannot be turned off.</p>
+              ) : (
+                <Button variant="outline" onClick={() => { setStep("off"); setCode(""); setError(""); }}>Turn off</Button>
+              )
             ) : (
               <Button onClick={start} loading={busy}>Set up</Button>
             )}
@@ -132,7 +136,7 @@ export function TwoFactorCard() {
                 <li key={c} className="rounded-lg bg-slate-100 px-3 py-2">{c}</li>
               ))}
             </ul>
-            <Button onClick={() => { setStep("idle"); setCode(""); }}>I have saved them</Button>
+            <Button onClick={() => { setStep("idle"); setCode(""); onEnabled?.(); }}>I have saved them</Button>
           </>
         )}
 

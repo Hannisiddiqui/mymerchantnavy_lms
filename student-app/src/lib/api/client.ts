@@ -60,6 +60,10 @@ export async function request<T>(path: string, init: RequestInit = {}): Promise<
   }
 
   const body = await res.json().catch(() => ({}));
+  // Two-step verification is compulsory and this student has not set it up yet: nothing works until they do.
+  if (res.status === 403 && body.code === "two_factor_setup_required" && typeof window !== "undefined" && window.location.pathname !== "/security-setup") {
+    window.location.href = "/security-setup";
+  }
   if (!res.ok) throw new ApiError(body.message ?? "Something went wrong", res.status, body.errors);
   return body.data as T;
 }

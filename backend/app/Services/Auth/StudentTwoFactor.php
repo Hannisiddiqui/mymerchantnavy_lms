@@ -19,9 +19,23 @@ class StudentTwoFactor
 
     private const MAX_TRIES = 5;
 
+    /** 'required' (default: every student must use it), 'optional' (students choose) or 'off'. Set by the Super Admin. */
+    public static function mode(): string
+    {
+        $mode = (string) Setting::get('student_2fa_mode', 'required');
+
+        return in_array($mode, ['required', 'optional', 'off'], true) ? $mode : 'required';
+    }
+
     public static function featureOn(): bool
     {
-        return filter_var(Setting::get('student_2fa_enabled', '1'), FILTER_VALIDATE_BOOLEAN);
+        return self::mode() !== 'off';
+    }
+
+    /** Compulsory for this student? (The admins' preview students are exempt, so a course can still be checked.) */
+    public static function requiredFor(User $user): bool
+    {
+        return self::mode() === 'required' && ! $user->is_preview;
     }
 
     public function enabledFor(User $user): bool
@@ -99,7 +113,7 @@ class StudentTwoFactor
 
     public function disable(User $user, string $code): bool
     {
-        if (! $this->enabledFor($user) || ! $this->checkCode($user, $code)) {
+        if (self::requiredFor($user) || ! $this->enabledFor($user) || ! $this->checkCode($user, $code)) {
             return false;
         }
         $this->clear($user);
