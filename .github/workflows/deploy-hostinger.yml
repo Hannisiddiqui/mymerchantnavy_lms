@@ -1,0 +1,49 @@
+name: Deploy to Hostinger
+
+# Runs on every push to main (or by hand from the Actions tab). It logs in to Hostinger over SSH and runs the same
+# update steps as docs/HOSTINGER.md. It does nothing until the four secrets below exist in
+# GitHub > Settings > Secrets and variables > Actions.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency: deploy-hostinger
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      HOST: ${{ secrets.HOSTINGER_HOST }}
+      PORT: ${{ secrets.HOSTINGER_PORT }}
+      SSH_USER: ${{ secrets.HOSTINGER_USER }}
+      SSH_KEY: ${{ secrets.HOSTINGER_SSH_KEY }}
+    steps:
+      - name: Check secrets
+        id: check
+        run: |
+          if [ -z "$HOST" ] || [ -z "$SSH_USER" ] || [ -z "$SSH_KEY" ]; then
+            echo "Hostinger secrets are not set yet: skipping deploy."; echo "go=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "go=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Update the server
+        if: steps.check.outputs.go == 'true'
+        run: |
+          install -m 700 -d ~/.ssh
+          printf '%s\n' "$SSH_KEY" > ~/.ssh/deploy_key && chmod 600 ~/.ssh/deploy_key
+          ssh-keyscan -p "${PORT:-65002}" "$HOST" >> ~/.ssh/known_hosts 2>/dev/null
+          ssh -i ~/.ssh/deploy_key -p "${PORT:-65002}" "$SSH_USER@$HOST" 'bash -se' <<'REMOTE'
+          set -euo pipefail
+          PHP=/opt/alt/php83/usr/bin/php
+          cd ~/lms && git pull --ff-only
+          cd backend
+          $PHP /usr/local/bin/composer install --no-dev --optimize-autoloader --no-interaction
+          $PHP artisan migrate --force
+          $PHP artisan config:cache
+          $PHP artisan route:cache
+          $PHP artisan view:cache
+          $PHP artisan queue:restart || true
+          echo "Backend updated."
+          REMOTE
