@@ -17,11 +17,15 @@ class Setting extends Model
 
     public static function get(string $key, mixed $default = null): mixed
     {
-        return Cache::remember("setting.{$key}", 300, function () use ($key, $default) {
+        // Cache the stored value only. (The default used to be cached too, so the first caller's default
+        // was returned to every later caller for five minutes.)
+        $stored = Cache::remember("setting.{$key}", 300, function () use ($key) {
             $setting = static::where('key', $key)->first();
 
-            return ($setting !== null && $setting->value !== null && $setting->value !== '') ? $setting->value : $default;
+            return ($setting !== null && $setting->value !== null && $setting->value !== '') ? $setting->value : false;
         });
+
+        return $stored === false ? $default : $stored;
     }
 
     public static function set(string $key, mixed $value, ?string $description = null): static

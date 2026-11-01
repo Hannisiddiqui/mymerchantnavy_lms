@@ -5,7 +5,6 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\StudentResource\Pages;
 use App\Filament\Resources\StudentResource\RelationManagers\AttemptsRelationManager;
 use App\Filament\Resources\StudentResource\RelationManagers\CoursesRelationManager;
-use App\Filament\Support\AssignCourseAction;
 use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\User;
@@ -220,8 +219,6 @@ class StudentResource extends Resource
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close')
                     ->modalWidth('3xl'),
-
-                AssignCourseAction::make(fn (Action $action) => $action->getRecord()),
 
                 EditAction::make(),
 

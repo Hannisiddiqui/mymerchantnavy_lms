@@ -10,7 +10,10 @@ use App\Models\User;
 use App\Notifications\CourseAssigned;
 use Carbon\Carbon;
 
-/** Gives a student access to a course (admin assignment or purchase webhook). */
+/**
+ * Gives a student access to a course. Courses are given by purchases (WordPress/Razorpay webhook); there is no manual
+ * assignment in the admin panel any more. Set $sendCourseEmail false when the caller sends its own purchase e-mail.
+ */
 class EnrollmentService
 {
     /**
@@ -28,6 +31,9 @@ class EnrollmentService
         ?string $paymentId = null,
         ?float $amount = null,
         ?\DateTimeInterface $explicitExpiresAt = null,
+        ?string $couponCode = null,
+        ?float $discountAmount = null,
+        bool $sendCourseEmail = true,
     ): bool {
         $actualPurchaseDate = $purchaseDate ? Carbon::parse($purchaseDate) : now();
 
@@ -76,6 +82,8 @@ class EnrollmentService
                 'order_id' => $orderId ?? $existing->order_id,
                 'payment_id' => $paymentId ?: $existing->payment_id,
                 'amount' => $amount ?: $existing->amount,
+                'coupon_code' => $couponCode ?: $existing->coupon_code,
+                'discount_amount' => $discountAmount ?: $existing->discount_amount,
                 'assigned_by' => $isAdminRenewal ? $by->id : $existing->assigned_by,
                 'status' => 'active',
             ]);
@@ -97,7 +105,7 @@ class EnrollmentService
                 student: $student
             );
 
-            $student->notify(new CourseAssigned($course, $newExpiry, renewed: true));
+            $student->notify(new CourseAssigned($course, $newExpiry, renewed: true, sendEmail: $sendCourseEmail));
 
             return true;
         }
@@ -112,6 +120,8 @@ class EnrollmentService
             'order_id' => $orderId,
             'payment_id' => $paymentId,
             'amount' => $amount,
+            'coupon_code' => $couponCode,
+            'discount_amount' => $discountAmount,
             'status' => 'active',
         ]);
 
@@ -130,7 +140,7 @@ class EnrollmentService
             student: $student
         );
 
-        $student->notify(new CourseAssigned($course, $expiresAt));
+        $student->notify(new CourseAssigned($course, $expiresAt, sendEmail: $sendCourseEmail));
 
         return true;
     }
