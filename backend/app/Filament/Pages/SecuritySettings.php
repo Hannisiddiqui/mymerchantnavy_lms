@@ -96,7 +96,7 @@ class SecuritySettings extends Page
             ['ok' => (bool) config('session.encrypt'), 'title' => 'Sessions are encrypted', 'hint' => 'Set SESSION_ENCRYPT=true.'],
             ['ok' => config('queue.default') !== 'sync' || config('app.env') !== 'production', 'title' => 'Emails go through the queue', 'hint' => 'Use QUEUE_CONNECTION=database in production.'],
             ['ok' => (bool) $super?->hasTwoFactor(), 'title' => 'Your Super Admin account has two-step verification (recommended)', 'hint' => 'Top-right menu > Profile > Two-factor authentication > Set up.'],
-            ['ok' => filled(config('lms.wordpress.secret')) && strlen((string) config('lms.wordpress.secret')) >= 32, 'title' => 'The WordPress link secret is long and random', 'hint' => 'Run tools/set-wp-secret.sh on the server.'],
+            ['ok' => \App\Services\WordPress\WordPressLink::secretIsStrong(), 'title' => 'The WordPress link secret is long and random', 'hint' => 'Open Super Admin > WordPress link and press Generate secret, then paste it into the WordPress plugin.'],
         ];
     }
 
