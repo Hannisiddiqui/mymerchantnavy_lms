@@ -224,4 +224,48 @@
     .ri-expl { margin-top: .5rem; font-size: .8125rem; color: var(--gray-600); }
     .ri-expl summary { cursor: pointer; font-weight: 600; color: var(--primary-600); }
     .ri-expl p { margin: .25rem 0; }
+
+    /* ===== Layout helpers shared by the Sales / Settings pages ===== */
+    .mmn-card-grid { grid-template-columns: repeat(auto-fit, minmax(min(100%, 260px), 1fr)); }
+    .mmn-stack { display: flex; flex-direction: column; gap: 1.25rem; margin-top: 1.25rem; }
+    .mmn-two-col { display: grid; gap: 1.25rem; grid-template-columns: minmax(0, 1fr); align-items: start; }
+    @media (min-width: 1100px) { .mmn-two-col { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); } }
+    .mmn-preview-row { margin-top: 1.5rem; }
+    @media (min-width: 1100px) { .mmn-preview-row { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } }
+    .mmn-side { position: static; }
+    @media (min-width: 1100px) { .mmn-side { position: sticky; top: 5rem; } }
+    .mmn-actions { display: flex; flex-wrap: wrap; align-items: center; gap: .75rem; padding-top: 1.25rem; border-top: 1px solid var(--gray-200); }
+    .dark .mmn-actions { border-top-color: rgba(255,255,255,.1); }
+    .mmn-muted { color: var(--gray-500); font-size: .8125rem; line-height: 1.5; margin: .35rem 0 0; }
+    .dark .mmn-muted { color: var(--gray-400); }
+    .mmn-chip-list { list-style: none; margin: .75rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .5rem; }
+    .mmn-chip-list li { display: flex; flex-direction: column; gap: .125rem; }
+    .mmn-chip-list code, .mmn-table code { font-size: .75rem; background: var(--gray-100); color: var(--primary-700); padding: .1rem .4rem; border-radius: .375rem; width: fit-content; word-break: break-all; }
+    .dark .mmn-chip-list code, .dark .mmn-table code { background: rgba(255,255,255,.08); color: var(--primary-300); }
+    .mmn-chip-list span { font-size: .75rem; color: var(--gray-500); }
+    .dark .mmn-chip-list span { color: var(--gray-400); }
+    .mmn-preview-subject { font-weight: 600; margin: .5rem 0 .75rem; color: var(--gray-950); }
+    .dark .mmn-preview-subject { color: #fff; }
+    .mmn-preview-body { border: 1px solid var(--gray-200); border-radius: .75rem; padding: 1rem 1.125rem; background: #fff; color: #334155; font-size: .9rem; line-height: 1.6; overflow-x: auto; }
+    .dark .mmn-preview-body { border-color: rgba(255,255,255,.1); }
+
+    /* simple tables on Sales pages: scroll sideways on phones instead of breaking the page */
+    .mmn-table-wrap { overflow-x: auto; margin-top: .75rem; }
+    .mmn-table { width: 100%; border-collapse: collapse; font-size: .875rem; margin-top: .5rem; }
+    .mmn-table th { text-align: left; font-size: .75rem; font-weight: 600; text-transform: uppercase; letter-spacing: .04em; color: var(--gray-500); padding: .5rem .75rem; white-space: nowrap; }
+    .mmn-table td { padding: .6rem .75rem; border-top: 1px solid var(--gray-200); vertical-align: top; }
+    .dark .mmn-table td { border-top-color: rgba(255,255,255,.08); }
+    .mmn-table-wide { min-width: 720px; }
+    .mmn-table:not(.mmn-table-wide) th { width: 11rem; }
+
+    /* the cards follow the panel theme in light and dark */
+    .mmn-card, .mmn-action-card { background-color: #fff; border-color: var(--gray-200); }
+    .dark .mmn-card, .dark .mmn-action-card { background-color: var(--gray-900); border-color: rgba(255,255,255,.1); }
+
+    /* tidy form sections and tap targets on phones */
+    .fi-section { border-radius: .875rem; }
+    @media (max-width: 640px) {
+        .mmn-actions > * { flex: 1 1 100%; }
+        .mmn-action-card { flex-direction: column; align-items: stretch; }
+    }
 </style>

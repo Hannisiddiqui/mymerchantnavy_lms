@@ -53,6 +53,12 @@ return [
         'model' => env('ANTHROPIC_MODEL', 'claude-opus-5-5'),
     ],
 
+    // Razorpay: optional fallback for the keys saved under Sales > Razorpay in the admin panel (read-only lookups).
+    'razorpay' => [
+        'key_id' => env('RAZORPAY_KEY_ID'),
+        'key_secret' => env('RAZORPAY_KEY_SECRET'),
+    ],
+
     'slack' => [
         'notifications' => [
             'bot_user_oauth_token' => env('SLACK_BOT_USER_OAUTH_TOKEN'),

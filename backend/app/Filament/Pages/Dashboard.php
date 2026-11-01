@@ -2,7 +2,6 @@
 
 namespace App\Filament\Pages;
 
-use App\Filament\Support\AssignCourseAction;
 use App\Models\Course;
 use App\Models\Enrollment;
 use App\Models\TestAttempt;
@@ -266,8 +265,6 @@ class Dashboard extends BaseDashboard implements HasTable
                     ->modalSubmitAction(false)
                     ->modalCancelActionLabel('Close')
                     ->modalWidth('3xl'),
-
-                AssignCourseAction::make(fn (Action $action) => $action->getRecord()),
             ])
             ->paginated([10, 25, 50])
             ->emptyStateHeading('No students found')

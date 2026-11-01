@@ -53,6 +53,7 @@ Route::prefix('v1')->group(function () {
         Route::post('student', [WordPressController::class, 'student']);
         Route::post('enroll', [WordPressController::class, 'enroll']);
         Route::post('check', [WordPressController::class, 'check']);
+        Route::post('quote', [WordPressController::class, 'quote']);
     });
 
     // ---- Protected PDF page images: signed, expiring link (an <img> tag can't send the login token) ----

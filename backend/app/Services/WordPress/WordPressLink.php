@@ -4,7 +4,10 @@ namespace App\Services\WordPress;
 
 use App\Models\Course;
 use App\Models\User;
+use App\Models\Enrollment;
 use App\Services\Courses\EnrollmentService;
+use App\Services\Purchases\CouponService;
+use App\Services\Purchases\PurchaseNotifier;
 use Illuminate\Support\Facades\Cache;
 
 /**
@@ -15,7 +18,11 @@ class WordPressLink
 {
     private const CLOCK_SKEW = 300;
 
-    public function __construct(private EnrollmentService $enrollments) {}
+    public function __construct(
+        private EnrollmentService $enrollments,
+        private PurchaseNotifier $notifier,
+        private CouponService $coupons,
+    ) {}
 
     public function enabled(): bool
     {
@@ -130,16 +137,23 @@ class WordPressLink
             ->values()->all();
     }
 
-    /** @return array<int,string> titles of the courses newly given */
+    /**
+     * Gives the courses of a product after a payment and sends the two purchase e-mails (student + admin) once.
+     *
+     * @return array<int,string> titles of the courses newly given
+     */
     public function enroll(
         User $student,
         string $productId,
         ?string $orderId = null,
         ?string $paymentId = null,
         ?float $amount = null,
-        ?\DateTimeInterface $purchaseDate = null
+        ?\DateTimeInterface $purchaseDate = null,
+        ?string $couponCode = null,
+        ?float $discountAmount = null,
     ): array {
         $given = [];
+        $givenIds = [];
         // A price of 0 is a free sign-up. When WordPress sends no amount (older plugin), it is treated as a paid purchase.
         $purchaseType = ($amount !== null && $amount <= 0) ? 'free' : 'paid';
         foreach ($this->coursesFor($productId) as $course) {
@@ -151,13 +165,32 @@ class WordPressLink
                 purchaseType: $purchaseType,
                 orderId: $orderId,
                 paymentId: $paymentId,
-                amount: $amount
+                amount: $amount,
+                couponCode: $couponCode,
+                discountAmount: $discountAmount,
+                sendCourseEmail: false, // the purchase e-mail below replaces the plain "course assigned" e-mail
             )) {
                 $given[] = $course->title;
+                $givenIds[] = $course->id;
             }
         }
 
+        // Only on a real change: a repeated message for the same order gives nothing, so nobody gets a second e-mail.
+        if ($givenIds) {
+            $this->coupons->markUsed($couponCode);
+            $this->notifier->send(
+                $student,
+                Enrollment::where('user_id', $student->id)->whereIn('course_id', $givenIds)->with('course')->get()
+            );
+        }
+
         return $given;
+    }
+
+    /** What WordPress should charge: it sends the price, the LMS returns the discount of the coupon (if any). */
+    public function quote(string $productId, float $price, ?string $coupon, ?string $email): array
+    {
+        return $this->coupons->quote($productId, $price, $coupon, $email);
     }
 
     private function phone(?string $phone): ?string

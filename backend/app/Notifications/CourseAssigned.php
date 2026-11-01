@@ -14,11 +14,11 @@ class CourseAssigned extends Notification implements ShouldQueue
 {
     use Queueable;
 
-    public function __construct(private Course $course, private ?CarbonInterface $expiresAt = null, private bool $renewed = false) {}
+    public function __construct(private Course $course, private ?CarbonInterface $expiresAt = null, private bool $renewed = false, private bool $sendEmail = true) {}
 
     public function via(object $notifiable): array
     {
-        return filled($notifiable->email) ? ['database', 'mail'] : ['database'];
+        return ($this->sendEmail && filled($notifiable->email)) ? ['database', 'mail'] : ['database'];
     }
 
     /** Shape matches `AppNotification` in student-app/src/types/index.ts */

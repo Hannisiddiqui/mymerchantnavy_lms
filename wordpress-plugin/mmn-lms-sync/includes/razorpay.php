@@ -100,6 +100,8 @@ function mmn_lms_order_paid($post_id, $payment_id)
         'amount'        => round(((int) get_post_meta($post_id, 'amount', true)) / 100, 2),
         'payment_id'    => ($payment_id === 'free') ? null : sanitize_text_field($payment_id),
         'purchase_date' => gmdate('c'),
+        'coupon_code'     => get_post_meta($post_id, 'coupon_code', true) ?: null,
+        'discount_amount' => (float) get_post_meta($post_id, 'discount', true) ?: null,
     ];
     $result = mmn_lms_payment_success((int) get_post_field('post_author', $post_id), get_post_meta($post_id, 'product', true), 'mmn-' . $post_id, $extra);
     $path   = '/my-courses';
@@ -211,6 +213,20 @@ function mmn_lms_front_script()
         }
 
         // Helper to obtain fresh nonce whenever needed
+        // A coupon can come from ?coupon=CODE in the address (remembered for the visit), a data-coupon on the buy button,
+        // or a text box with id "mmn-coupon" on the page. The server checks it; here it is only passed along.
+        function couponCode() {
+            var code = '';
+            try {
+                var fromUrl = new URLSearchParams(window.location.search).get('coupon');
+                if (fromUrl) { sessionStorage.setItem('mmn_coupon', fromUrl); }
+                code = sessionStorage.getItem('mmn_coupon') || '';
+            } catch (e) { /* storage blocked: ignore */ }
+            var box = document.getElementById('mmn-coupon');
+            if (box && box.value) { code = box.value; }
+            return String(code || '').trim().toUpperCase().slice(0, 40);
+        }
+
         function ensureNonce() {
             if (cfg.nonce && cfg.loggedIn) {
                 return Promise.resolve(cfg.nonce);
@@ -297,7 +313,7 @@ function mmn_lms_front_script()
 
             Promise.all([loadRazorpay(), ensureNonce()]).then(function (results) {
                 var freshNonce = results[1];
-                return post({ action: 'mmn_rzp_create', nonce: freshNonce, product: product, user_id: cfg.userId || '' });
+                return post({ action: 'mmn_rzp_create', nonce: freshNonce, product: product, user_id: cfg.userId || '', coupon: couponCode() });
             }).then(function (d) {
                 if (!d || !d.success) {
                     var errStr = 'Could not start the payment. Please try again.';
@@ -935,14 +951,34 @@ function mmn_lms_ajax_rzp_create() {
         return;
     }
 
-    $amount = (int) round($products[$product]['price'] * 100);
+    // Coupon: the LMS (Admin > Sales > Coupons) decides the discount; the order sent to Razorpay is for the discounted amount.
+    // An invalid coupon stops the payment with a clear message instead of silently charging the full price.
+    $price       = (float) $products[$product]['price'];
+    $coupon_code = '';
+    $discount    = 0.0;
+    $coupon_in   = strtoupper(sanitize_text_field(wp_unslash(isset($_POST['coupon']) ? $_POST['coupon'] : '')));
+    if ($coupon_in !== '') {
+        $quote = mmn_lms_send('quote', ['product_id' => $product, 'price' => $price, 'coupon' => $coupon_in, 'email' => $user->user_email]);
+        if (! $quote[0]) {
+            wp_send_json_error('We could not check your coupon right now. Please try again, or remove the coupon.');
+            return;
+        }
+        if (empty($quote[1]['valid'])) {
+            wp_send_json_error(! empty($quote[1]['message']) ? $quote[1]['message'] : 'This coupon is not valid.');
+            return;
+        }
+        $coupon_code = (string) $quote[1]['code'];
+        $discount    = (float) $quote[1]['discount'];
+        $price       = (float) $quote[1]['final'];
+    }
+    $amount = (int) round($price * 100);
 
     $post_id = wp_insert_post([
         'post_type'   => 'mmn_order',
         'post_status' => 'private',
         'post_title'  => $products[$product]['title'] . ' - ' . $user->user_email,
         'post_author' => $user->ID,
-        'meta_input'  => ['product' => $product, 'amount' => $amount, 'status' => 'created'],
+        'meta_input'  => ['product' => $product, 'amount' => $amount, 'status' => 'created', 'coupon_code' => $coupon_code, 'discount' => $discount],
     ]);
 
     $response = wp_remote_post('https://api.razorpay.com/v1/orders', [
@@ -955,7 +991,7 @@ function mmn_lms_ajax_rzp_create() {
             'amount'   => $amount,
             'currency' => 'INR',
             'receipt'  => 'mmn-' . $post_id,
-            'notes'    => ['email' => $user->user_email, 'product' => $product],
+            'notes'    => ['email' => $user->user_email, 'product' => $product, 'coupon' => $coupon_code],
         ]),
     ]);
 
