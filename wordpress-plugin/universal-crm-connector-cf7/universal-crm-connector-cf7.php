@@ -59,7 +59,200 @@ class UCC_Plugin
                 UCC_Database::sync_live_odoo_and_forms();
                 update_option('ucc_live_odoo_direct_api_v5', 'yes');
             }
+
+            // Ensure draft courses stay in draft as requested
+            if (get_option('mmn_keep_draft_courses_hidden_v1') !== 'yes') {
+                global $wpdb;
+                $wpdb->update($wpdb->posts, ['post_status' => 'draft'], ['ID' => 9495]);
+                $wpdb->update($wpdb->posts, ['post_status' => 'draft'], ['ID' => 9456]);
+                update_option('mmn_keep_draft_courses_hidden_v1', 'yes');
+            }
         });
+
+        // Ensure draft courses remain hidden from public catalog queries
+        add_action('pre_get_posts', function ($query) {
+            if (!is_admin() && $query->is_main_query() && ($query->get('post_type') === 'courses' || is_post_type_archive('courses'))) {
+                $query->set('post_status', 'publish');
+            }
+        });
+
+        // Inject layout CSS for header alignment and modern course buttons
+        add_action('wp_head', function () {
+            ?>
+            <style id="mmn-theme-header-course-fixes">
+                /* Ensure desktop Elementor header remains in 1 clean horizontal row */
+                @media (min-width: 1025px) {
+                    header[data-elementor-type="header"] .elementor-element-4fb0f1a,
+                    header.elementor-6507 .elementor-element-4fb0f1a,
+                    .elementor-element-4fb0f1a {
+                        display: flex !important;
+                        flex-direction: row !important;
+                        align-items: center !important;
+                        justify-content: space-between !important;
+                        flex-wrap: nowrap !important;
+                        width: 100% !important;
+                    }
+                    header[data-elementor-type="header"] .elementor-element-d9b473f,
+                    header.elementor-6507 .elementor-element-d9b473f {
+                        flex: 0 0 auto !important;
+                        width: auto !important;
+                        max-width: 240px !important;
+                    }
+                    header[data-elementor-type="header"] .elementor-element-b12b705,
+                    header.elementor-6507 .elementor-element-b12b705 {
+                        flex: 1 1 auto !important;
+                        width: auto !important;
+                        display: flex !important;
+                        justify-content: center !important;
+                    }
+                    header[data-elementor-type="header"] .elementor-element-1b662fd,
+                    header.elementor-6507 .elementor-element-1b662fd {
+                        flex: 0 0 auto !important;
+                        width: auto !important;
+                        display: flex !important;
+                        flex-direction: row !important;
+                        align-items: center !important;
+                        justify-content: flex-end !important;
+                        gap: 12px !important;
+                    }
+                }
+
+                /* Mobile & Tablet header alignment */
+                @media (max-width: 1024px) {
+                    header[data-elementor-type="header"] .elementor-element-4fb0f1a,
+                    header.elementor-6507 .elementor-element-4fb0f1a,
+                    .elementor-element-4fb0f1a {
+                        display: flex !important;
+                        flex-direction: row !important;
+                        align-items: center !important;
+                        justify-content: space-between !important;
+                        flex-wrap: nowrap !important;
+                        width: 100% !important;
+                    }
+                    header[data-elementor-type="header"] .elementor-element-d9b473f,
+                    header.elementor-6507 .elementor-element-d9b473f {
+                        flex: 0 0 auto !important;
+                        max-width: 180px !important;
+                    }
+                    header[data-elementor-type="header"] .elementor-element-67b1950,
+                    header.elementor-6507 .elementor-element-67b1950 {
+                        flex: 0 0 auto !important;
+                        margin-left: auto !important;
+                    }
+                }
+
+                /* Header buttons styling */
+                header[data-elementor-type="header"] .elementor-element-18dacdd .elementor-button {
+                    background-color: #0B1F4A !important;
+                    color: #ffffff !important;
+                    border: 1px solid #0B1F4A !important;
+                    border-radius: 6px !important;
+                    font-weight: 600 !important;
+                    padding: 10px 22px !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    transition: all 0.2s ease !important;
+                }
+                header[data-elementor-type="header"] .elementor-element-18dacdd .elementor-button:hover {
+                    background-color: #17326c !important;
+                    border-color: #17326c !important;
+                }
+                header[data-elementor-type="header"] .elementor-element-fb4f449 .elementor-button {
+                    background-color: transparent !important;
+                    color: #0B1F4A !important;
+                    border: 1.5px solid #0B1F4A !important;
+                    border-radius: 6px !important;
+                    font-weight: 600 !important;
+                    padding: 9px 20px !important;
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    transition: all 0.2s ease !important;
+                }
+                header[data-elementor-type="header"] .elementor-element-fb4f449 .elementor-button:hover {
+                    background-color: #0B1F4A !important;
+                    color: #ffffff !important;
+                }
+
+                /* Tutor LMS Course Cards & Buttons */
+                .tutor-course-card, .tutor-card {
+                    border-radius: 12px !important;
+                    border: 1px solid #e2e8f0 !important;
+                    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.04), 0 2px 4px -2px rgba(0, 0, 0, 0.04) !important;
+                    overflow: hidden !important;
+                    transition: transform 0.2s ease, box-shadow 0.2s ease !important;
+                }
+                .tutor-course-card:hover, .tutor-card:hover {
+                    transform: translateY(-3px) !important;
+                    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.08), 0 4px 6px -4px rgba(0, 0, 0, 0.04) !important;
+                }
+                .tutor-card-footer {
+                    padding: 16px 20px !important;
+                    border-top: 1px solid #f1f5f9 !important;
+                    background: #ffffff !important;
+                }
+                .tutor-card-footer .tutor-d-flex {
+                    display: flex !important;
+                    align-items: center !important;
+                    justify-content: space-between !important;
+                    flex-wrap: nowrap !important;
+                    gap: 12px !important;
+                    width: 100% !important;
+                }
+                .tutor-card-footer .list-item-price,
+                .tutor-card-footer .tutor-item-price {
+                    display: flex !important;
+                    align-items: baseline !important;
+                    gap: 6px !important;
+                    font-weight: 700 !important;
+                    font-size: 17px !important;
+                    color: #0f172a !important;
+                    flex: 1 1 auto !important;
+                    margin-bottom: 0 !important;
+                }
+                .tutor-card-footer .tutor-item-price del {
+                    font-size: 13px !important;
+                    color: #94a3b8 !important;
+                    font-weight: 500 !important;
+                }
+                .tutor-card-footer .list-item-button {
+                    flex: 0 0 auto !important;
+                    margin-left: auto !important;
+                }
+                .tutor-card-footer .list-item-button .tutor-btn,
+                .tutor-card-footer .tutor-course-list-btn,
+                .tutor-card-footer .tutor-btn-outline-primary,
+                .tutor-card-footer .tutor-btn {
+                    display: inline-flex !important;
+                    align-items: center !important;
+                    justify-content: center !important;
+                    padding: 10px 22px !important;
+                    font-size: 14px !important;
+                    font-weight: 600 !important;
+                    border-radius: 8px !important;
+                    color: #ffffff !important;
+                    background: #0B1F4A !important;
+                    border: 1px solid #0B1F4A !important;
+                    text-decoration: none !important;
+                    transition: all 0.2s ease !important;
+                    white-space: nowrap !important;
+                }
+                .tutor-card-footer .list-item-button .tutor-btn:hover,
+                .tutor-card-footer .tutor-course-list-btn:hover,
+                .tutor-card-footer .tutor-btn-outline-primary:hover,
+                .tutor-card-footer .tutor-btn:hover {
+                    background: #17326c !important;
+                    border-color: #17326c !important;
+                    color: #ffffff !important;
+                    transform: translateY(-1px) !important;
+                }
+                .tutor-card-footer > .tutor-course-list-btn,
+                .tutor-card-footer > .tutor-btn-block {
+                    width: 100% !important;
+                    text-align: center !important;
+                }
+            </style>
+            <?php
+        }, 99);
 
         // Initialize Admin UI if in WP Admin
         if (is_admin()) {
