@@ -50,3 +50,4 @@ add_filter('plugin_action_links_' . plugin_basename(__FILE__), function ($links)
     array_unshift($links, $settings_link);
     return $links;
 });
+

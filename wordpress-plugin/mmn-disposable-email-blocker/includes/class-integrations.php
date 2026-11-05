@@ -153,3 +153,4 @@ class MMN_Email_Integrations
         }
     }
 }
+

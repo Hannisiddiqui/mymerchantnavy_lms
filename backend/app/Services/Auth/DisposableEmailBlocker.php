@@ -201,3 +201,4 @@ class DisposableEmailBlocker
         return self::check($email)['blocked'];
     }
 }
+

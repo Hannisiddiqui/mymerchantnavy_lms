@@ -315,3 +315,4 @@ class MMN_Email_Admin
         <?php
     }
 }
+

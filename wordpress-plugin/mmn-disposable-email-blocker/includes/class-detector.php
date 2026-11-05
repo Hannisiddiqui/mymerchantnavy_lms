@@ -127,6 +127,30 @@ class MMN_Email_Detector
         'trashmail',
     ];
 
+    protected static $full_disposable_cache = null;
+
+    public static function get_full_disposable_domains()
+    {
+        if (self::$full_disposable_cache !== null) {
+            return self::$full_disposable_cache;
+        }
+
+        $file = dirname(__FILE__) . '/disposable-domains.json';
+        if (file_exists($file)) {
+            $raw = @file_get_contents($file);
+            if ($raw) {
+                $list = json_decode($raw, true);
+                if (is_array($list)) {
+                    self::$full_disposable_cache = array_fill_keys(array_map('strtolower', $list), true);
+                    return self::$full_disposable_cache;
+                }
+            }
+        }
+
+        self::$full_disposable_cache = array_fill_keys(self::DISPOSABLE_DOMAINS, true);
+        return self::$full_disposable_cache;
+    }
+
     /**
      * Inspects an email and determines if it is disposable or blocked.
      *
@@ -178,8 +202,9 @@ class MMN_Email_Detector
             ];
         }
 
-        // Check Built-in Disposable Domains
-        if (in_array($domain, self::DISPOSABLE_DOMAINS, true)) {
+        // Check Built-in & Extended 10,000+ Disposable Domains (includes en2ch.com, bankwen.com, etc.)
+        $full_disposable = self::get_full_disposable_domains();
+        if (isset($full_disposable[$domain]) || in_array($domain, self::DISPOSABLE_DOMAINS, true)) {
             return [
                 'blocked' => true,
                 'reason'  => 'Temporary and disposable email addresses are not allowed. Please use your genuine personal email address.',
@@ -211,12 +236,54 @@ class MMN_Email_Detector
                             'domain'  => $domain,
                         ];
                     }
-                    if (strpos($host, 'mailinator') !== false || strpos($host, 'yopmail') !== false || strpos($host, 'trashmail') !== false) {
+                    if (strpos($host, 'mailinator') !== false || strpos($host, 'yopmail') !== false || strpos($host, 'trashmail') !== false || strpos($host, 'temp') !== false) {
                         return [
                             'blocked' => true,
                             'reason'  => 'Temporary and disposable email services are not permitted.',
                             'domain'  => $domain,
                         ];
+                    }
+                }
+            }
+        }
+
+        // Fast Live Real-time API check for unlisted newly created disposable domains
+        $trusted_providers = [
+            'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.co.in', 'yahoo.co.uk',
+            'outlook.com', 'hotmail.com', 'live.com', 'msn.com', 'icloud.com',
+            'rediffmail.com', 'zoho.com', 'aol.com', 'me.com', 'mac.com',
+        ];
+
+        if (! in_array($domain, $trusted_providers, true)) {
+            $cache_key = 'mmn_disp_' . md5($domain);
+            $cached_status = function_exists('get_transient') ? get_transient($cache_key) : false;
+
+            if ($cached_status === 'disposable') {
+                return [
+                    'blocked' => true,
+                    'reason'  => 'Temporary and disposable email addresses are not allowed. Please use your genuine personal email address.',
+                    'domain'  => $domain,
+                ];
+            }
+
+            if ($cached_status !== 'clean') {
+                $api_url = 'https://disposable.debounce.io/?email=' . rawurlencode($email);
+                if (function_exists('wp_remote_get')) {
+                    $resp = wp_remote_get($api_url, ['timeout' => 2]);
+                    if (! is_wp_error($resp) && wp_remote_retrieve_response_code($resp) === 200) {
+                        $json = json_decode(wp_remote_retrieve_body($resp), true);
+                        if (! empty($json['disposable']) && ($json['disposable'] === 'true' || $json['disposable'] === true)) {
+                            if (function_exists('set_transient')) {
+                                set_transient($cache_key, 'disposable', 30 * DAY_IN_SECONDS);
+                            }
+                            return [
+                                'blocked' => true,
+                                'reason'  => 'Temporary and disposable email addresses are not allowed. Please use your genuine personal email address.',
+                                'domain'  => $domain,
+                            ];
+                        } elseif (isset($json['disposable']) && function_exists('set_transient')) {
+                            set_transient($cache_key, 'clean', 7 * DAY_IN_SECONDS);
+                        }
                     }
                 }
             }
@@ -286,3 +353,4 @@ class MMN_Email_Detector
         update_option('mmn_blocked_email_logs', $logs, false);
     }
 }
+
