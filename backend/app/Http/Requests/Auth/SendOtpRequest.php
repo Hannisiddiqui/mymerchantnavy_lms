@@ -18,7 +18,7 @@ class SendOtpRequest extends FormRequest
     {
         return config('lms.login_method') === 'phone'
             ? ['phone' => ['required', 'regex:/^[6-9]\d{9}$/']]
-            : ['email' => ['required', 'email:rfc', 'max:190']];
+            : ['email' => ['required', 'email:rfc', 'max:190', new \App\Rules\NotDisposableEmail()]];
     }
 
     public function messages(): array

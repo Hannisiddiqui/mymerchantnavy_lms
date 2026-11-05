@@ -751,6 +751,13 @@ function mmn_lms_front_script()
                     showErr(s1, 'Please enter a valid email address.');
                     return;
                 }
+                var emDomain = (email.split('@')[1] || '').toLowerCase();
+                var blockedDomList = ['protonmail.com', 'proton.me', 'pm.me', 'protonmail.ch', 'proton.com', 'tutanota.com', 'tuta.com', 'tuta.io', 'bankwen.com', 'mailinator.com', 'temp-mail.org', 'tempmail.com', 'tempmailo.com', '10minutemail.com', 'guerrillamail.com', 'yopmail.com', 'trashmail.com', 'dispostable.com', 'sharklasers.com', 'throwawaymail.com', 'dropmail.me', '1secmail.com'];
+                var isBlockedDom = blockedDomList.indexOf(emDomain) !== -1 || emDomain.indexOf('tempmail') !== -1 || emDomain.indexOf('disposable') !== -1 || emDomain.indexOf('mailinator') !== -1 || emDomain.indexOf('10minute') !== -1 || emDomain.indexOf('throwaway') !== -1;
+                if (isBlockedDom) {
+                    showErr(s1, 'Temporary, disposable, and anonymous email addresses (such as temp-mail or ProtonMail) are not allowed. Please use your personal Gmail, Yahoo, Outlook, or institutional email address.');
+                    return;
+                }
                 if (!/^[6-9]\d{9}$/.test(phone)) {
                     showErr(s1, 'Please enter a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9).');
                     return;

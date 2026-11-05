@@ -110,6 +110,25 @@ class User extends Authenticatable
         return $this->enrollments()->active();
     }
 
+    /** Automatically returns inferred target exam from purchased courses if not explicitly set. */
+    public function getTargetExamAttribute(?string $value): ?string
+    {
+        if (filled($value)) {
+            return $value;
+        }
+
+        try {
+            $firstCourse = $this->activeCourses()->first();
+            if ($firstCourse) {
+                return \App\Services\WordPress\WordPressLink::inferTargetExam($firstCourse->title);
+            }
+        } catch (\Throwable) {
+            // fallback gracefully
+        }
+
+        return null;
+    }
+
     public function expiredEnrollments(): HasMany
     {
         return $this->enrollments()->expired();

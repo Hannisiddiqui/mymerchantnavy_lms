@@ -4,6 +4,7 @@ import { useState } from "react";
 import { CircleCheck, Mail } from "lucide-react";
 import type { ProfileInput } from "@/lib/api/profile";
 import { LOGIN_METHOD, attemptYears, targetExams } from "@/lib/config";
+import { checkDisposableEmail } from "@/lib/disposable-email";
 import { Button } from "@/components/ui/Button";
 import { Field, Input, Select } from "@/components/ui/Field";
 
@@ -15,16 +16,25 @@ function validate(v: ProfileInput): Errors {
   const e: Errors = {};
   if (v.name.trim().length < 2) e.name = "Enter your full name";
   if (!v.nickname.trim()) e.nickname = "Enter what we should call you";
-  if (!byEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) e.email = "Enter a valid email address";
-  if (byEmail && v.phone && !/^[6-9]\d{9}$/.test(v.phone)) e.phone = "Enter a valid 10-digit mobile number, or leave it empty";
+  if (!byEmail) {
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v.email)) {
+      e.email = "Enter a valid email address";
+    } else {
+      const check = checkDisposableEmail(v.email);
+      if (check.blocked) e.email = check.reason || "Disposable emails are not allowed";
+    }
+  }
+  if (!v.phone || !/^[6-9]\d{9}$/.test(v.phone.trim())) {
+    e.phone = "Enter a valid 10-digit mobile number";
+  }
   if (!v.targetExam) e.targetExam = "Choose your target exam";
-  if (!v.attemptYear) e.attemptYear = "Choose your attempt year";
+  if (!v.attemptYear) e.attemptYear = "Choose your target attempt year";
   return e;
 }
 
 /**
  * Shared by first-time onboarding and the My Profile page.
- * Email login (default): the email is already filled in and verified, so it is locked; the mobile number is optional.
+ * Email login (default): the email is already filled in and verified, so it is locked; the mobile number is compulsory.
  * Phone login: the number is the locked login, and the email is asked for.
  */
 export function ProfileForm({
@@ -87,7 +97,7 @@ export function ProfileForm({
               )}
             </div>
           </Field>
-          <Field label="Mobile number (optional)" error={errors.phone} hint="Only used to contact you.">
+          <Field label="Mobile number" required error={errors.phone} hint="Only used to contact you regarding your courses and updates.">
             <Input
               inputMode="numeric"
               autoComplete="tel-national"
@@ -126,9 +136,9 @@ export function ProfileForm({
             ))}
           </Select>
         </Field>
-        <Field label="Year of attempt" required error={errors.attemptYear}>
+        <Field label="Target attempt year" required error={errors.attemptYear}>
           <Select value={values.attemptYear || ""} onChange={(e) => set("attemptYear", Number(e.target.value))}>
-            <option value="">Select year</option>
+            <option value="">Select target year</option>
             {attemptYears().map((y) => (
               <option key={y} value={y}>
                 {y}

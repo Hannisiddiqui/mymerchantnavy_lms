@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { UserRound } from "lucide-react";
 import * as api from "@/lib/api";
+import { inferTargetExamFromTitle } from "@/lib/config";
 import { useApi } from "@/lib/use-api";
 import { ProfileForm } from "@/components/profile/ProfileForm";
 import { Skeleton } from "@/components/ui/States";
@@ -11,6 +12,9 @@ import { Skeleton } from "@/components/ui/States";
 export default function OnboardingPage() {
   const router = useRouter();
   const { data: me } = useApi(() => api.profile.getMe(), []);
+  const { data: courses } = useApi(() => api.courses.getMyCourses(), []);
+
+  const inferredExam = me?.targetExam || (courses && courses.length > 0 ? inferTargetExamFromTitle(courses[0].title) : "");
 
   return (
     <div>
@@ -24,7 +28,14 @@ export default function OnboardingPage() {
       ) : (
         <ProfileForm
           emailVerified={me.emailVerified}
-          initial={{ name: "", nickname: "", email: me.email, phone: me.phone, targetExam: "", attemptYear: 0 }}
+          initial={{
+            name: me.name || "",
+            nickname: me.nickname || (me.name ? me.name.trim().split(" ")[0] : ""),
+            email: me.email,
+            phone: me.phone || "",
+            targetExam: inferredExam,
+            attemptYear: me.attemptYear || new Date().getFullYear(),
+          }}
           submitLabel="Save & go to dashboard"
           onSubmit={async (values) => {
             await api.profile.updateMe(values);

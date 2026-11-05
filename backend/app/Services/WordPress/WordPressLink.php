@@ -207,9 +207,47 @@ class WordPressLink
                 $student,
                 Enrollment::where('user_id', $student->id)->whereIn('course_id', $givenIds)->with('course')->get()
             );
+
+            // Auto-fill student's target exam based on the purchased course/pass if not already set
+            if (blank($student->getRawOriginal('target_exam')) && ! empty($given)) {
+                foreach ($given as $courseTitle) {
+                    $inferred = self::inferTargetExam($courseTitle);
+                    if ($inferred) {
+                        $student->target_exam = $inferred;
+                        $student->save();
+                        break;
+                    }
+                }
+            }
         }
 
         return $given;
+    }
+
+    /** Infers standard Target Exam option based on course title or pass purchased. */
+    public static function inferTargetExam(string $courseTitle): ?string
+    {
+        $title = mb_strtolower($courseTitle);
+        if (str_contains($title, 'gp') || str_contains($title, 'g.p') || str_contains($title, 'general purpose')) {
+            return 'GP Rating';
+        }
+        if (str_contains($title, 'dns') || str_contains($title, 'bsc') || str_contains($title, 'b.sc') || str_contains($title, 'nautical')) {
+            return 'DNS (Diploma in Nautical Science)';
+        }
+        if (str_contains($title, 'b.tech') || str_contains($title, 'btech') || str_contains($title, 'marine engineering')) {
+            return 'B.Tech Marine Engineering';
+        }
+        if (str_contains($title, 'eto') || str_contains($title, 'electro')) {
+            return 'ETO (Electro-Technical Officer)';
+        }
+        if (str_contains($title, 'sponsorship') || str_contains($title, 'company')) {
+            return 'Company Sponsorship Exam';
+        }
+        if (str_contains($title, 'imu') || str_contains($title, 'cet') || str_contains($title, 'foundation')) {
+            return 'IMU-CET';
+        }
+
+        return null;
     }
 
     /** What WordPress should charge: it sends the price, the LMS returns the discount of the coupon (if any). */

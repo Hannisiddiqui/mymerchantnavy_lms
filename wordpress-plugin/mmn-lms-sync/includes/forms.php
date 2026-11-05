@@ -21,6 +21,7 @@ function mmn_lms_form_message($code)
         'fields'            => 'All fields are compulsory. Please fill in your name, email, 10-digit mobile number, and password.',
         'invalid_phone'     => 'Please enter a valid 10-digit Indian mobile number (starting with 6, 7, 8, or 9).',
         'password'          => 'Your password must be at least 8 characters.',
+        'disposable_email'  => 'Temporary, disposable, and anonymous email addresses (such as temp-mail or ProtonMail) are not allowed. Please use your personal Gmail, Yahoo, Outlook, or institutional email address.',
         'exists'            => 'An account with this email or mobile number already exists. Please log in to complete your payment.',
         'exists_wrong_pass' => 'An account is already registered with these details. Please enter your correct password or proceed to payment.',
         'wait'              => 'Too many attempts. Please try again in a while.',
@@ -38,6 +39,63 @@ function mmn_lms_form_message($code)
 }
 
 // ---------------------------------------------------------------------------------------------------- the engine
+
+function mmn_lms_is_disposable_email($email)
+{
+    $email = strtolower(trim((string) $email));
+    $parts = explode('@', $email);
+    if (count($parts) !== 2 || empty($parts[1])) {
+        return false;
+    }
+    $domain = trim($parts[1]);
+
+    $blocked_domains = [
+        'protonmail.com', 'proton.me', 'pm.me', 'protonmail.ch', 'proton.com',
+        'tutanota.com', 'tuta.com', 'tuta.io', 'tutanota.de', 'tutamail.com',
+        'keemail.me', 'skiff.com', 'mailfence.com',
+        'bankwen.com', 'mailinator.com', 'temp-mail.org', 'tempmail.com', 'tempmailo.com',
+        '10minutemail.com', '10minutemail.net', '10minutemail.org', 'guerrillamail.com',
+        'guerrillamail.net', 'guerrillamail.org', 'guerrillamail.biz', 'guerrillamailblock.com',
+        'grr.la', 'sharklasers.com', 'spam4.me', 'yopmail.com', 'yopmail.fr', 'yopmail.net',
+        'trashmail.com', 'trashmail.net', 'trashmail.me', 'dispostable.com', 'throwawaymail.com',
+        'crazymailing.com', 'mohmal.com', 'fakemailgenerator.com', 'burnermail.io', 'mytemp.email',
+        'inboxkitten.com', 'generator.email', 'emailondeck.com', 'tempail.com', 'tmail.com',
+        'internxt.com', 'dropmail.me', '1secmail.com', '1secmail.org', '1secmail.net', 'wwjmp.com',
+        'esiix.com', 'xmailer.org', 'brefmail.com', 'chacuo.net', '0-mail.com', 'nada.ltd',
+        'nada.email', 'getnada.com', 'inboxbear.com', 'getairmail.com', 'mintemail.com', 'meltmail.com',
+        'maildrop.cc', 'fakeinbox.com', 'mytempemail.com', 'spambog.com', 'pokemail.net',
+        'trashymail.com', 'temporary-mail.net', 'tempinbox.com', 'disposablemail.com', 'boximail.com',
+        'temp-mail.io', 'harakirimail.com', 'mailcatch.com', 'mailnesia.com', 'discard.email',
+    ];
+
+    if (in_array($domain, $blocked_domains, true)) {
+        return true;
+    }
+
+    $patterns = [
+        'tempmail', 'temp-mail', 'disposable', 'throwaway', '10minute', 'fakeinbox',
+        'burnermail', 'mailinator', 'guerrillamail', 'yopmail', 'dropmail', '1secmail', 'trashmail',
+    ];
+    foreach ($patterns as $pattern) {
+        if (strpos($domain, $pattern) !== false) {
+            return true;
+        }
+    }
+
+    if (function_exists('getmxrr')) {
+        $mx = [];
+        if (@getmxrr($domain, $mx) && ! empty($mx)) {
+            foreach ($mx as $h) {
+                $h = strtolower($h);
+                if (strpos($h, 'protonmail') !== false || strpos($h, 'proton.ch') !== false || strpos($h, 'mailinator') !== false || strpos($h, 'yopmail') !== false) {
+                    return true;
+                }
+            }
+        }
+    }
+
+    return false;
+}
 
 function mmn_lms_pending($pid)
 {
@@ -201,6 +259,9 @@ function mmn_lms_registration_begin($name, $email, $phone, $pass, $next = '', $p
     // All fields are strictly compulsory
     if ($name === '' || ! is_email($email) || empty($pass) || empty($clean_phone)) {
         return ['error' => 'fields'];
+    }
+    if (mmn_lms_is_disposable_email($email)) {
+        return ['error' => 'disposable_email'];
     }
     if (! preg_match('/^[6-9]\d{9}$/', $clean_phone)) {
         return ['error' => 'invalid_phone'];

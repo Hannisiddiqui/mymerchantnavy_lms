@@ -44,6 +44,18 @@ export const targetExams = [
   "Other",
 ];
 
+export function inferTargetExamFromTitle(title?: string): string {
+  if (!title) return "";
+  const t = title.toLowerCase();
+  if (t.includes("gp") || t.includes("g.p") || t.includes("general purpose")) return "GP Rating";
+  if (t.includes("dns") || t.includes("bsc") || t.includes("b.sc") || t.includes("nautical")) return "DNS (Diploma in Nautical Science)";
+  if (t.includes("b.tech") || t.includes("btech") || t.includes("marine engineering")) return "B.Tech Marine Engineering";
+  if (t.includes("eto") || t.includes("electro")) return "ETO (Electro-Technical Officer)";
+  if (t.includes("sponsorship") || t.includes("company")) return "Company Sponsorship Exam";
+  if (t.includes("imu") || t.includes("cet") || t.includes("foundation")) return "IMU-CET";
+  return "";
+}
+
 export function attemptYears(from = new Date().getFullYear()): number[] {
   return [from, from + 1, from + 2, from + 3];
 }

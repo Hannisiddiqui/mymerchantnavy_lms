@@ -17,15 +17,16 @@ class UpdateProfileRequest extends FormRequest
         ];
 
         // Email login: the email is the verified login and cannot be changed here (any value sent is ignored);
-        // the mobile number is an optional extra. Phone login: the other way round.
+        // the mobile number is compulsory. Phone login: the other way round.
         return $common + (config('lms.login_method') === 'phone'
-            ? ['email' => ['required', 'email', 'max:150']]
-            : ['phone' => ['nullable', 'regex:/^[6-9]\d{9}$/', Rule::unique('users', 'phone')->ignore($this->user()->id)]]);
+            ? ['email' => ['required', 'email', 'max:150', new \App\Rules\NotDisposableEmail()]]
+            : ['phone' => ['required', 'regex:/^[6-9]\d{9}$/', Rule::unique('users', 'phone')->ignore($this->user()->id)]]);
     }
 
     public function messages(): array
     {
         return [
+            'phone.required' => 'Enter your 10-digit mobile number.',
             'phone.regex' => 'Enter a valid 10-digit mobile number.',
             'phone.unique' => 'This mobile number is already used by another account.',
         ];

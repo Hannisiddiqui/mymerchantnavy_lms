@@ -127,7 +127,7 @@ class WordPressController extends Controller
     private function studentRules(): array
     {
         return [
-            'email' => ['required', 'email:rfc', 'max:191'],
+            'email' => ['required', 'email:rfc', 'max:191', new \App\Rules\NotDisposableEmail()],
             'name' => ['nullable', 'string', 'max:120'],
             'phone' => ['nullable', 'string', 'max:30'],
             'wp_user_id' => ['nullable', 'integer'],

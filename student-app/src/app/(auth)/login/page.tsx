@@ -6,6 +6,7 @@ import { ArrowRight, Mail, Smartphone } from "lucide-react";
 import * as api from "@/lib/api";
 import { LOGIN_METHOD } from "@/lib/config";
 import { loginIdentity } from "@/lib/login-session";
+import { checkDisposableEmail } from "@/lib/disposable-email";
 import { Button } from "@/components/ui/Button";
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -27,6 +28,14 @@ export default function LoginPage() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     if (!valid) return setError(byEmail ? "Enter a valid email address" : "Enter a valid 10-digit mobile number");
+
+    if (byEmail) {
+      const emailCheck = checkDisposableEmail(value.trim());
+      if (emailCheck.blocked) {
+        return setError(emailCheck.reason || "Temporary or disposable emails are not permitted.");
+      }
+    }
+
     setLoading(true);
     try {
       const identifier = byEmail ? value.trim().toLowerCase() : value;
