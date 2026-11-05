@@ -15,10 +15,13 @@ use App\Services\Courses\CourseOutline;
 use App\Services\Courses\GoogleDriveFolderScanner;
 use App\Services\Courses\RemotePdfDownloader;
 use Filament\Actions\Action;
+use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
+use Filament\Forms\Get;
+use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -187,33 +190,64 @@ class ManageCurriculum extends Page
             });
     }
 
-    /** Import an entire Google Drive folder directly into a specific Chapter. arguments: chapter */
+    /** Import a Google Drive folder directly into a specific Chapter with file selection. arguments: chapter */
     public function importChapterFolderAction(): Action
     {
         return Action::make('importChapterFolder')
             ->modalHeading(fn (array $arguments) => 'Import Google Drive Folder into “'.$this->findChapter($arguments['chapter'])->title.'”')
-            ->modalDescription('Paste a Google Drive folder link. The server will automatically scan all PDFs inside the folder (including subfolders), download them, and add them to this chapter.')
-            ->modalSubmitActionLabel('Start Folder Download & Import')
-            ->modalWidth('xl')
+            ->modalDescription('Paste a Google Drive folder link. The system will scan the folder and let you choose exactly which PDFs to download into this chapter.')
+            ->modalSubmitActionLabel('Start Download & Import')
+            ->modalWidth('2xl')
             ->schema([
                 TextInput::make('folder_url')
                     ->label('Google Drive Folder Link')
                     ->placeholder('https://drive.google.com/drive/folders/...')
                     ->required()
-                    ->helperText('Make sure the folder General Access is set to "Anyone with the link can view".'),
-                Toggle::make('recursive')
-                    ->label('Include files inside nested subfolders')
-                    ->default(true)
-                    ->helperText('If checked, PDFs located inside subfolders will also be downloaded into this chapter.'),
+                    ->live(onBlur: true)
+                    ->helperText('Paste folder link and click outside to load files. General Access must be "Anyone with the link can view".'),
+
+                CheckboxList::make('selected_files')
+                    ->label('Choose PDFs to Import')
+                    ->bulkToggleable()
+                    ->options(function (Get $get) {
+                        $url = $get('folder_url');
+                        if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
+                            return [];
+                        }
+                        try {
+                            $files = GoogleDriveFolderScanner::getFilesList($url);
+                            return collect($files)->mapWithKeys(function ($f) {
+                                $sub = $f['subfolder'] !== 'Root Folder' ? " [{$f['subfolder']}]" : '';
+                                return [$f['id'] => "{$f['name']}{$sub}"];
+                            })->toArray();
+                        } catch (\Throwable $e) {
+                            return ['error' => 'Could not read folder: ' . $e->getMessage()];
+                        }
+                    })
+                    ->default(function (Get $get) {
+                        $url = $get('folder_url');
+                        if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
+                            return [];
+                        }
+                        try {
+                            $files = GoogleDriveFolderScanner::getFilesList($url);
+                            return collect($files)->pluck('id')->toArray();
+                        } catch (\Throwable) {
+                            return [];
+                        }
+                    })
+                    ->visible(fn (Get $get) => filled($get('folder_url')))
+                    ->helperText('All files found are checked by default. Uncheck any files you do not want to download.'),
             ])
             ->action(function (array $data, array $arguments) {
                 $chapter = $this->findChapter($arguments['chapter']);
                 try {
+                    $selectedIds = ! empty($data['selected_files']) ? array_values(array_filter($data['selected_files'], fn ($id) => $id !== 'error')) : null;
                     $res = GoogleDriveFolderScanner::importIntoChapter(
                         $chapter,
                         $data['folder_url'],
                         $this->outline(),
-                        (bool) ($data['recursive'] ?? true)
+                        $selectedIds
                     );
 
                     Notification::make()
@@ -241,38 +275,73 @@ class ManageCurriculum extends Page
             });
     }
 
-    /** Import an entire Google Drive folder structure into a Subject (creates chapters automatically). arguments: subject */
+    /** Import an entire Google Drive folder structure into a Subject with automated 1-19 chapter arrangement. arguments: subject */
     public function importSubjectFolderAction(): Action
     {
         return Action::make('importSubjectFolder')
             ->modalHeading(fn (array $arguments) => 'Import Drive Folder into “'.$this->findSubject($arguments['subject'])->title.'”')
-            ->modalDescription('Paste a Google Drive folder link containing chapter subfolders or files (e.g. "Chemistry Material"). The server will automatically create a chapter for each subfolder, download all PDFs, and build your curriculum in one click.')
-            ->modalSubmitActionLabel('Download & Build Curriculum')
-            ->modalWidth('xl')
+            ->modalDescription('Paste a Google Drive folder link (e.g. containing 19 chapter subfolders). The algorithm automatically arranges chapters 1 to 19, renames them cleanly, organizes materials, and downloads all PDFs.')
+            ->modalSubmitActionLabel('Build & Download Curriculum')
+            ->modalWidth('2xl')
             ->schema([
                 TextInput::make('folder_url')
                     ->label('Google Drive Folder Link')
                     ->placeholder('https://drive.google.com/drive/folders/...')
                     ->required()
-                    ->helperText('Make sure the folder General Access is set to "Anyone with the link can view".'),
+                    ->live(onBlur: true)
+                    ->helperText('Paste link and click outside to scan. General Access must be "Anyone with the link can view".'),
+
+                CheckboxList::make('selected_chapters')
+                    ->label('Detected Chapters (Auto-Arranged 1 to 19 in Numerical Order)')
+                    ->bulkToggleable()
+                    ->options(function (Get $get) {
+                        $url = $get('folder_url');
+                        if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
+                            return [];
+                        }
+                        try {
+                            $chapters = GoogleDriveFolderScanner::getChaptersList($url);
+                            return collect($chapters)->mapWithKeys(fn ($c) => [$c['id'] => $c['display_name']])->toArray();
+                        } catch (\Throwable $e) {
+                            return ['error' => 'Could not read folder: ' . $e->getMessage()];
+                        }
+                    })
+                    ->default(function (Get $get) {
+                        $url = $get('folder_url');
+                        if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
+                            return [];
+                        }
+                        try {
+                            $chapters = GoogleDriveFolderScanner::getChaptersList($url);
+                            return collect($chapters)->pluck('id')->toArray();
+                        } catch (\Throwable) {
+                            return [];
+                        }
+                    })
+                    ->visible(fn (Get $get) => filled($get('folder_url')))
+                    ->helperText('All detected chapters are sorted 1 to 19 and selected by default. The algorithm automatically cleans names and orders materials (Notes first, Practice tests second, Interview questions third).'),
+
                 TextInput::make('fallback_chapter_title')
                     ->label('Default Chapter Name (Optional)')
                     ->placeholder('Leave blank to use the Google Drive folder name')
-                    ->helperText('Only used if the folder directly contains PDFs without chapter subfolders.'),
+                    ->helperText('Only used if the folder directly contains loose PDFs without subfolders.')
+                    ->visible(fn (Get $get) => filled($get('folder_url'))),
             ])
             ->action(function (array $data, array $arguments) {
                 $subject = $this->findSubject($arguments['subject']);
                 try {
+                    $selectedChapters = ! empty($data['selected_chapters']) ? array_values(array_filter($data['selected_chapters'], fn ($id) => $id !== 'error')) : null;
                     $res = GoogleDriveFolderScanner::importIntoSubject(
                         $subject,
                         $data['folder_url'],
                         $this->outline(),
+                        $selectedChapters,
                         filled($data['fallback_chapter_title'] ?? null) ? $data['fallback_chapter_title'] : null
                     );
 
                     Notification::make()
                         ->title("Curriculum Built: {$res['files_imported']} file(s) across {$res['chapters_created']} chapter(s)")
-                        ->body("Imported from “{$res['folder_title']}” into subject “{$subject->title}”.")
+                        ->body("Auto-arranged and imported from “{$res['folder_title']}” into subject “{$subject->title}”.")
                         ->success()
                         ->persistent()
                         ->send();
@@ -301,19 +370,51 @@ class ManageCurriculum extends Page
     {
         return Action::make('importCourseFolder')
             ->modalHeading('Import Google Drive Folder as New Subject')
-            ->modalDescription('Paste a Google Drive folder link (e.g. "Chemistry Material"). The server will create a new Subject, create a chapter for each subfolder, and download all PDFs automatically.')
+            ->modalDescription('Paste a Google Drive folder link (e.g. "Chemistry Material"). The algorithm will create a new Subject, auto-arrange all 19 chapters in order, and download all PDFs automatically.')
             ->modalSubmitActionLabel('Import New Subject')
-            ->modalWidth('xl')
+            ->modalWidth('2xl')
             ->schema([
                 TextInput::make('folder_url')
                     ->label('Google Drive Folder Link')
                     ->placeholder('https://drive.google.com/drive/folders/...')
                     ->required()
-                    ->helperText('Make sure the folder General Access is set to "Anyone with the link can view".'),
+                    ->live(onBlur: true)
+                    ->helperText('Paste link and click outside to scan. General Access must be "Anyone with the link can view".'),
+
                 TextInput::make('subject_title')
                     ->label('Subject Name (Optional)')
                     ->placeholder('Leave empty to use the Google Drive folder name')
                     ->helperText('If left blank, the Subject will be named after the Google Drive folder.'),
+
+                CheckboxList::make('selected_chapters')
+                    ->label('Detected Chapters (Auto-Arranged 1 to 19 in Numerical Order)')
+                    ->bulkToggleable()
+                    ->options(function (Get $get) {
+                        $url = $get('folder_url');
+                        if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
+                            return [];
+                        }
+                        try {
+                            $chapters = GoogleDriveFolderScanner::getChaptersList($url);
+                            return collect($chapters)->mapWithKeys(fn ($c) => [$c['id'] => $c['display_name']])->toArray();
+                        } catch (\Throwable $e) {
+                            return ['error' => 'Could not read folder: ' . $e->getMessage()];
+                        }
+                    })
+                    ->default(function (Get $get) {
+                        $url = $get('folder_url');
+                        if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
+                            return [];
+                        }
+                        try {
+                            $chapters = GoogleDriveFolderScanner::getChaptersList($url);
+                            return collect($chapters)->pluck('id')->toArray();
+                        } catch (\Throwable) {
+                            return [];
+                        }
+                    })
+                    ->visible(fn (Get $get) => filled($get('folder_url')))
+                    ->helperText('All detected chapters are sorted 1 to 19 and selected by default.'),
             ])
             ->action(function (array $data) {
                 try {
@@ -322,15 +423,17 @@ class ManageCurriculum extends Page
 
                     $subject = $this->outline()->addSubject($this->getRecord(), $subjectTitle);
 
+                    $selectedChapters = ! empty($data['selected_chapters']) ? array_values(array_filter($data['selected_chapters'], fn ($id) => $id !== 'error')) : null;
                     $res = GoogleDriveFolderScanner::importIntoSubject(
                         $subject,
                         $data['folder_url'],
-                        $this->outline()
+                        $this->outline(),
+                        $selectedChapters
                     );
 
                     Notification::make()
                         ->title("Created Subject “{$subject->title}” with {$res['files_imported']} file(s)")
-                        ->body("Built {$res['chapters_created']} chapter(s) from “{$res['folder_title']}”.")
+                        ->body("Auto-arranged {$res['chapters_created']} chapter(s) from “{$res['folder_title']}”.")
                         ->success()
                         ->persistent()
                         ->send();

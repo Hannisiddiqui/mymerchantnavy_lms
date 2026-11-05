@@ -7,6 +7,7 @@ use App\Models\Chapter;
 use App\Models\Subject;
 use App\Services\Courses\CourseOutline;
 use App\Services\Courses\RemotePdfDownloader;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
@@ -55,9 +56,111 @@ class GoogleDriveFolderScanner
     }
 
     /**
-     * Scan a Google Drive folder and return its title, files, and subfolders.
+     * Parse chapter numbering and clean title from a raw folder name.
+     * e.g. "1. Structure of Atoms" => [num => 1, clean_title => "Structure of Atoms"]
+     * e.g. "19. The solid State" => [num => 19, clean_title => "The Solid State"]
      *
-     * @return array{id: string, title: string, files: array<int, array{id: string, name: string, url: string}>, subfolders: array<int, array>}
+     * @return array{num: int, clean_title: string}
+     */
+    public static function parseChapterInfo(string $rawTitle): array
+    {
+        $raw = trim($rawTitle);
+        $num = 9999;
+        $clean = $raw;
+
+        if (preg_match('/^(?:chapter\s*|ch\s*)?(\d+)[\.\s\-_:]+(.+)$/i', $raw, $m)) {
+            $num = (int) $m[1];
+            $clean = trim($m[2]);
+        } elseif (preg_match('/^(?:chapter\s*|ch\s*)(\d+)$/i', $raw, $m)) {
+            $num = (int) $m[1];
+            $clean = 'Chapter ' . $num;
+        }
+
+        // Clean up trailing dots, underscores, dashes
+        $clean = preg_replace('/[\._\s-]+$/', '', $clean);
+        $clean = preg_replace('/[_\s]+/', ' ', $clean);
+
+        return [
+            'num'         => $num,
+            'clean_title' => self::beautifyTitle(trim($clean)),
+        ];
+    }
+
+    /**
+     * Score and beautify a PDF filename for proper ordering:
+     * 10: Study Material / Theory (First)
+     * 20: Practice Test / DPP (Second)
+     * 30: Interview Questions / Past Papers (Third)
+     *
+     * @return array{title: string, weight: int}
+     */
+    public static function scoreAndBeautifyFilename(string $filename): array
+    {
+        $clean = preg_replace('/\.pdf$/i', '', $filename);
+        $clean = str_replace('_', ' ', $clean);
+        $clean = preg_replace('/\s+/', ' ', $clean);
+
+        $lower = strtolower($filename);
+        $weight = 50;
+
+        if (str_contains($lower, 'interview')) {
+            $weight = 30; // 3rd: Interview questions
+        } elseif (str_contains($lower, 'practice') || str_contains($lower, 'test') || str_contains($lower, 'dpp') || str_contains($lower, 'exercise') || str_contains($lower, 'quiz')) {
+            $weight = 20; // 2nd: Practice tests
+        } else {
+            $weight = 10; // 1st: Notes, Theory, Main study material
+        }
+
+        $title = self::beautifyTitle(trim($clean));
+
+        return [
+            'title'  => $title,
+            'weight' => $weight,
+        ];
+    }
+
+    /**
+     * Beautify a title string, capitalizing words while preserving standard acronyms.
+     */
+    public static function beautifyTitle(string $raw): string
+    {
+        $clean = str_replace('_', ' ', $raw);
+        $clean = preg_replace('/\s+/', ' ', $clean);
+
+        $acronyms = [
+            'dns'    => 'DNS',
+            'imucet' => 'IMUCET',
+            'imu'    => 'IMU',
+            'cet'    => 'CET',
+            'bsc'    => 'BSc',
+            'dpp'    => 'DPP',
+            'pyq'    => 'PYQ',
+            'pdf'    => 'PDF',
+            'gp'     => 'G.P.',
+        ];
+
+        $words = explode(' ', trim($clean));
+        $cased = [];
+
+        foreach ($words as $w) {
+            $wLower = strtolower($w);
+            if (isset($acronyms[$wLower])) {
+                $cased[] = $acronyms[$wLower];
+            } elseif (strlen($w) <= 3 && ctype_upper($w)) {
+                $cased[] = $w;
+            } else {
+                $cased[] = ucfirst($wLower);
+            }
+        }
+
+        return Str::limit(implode(' ', $cased), 140);
+    }
+
+    /**
+     * Scan a Google Drive folder and return its title, files, and subfolders.
+     * Results are cached for 2 minutes to keep Livewire forms ultra-responsive.
+     *
+     * @return array{id: string, title: string, files: array<int, array{id: string, name: string, url: string, raw_name: string, weight: int}>, subfolders: array<int, array>}
      *
      * @throws ValidationException
      */
@@ -66,8 +169,13 @@ class GoogleDriveFolderScanner
         $folderId = self::extractFolderId($urlOrId);
         if (! $folderId) {
             throw ValidationException::withMessages([
-                'folder_url' => 'Invalid Google Drive folder link. Please provide a valid link in the format https://drive.google.com/drive/folders/...',
+                'folder_url' => 'Invalid Google Drive folder link. Please provide a link in the format https://drive.google.com/drive/folders/...',
             ]);
+        }
+
+        $cacheKey = "gdrive_scan_v2_{$folderId}_{$recursive}_{$depth}";
+        if ($cached = Cache::get($cacheKey)) {
+            return $cached;
         }
 
         $endpoint = 'https://drive.google.com/embeddedfolderview?id=' . urlencode($folderId);
@@ -75,7 +183,7 @@ class GoogleDriveFolderScanner
         try {
             $response = Http::withHeaders([
                 'User-Agent' => self::USER_AGENT,
-                'Accept' => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+                'Accept'     => 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
             ])->timeout(20)->get($endpoint);
         } catch (\Throwable $e) {
             throw ValidationException::withMessages([
@@ -123,10 +231,13 @@ class GoogleDriveFolderScanner
                 $fileId = $m[1];
                 if (! isset($seenIds[$fileId]) && filled($name)) {
                     $seenIds[$fileId] = true;
+                    $scored = self::scoreAndBeautifyFilename($name);
                     $files[] = [
-                        'id'   => $fileId,
-                        'name' => self::sanitizeTitle($name),
-                        'url'  => 'https://drive.google.com/file/d/' . $fileId . '/view',
+                        'id'       => $fileId,
+                        'name'     => $scored['title'],
+                        'raw_name' => $name,
+                        'weight'   => $scored['weight'],
+                        'url'      => 'https://drive.google.com/file/d/' . $fileId . '/view',
                     ];
                 }
                 continue;
@@ -137,21 +248,40 @@ class GoogleDriveFolderScanner
                 $subId = $m[1];
                 if (! isset($seenIds[$subId]) && filled($name)) {
                     $seenIds[$subId] = true;
+                    $info = self::parseChapterInfo($name);
                     $subfolders[] = [
-                        'id'    => $subId,
-                        'title' => self::sanitizeTitle($name),
-                        'url'   => 'https://drive.google.com/drive/folders/' . $subId,
+                        'id'          => $subId,
+                        'raw_title'   => $name,
+                        'title'       => $info['clean_title'],
+                        'chapter_num' => $info['num'],
+                        'url'         => 'https://drive.google.com/drive/folders/' . $subId,
                     ];
                 }
             }
         }
+
+        // Sort files within this folder: Notes first (10), Practice Tests second (20), Interview third (30)
+        usort($files, function ($a, $b) {
+            if ($a['weight'] !== $b['weight']) {
+                return $a['weight'] <=> $b['weight'];
+            }
+            return strnatcasecmp($a['name'], $b['name']);
+        });
+
+        // Sort subfolders in strict numerical chapter order: 1, 2, ... 19!
+        usort($subfolders, function ($a, $b) {
+            if ($a['chapter_num'] !== $b['chapter_num']) {
+                return $a['chapter_num'] <=> $b['chapter_num'];
+            }
+            return strnatcasecmp($a['title'], $b['title']);
+        });
 
         // If recursive scanning is requested and we haven't reached max depth
         if ($recursive && $depth < $maxDepth) {
             foreach ($subfolders as $idx => $sub) {
                 try {
                     $subScanned = self::scanFolder($sub['id'], true, $depth + 1, $maxDepth);
-                    $subfolders[$idx]['title'] = $subScanned['title'] ?: $sub['title'];
+                    $subfolders[$idx]['title'] = $sub['title'] ?: $subScanned['title'];
                     $subfolders[$idx]['files'] = $subScanned['files'];
                     $subfolders[$idx]['subfolders'] = $subScanned['subfolders'];
                 } catch (\Throwable) {
@@ -161,60 +291,127 @@ class GoogleDriveFolderScanner
             }
         }
 
-        return [
+        $result = [
             'id'         => $folderId,
             'title'      => $folderTitle,
             'files'      => $files,
             'subfolders' => $subfolders,
         ];
+
+        Cache::put($cacheKey, $result, now()->addMinutes(2));
+
+        return $result;
     }
 
     /**
-     * Flatten all files from a scanned folder (including subfolders) into a simple list.
+     * Get a flattened list of all files in a folder for the chapter file selection picker.
      *
-     * @return array<int, array{id: string, name: string, url: string, folder_name: string}>
+     * @return array<int, array{id: string, name: string, url: string, subfolder: string, weight: int}>
      */
-    public static function flattenFiles(array $folderData, string $prefix = ''): array
+    public static function getFilesList(string $folderUrl): array
     {
+        $scanned = self::scanFolder($folderUrl, true);
         $all = [];
-        $currentFolder = filled($prefix) ? "{$prefix} / {$folderData['title']}" : $folderData['title'];
 
-        foreach ($folderData['files'] as $file) {
+        foreach ($scanned['files'] as $f) {
             $all[] = [
-                'id'          => $file['id'],
-                'name'        => $file['name'],
-                'url'         => $file['url'],
-                'folder_name' => $currentFolder,
+                'id'        => $f['id'],
+                'name'      => $f['name'],
+                'url'       => $f['url'],
+                'subfolder' => 'Root Folder',
+                'weight'    => $f['weight'],
             ];
         }
 
-        foreach ($folderData['subfolders'] as $sub) {
-            $subFiles = self::flattenFiles($sub, $currentFolder);
-            foreach ($subFiles as $sf) {
-                $all[] = $sf;
+        foreach ($scanned['subfolders'] as $sub) {
+            foreach ($sub['files'] ?? [] as $f) {
+                $all[] = [
+                    'id'        => $f['id'],
+                    'name'      => $f['name'],
+                    'url'       => $f['url'],
+                    'subfolder' => $sub['title'],
+                    'weight'    => $f['weight'],
+                ];
             }
         }
+
+        // Sort all files by category and name
+        usort($all, function ($a, $b) {
+            if ($a['weight'] !== $b['weight']) {
+                return $a['weight'] <=> $b['weight'];
+            }
+            return strnatcasecmp($a['name'], $b['name']);
+        });
 
         return $all;
     }
 
     /**
-     * Import an entire Google Drive folder directly into a specific Chapter.
+     * Get an organized list of detected chapters (arranged 1 to 19) for subject import preview.
      *
-     * @return array{imported: int, skipped: int, errors: array<int, string>}
+     * @return array<int, array{id: string, chapter_num: int, clean_title: string, display_name: string, files_count: int, files: array}>
      */
-    public static function importIntoChapter(Chapter $chapter, string $folderUrl, CourseOutline $outline, bool $recursive = true): array
+    public static function getChaptersList(string $folderUrl): array
+    {
+        $scanned = self::scanFolder($folderUrl, true);
+
+        // If the Drive folder has subfolders: each subfolder is a chapter (sorted 1 to 19)
+        if (! empty($scanned['subfolders'])) {
+            $chapters = [];
+            foreach ($scanned['subfolders'] as $sub) {
+                $count = count($sub['files'] ?? []);
+                $chNum = $sub['chapter_num'] !== 9999 ? "Chapter {$sub['chapter_num']}: " : '';
+                $chapters[] = [
+                    'id'           => $sub['id'],
+                    'chapter_num'  => $sub['chapter_num'],
+                    'clean_title'  => $sub['title'],
+                    'display_name' => "{$chNum}{$sub['title']} ({$count} " . Str::plural('file', $count) . ')',
+                    'files_count'  => $count,
+                    'files'        => $sub['files'] ?? [],
+                ];
+            }
+            return $chapters;
+        }
+
+        // If no subfolders: single chapter
+        $count = count($scanned['files']);
+        return [
+            [
+                'id'           => $scanned['id'],
+                'chapter_num'  => 1,
+                'clean_title'  => $scanned['title'],
+                'display_name' => "{$scanned['title']} ({$count} " . Str::plural('file', $count) . ')',
+                'files_count'  => $count,
+                'files'        => $scanned['files'],
+            ],
+        ];
+    }
+
+    /**
+     * Import an entire Google Drive folder directly into a specific Chapter.
+     * Optionally restricts import to selected file IDs.
+     *
+     * @param  array<int, string>|null  $selectedFileIds
+     * @return array{folder_title: string, imported: int, skipped: int, errors: array<int, string>}
+     */
+    public static function importIntoChapter(Chapter $chapter, string $folderUrl, CourseOutline $outline, ?array $selectedFileIds = null, bool $recursive = true): array
     {
         @ini_set('max_execution_time', '300');
         @set_time_limit(300);
 
         $scanned = self::scanFolder($folderUrl, $recursive);
-        $files = self::flattenFiles($scanned);
+        $files = self::getFilesList($folderUrl);
 
         if (empty($files)) {
             throw ValidationException::withMessages([
-                'folder_url' => "No files found in folder “{$scanned['title']}”. Make sure files are inside and access is public.",
+                'folder_url' => "No files found in folder “{$scanned['title']}”. Make sure files are inside and access is set to 'Anyone with the link can view'.",
             ]);
+        }
+
+        // Filter by selected file IDs if specified
+        if (! empty($selectedFileIds)) {
+            $selectedMap = array_fill_keys($selectedFileIds, true);
+            $files = array_values(array_filter($files, fn ($f) => isset($selectedMap[$f['id']])));
         }
 
         $imported = 0;
@@ -246,36 +443,50 @@ class GoogleDriveFolderScanner
     }
 
     /**
-     * Import a Google Drive folder into a Subject.
-     * If the folder contains subfolders (e.g. Chapter 1, Chapter 2), each subfolder becomes a Chapter!
-     * If it only contains files, creates or uses a single chapter.
+     * Import an entire Google Drive folder into a Subject with automated chapter arrangement.
+     * Sorts 19 chapters numerically (1, 2, ... 19), cleans titles, organizes materials, and downloads files.
      *
-     * @return array{chapters_created: int, files_imported: int, errors: array<int, string>}
+     * @param  array<int, string>|null  $selectedChapterIds
+     * @return array{folder_title: string, chapters_created: int, files_imported: int, errors: array<int, string>}
      */
-    public static function importIntoSubject(Subject $subject, string $folderUrl, CourseOutline $outline, ?string $fallbackChapterTitle = null): array
+    public static function importIntoSubject(Subject $subject, string $folderUrl, CourseOutline $outline, ?array $selectedChapterIds = null, ?string $fallbackChapterTitle = null): array
     {
-        @ini_set('max_execution_time', '300');
-        @set_time_limit(300);
+        @ini_set('max_execution_time', '600');
+        @set_time_limit(600);
 
         $scanned = self::scanFolder($folderUrl, true);
-
         $chaptersCreated = 0;
         $filesImported = 0;
         $errors = [];
 
-        // Scenario A: The Drive folder has subfolders (e.g. Chemistry Material -> 1. Atoms, 2. Bonding...)
+        $selectedMap = ! empty($selectedChapterIds) ? array_fill_keys($selectedChapterIds, true) : null;
+
+        // Scenario A: Drive folder has subfolders (the 19 chapters)
         if (! empty($scanned['subfolders'])) {
-            // First, import each subfolder as its own chapter!
+            // They are already sorted in strict numerical order 1..19 by scanFolder()!
             foreach ($scanned['subfolders'] as $sub) {
-                $chapterTitle = $sub['title'];
-                // Check if chapter already exists under this subject, otherwise create it
-                $chapter = $subject->chapters()->where('title', $chapterTitle)->first();
+                if ($selectedMap !== null && ! isset($selectedMap[$sub['id']])) {
+                    continue; // Skipped by user
+                }
+
+                $cleanTitle = $sub['title'];
+
+                // Check if chapter already exists under this subject (by clean title or raw title)
+                $chapter = $subject->chapters()
+                    ->where(function ($q) use ($cleanTitle, $sub) {
+                        $q->where('title', $cleanTitle)
+                          ->orWhere('title', $sub['raw_title'])
+                          ->orWhere('title', 'like', "%{$cleanTitle}%");
+                    })
+                    ->first();
+
                 if (! $chapter) {
-                    $chapter = $outline->addChapter($subject, $chapterTitle);
+                    $chapter = $outline->addChapter($subject, $cleanTitle);
                     $chaptersCreated++;
                 }
 
-                $subFiles = self::flattenFiles($sub);
+                // Files within the chapter are already sorted: Notes first (10), Practice (20), Interview (30)
+                $subFiles = $sub['files'] ?? [];
                 foreach ($subFiles as $file) {
                     try {
                         $downloaded = RemotePdfDownloader::download($file['url']);
@@ -292,12 +503,12 @@ class GoogleDriveFolderScanner
                 }
             }
 
-            // If the root folder also contains direct files, add them to a root chapter
+            // If root folder also contains loose files, import into general chapter
             if (! empty($scanned['files'])) {
-                $rootChapterTitle = $scanned['title'] ?: ($fallbackChapterTitle ?: 'General Material');
-                $rootChapter = $subject->chapters()->where('title', $rootChapterTitle)->first();
+                $rootTitle = $fallbackChapterTitle ?: ($scanned['title'] ?: 'General Materials');
+                $rootChapter = $subject->chapters()->where('title', $rootTitle)->first();
                 if (! $rootChapter) {
-                    $rootChapter = $outline->addChapter($subject, $rootChapterTitle);
+                    $rootChapter = $outline->addChapter($subject, $rootTitle);
                     $chaptersCreated++;
                 }
 
@@ -317,8 +528,7 @@ class GoogleDriveFolderScanner
                 }
             }
         } else {
-            // Scenario B: The Drive folder has NO subfolders, just files.
-            // Create a chapter named after the folder, or use the fallback title.
+            // Scenario B: Drive folder contains only direct files without subfolders
             $chapterTitle = $fallbackChapterTitle ?: $scanned['title'];
             $chapter = $subject->chapters()->where('title', $chapterTitle)->first();
             if (! $chapter) {
@@ -348,13 +558,5 @@ class GoogleDriveFolderScanner
             'files_imported'   => $filesImported,
             'errors'           => $errors,
         ];
-    }
-
-    private static function sanitizeTitle(string $title): string
-    {
-        $clean = preg_replace('/\.(pdf|docx|pptx|xlsx|txt)$/i', '', $title);
-        $clean = preg_replace('/[_\s]+/', ' ', $clean);
-
-        return Str::limit(trim($clean), 150);
     }
 }
