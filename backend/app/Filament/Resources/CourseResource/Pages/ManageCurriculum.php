@@ -67,6 +67,13 @@ class ManageCurriculum extends Page
         return 'Build course';
     }
 
+    public function cleanChapterTitle(string $title): string
+    {
+        $clean = preg_replace('/^(?:Chapter\s*\d+|Ch\s*\d+|\d+)[\s:\.-]*/i', '', $title);
+
+        return filled(trim($clean)) ? trim($clean) : $title;
+    }
+
     protected function getViewData(): array
     {
         $entries = $this->outline()->entries($this->getRecord());

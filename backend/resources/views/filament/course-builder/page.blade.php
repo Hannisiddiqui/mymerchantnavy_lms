@@ -134,12 +134,8 @@
                                     <li wire:key="chapter-{{ $chapter->id }}" x-sortable-item="chapter-{{ $chapter->id }}" id="chapter-{{ $chapter->id }}" class="cb-chapter">
                                         <div class="cb-head cb-row">
                                             <span class="cb-handle" x-sortable-handle title="Drag to reorder"><x-filament::icon icon="heroicon-m-bars-3" /></span>
-                                            @php
-                                                $cleanChapterTitle = preg_replace('/^(?:Chapter\s*\d+|Ch\s*\d+|\d+)[\s:\.-]*/i', '', $chapter->title);
-                                                $cleanChapterTitle = filled(trim($cleanChapterTitle)) ? trim($cleanChapterTitle) : $chapter->title;
-                                            @endphp
                                             <span class="cb-muted" style="font-weight:600">Chapter {{ $chapterNo }}</span>
-                                            <span class="cb-title cb-grow">{{ $cleanChapterTitle }}</span>
+                                            <span class="cb-title cb-grow">{{ $this->cleanChapterTitle($chapter->title) }}</span>
                                             <span class="cb-muted">{{ $chapter->contents->count() }} {{ \Illuminate\Support\Str::plural('item', $chapter->contents->count()) }}</span>
                                             <x-filament::icon-button icon="heroicon-m-pencil-square" color="gray" size="sm" label="Rename chapter"
                                                 wire:click="mountAction('chapter', { id: {{ $chapter->id }} })" />
