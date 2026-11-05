@@ -20,8 +20,6 @@ use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
 use Filament\Forms\Components\Toggle;
-use Filament\Forms\Get;
-use Filament\Forms\Set;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -238,7 +236,7 @@ class ManageCurriculum extends Page
                     ->placeholder('https://drive.google.com/drive/folders/...')
                     ->required()
                     ->live(onBlur: true)
-                    ->afterStateUpdated(function (Set $set, ?string $state) {
+                    ->afterStateUpdated(function ($set, ?string $state) {
                         if (empty($state) || ! GoogleDriveFolderScanner::isFolderUrl($state)) {
                             $set('selected_files', []);
                             return;
@@ -255,7 +253,7 @@ class ManageCurriculum extends Page
                 CheckboxList::make('selected_files')
                     ->label('Choose PDFs to Import')
                     ->bulkToggleable()
-                    ->options(function (Get $get) {
+                    ->options(function ($get) {
                         $url = $get('folder_url');
                         if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
                             return [];
@@ -270,7 +268,7 @@ class ManageCurriculum extends Page
                             return ['error' => 'Could not read folder: ' . $e->getMessage()];
                         }
                     })
-                    ->default(function (Get $get) {
+                    ->default(function ($get) {
                         $url = $get('folder_url');
                         if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
                             return [];
@@ -282,7 +280,7 @@ class ManageCurriculum extends Page
                             return [];
                         }
                     })
-                    ->visible(fn (Get $get) => filled($get('folder_url')))
+                    ->visible(fn ($get) => filled($get('folder_url')))
                     ->helperText('All files found are checked by default. Uncheck any files you do not want to download.'),
             ])
             ->action(function (array $data, array $arguments) {
@@ -347,7 +345,7 @@ class ManageCurriculum extends Page
                     ->placeholder('https://drive.google.com/drive/folders/...')
                     ->required()
                     ->live(onBlur: true)
-                    ->afterStateUpdated(function (Set $set, ?string $state) {
+                    ->afterStateUpdated(function ($set, ?string $state) {
                         if (empty($state) || ! GoogleDriveFolderScanner::isFolderUrl($state)) {
                             $set('selected_chapters', []);
                             return;
@@ -364,7 +362,7 @@ class ManageCurriculum extends Page
                 CheckboxList::make('selected_chapters')
                     ->label('Detected Chapters (Auto-Arranged 1 to 19 in Numerical Order)')
                     ->bulkToggleable()
-                    ->options(function (Get $get) {
+                    ->options(function ($get) {
                         $url = $get('folder_url');
                         if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
                             return [];
@@ -376,7 +374,7 @@ class ManageCurriculum extends Page
                             return ['error' => 'Could not read folder: ' . $e->getMessage()];
                         }
                     })
-                    ->default(function (Get $get) {
+                    ->default(function ($get) {
                         $url = $get('folder_url');
                         if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
                             return [];
@@ -388,14 +386,14 @@ class ManageCurriculum extends Page
                             return [];
                         }
                     })
-                    ->visible(fn (Get $get) => filled($get('folder_url')))
+                    ->visible(fn ($get) => filled($get('folder_url')))
                     ->helperText('All detected chapters are sorted 1 to 19 and selected by default. The algorithm automatically cleans names and orders materials (Notes first, Practice tests second, Interview questions third).'),
 
                 TextInput::make('fallback_chapter_title')
                     ->label('Default Chapter Name (Optional)')
                     ->placeholder('Leave blank to use the Google Drive folder name')
                     ->helperText('Only used if the folder directly contains loose PDFs without subfolders.')
-                    ->visible(fn (Get $get) => filled($get('folder_url'))),
+                    ->visible(fn ($get) => filled($get('folder_url'))),
             ])
             ->action(function (array $data, array $arguments) {
                 if (empty($arguments['subject'])) {
@@ -452,7 +450,7 @@ class ManageCurriculum extends Page
                     ->placeholder('https://drive.google.com/drive/folders/...')
                     ->required()
                     ->live(onBlur: true)
-                    ->afterStateUpdated(function (Set $set, ?string $state) {
+                    ->afterStateUpdated(function ($set, ?string $state) {
                         if (empty($state) || ! GoogleDriveFolderScanner::isFolderUrl($state)) {
                             $set('selected_chapters', []);
                             return;
@@ -474,7 +472,7 @@ class ManageCurriculum extends Page
                 CheckboxList::make('selected_chapters')
                     ->label('Detected Chapters (Auto-Arranged 1 to 19 in Numerical Order)')
                     ->bulkToggleable()
-                    ->options(function (Get $get) {
+                    ->options(function ($get) {
                         $url = $get('folder_url');
                         if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
                             return [];
@@ -486,7 +484,7 @@ class ManageCurriculum extends Page
                             return ['error' => 'Could not read folder: ' . $e->getMessage()];
                         }
                     })
-                    ->default(function (Get $get) {
+                    ->default(function ($get) {
                         $url = $get('folder_url');
                         if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
                             return [];
@@ -498,7 +496,7 @@ class ManageCurriculum extends Page
                             return [];
                         }
                     })
-                    ->visible(fn (Get $get) => filled($get('folder_url')))
+                    ->visible(fn ($get) => filled($get('folder_url')))
                     ->helperText('All detected chapters are sorted 1 to 19 and selected by default.'),
             ])
             ->action(function (array $data) {
