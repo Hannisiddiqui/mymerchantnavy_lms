@@ -12,11 +12,13 @@ use App\Models\CurriculumItem;
 use App\Models\Subject;
 use App\Models\Test;
 use App\Services\Courses\CourseOutline;
+use App\Services\Courses\GoogleDriveFolderScanner;
 use App\Services\Courses\RemotePdfDownloader;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -119,16 +121,16 @@ class ManageCurriculum extends Page
     {
         return Action::make('bulkDriveImport')
             ->modalHeading('Bulk Import PDFs from Google Drive / Links')
-            ->modalDescription('Paste one or more shared Google Drive links or direct PDF URLs (one per line). The server downloads each file directly and adds them to this chapter.')
+            ->modalDescription('Paste one or more shared Google Drive links, folder links, or direct PDF URLs (one per line). The server downloads each file directly and adds them to this chapter.')
             ->modalSubmitActionLabel('Start Download & Import')
             ->modalWidth('2xl')
             ->schema([
                 Textarea::make('urls')
-                    ->label('Google Drive or PDF URLs (one per line)')
-                    ->placeholder("https://drive.google.com/file/d/...\nhttps://drive.google.com/file/d/...\nCustom Title | https://drive.google.com/file/d/...")
+                    ->label('Google Drive Links or PDF URLs (one per line)')
+                    ->placeholder("https://drive.google.com/drive/folders/... (folder links automatically expand)\nhttps://drive.google.com/file/d/...\nCustom Title | https://drive.google.com/file/d/...")
                     ->rows(8)
                     ->required()
-                    ->helperText('Make sure Google Drive files have General Access set to "Anyone with the link can view". You can optionally prefix a title: "Title | https://..."'),
+                    ->helperText('Make sure Google Drive files and folders have General Access set to "Anyone with the link can view". Folder links will automatically expand and download all PDFs inside them.'),
             ])
             ->action(function (array $data, array $arguments) {
                 $chapter = $this->findChapter($arguments['chapter']);
@@ -146,6 +148,20 @@ class ManageCurriculum extends Page
                     $url = $line;
                     if (str_contains($line, '|')) {
                         [$customTitle, $url] = array_map('trim', explode('|', $line, 2));
+                    }
+
+                    // Auto-detect and expand Google Drive folder links!
+                    if (GoogleDriveFolderScanner::isFolderUrl($url)) {
+                        try {
+                            $res = GoogleDriveFolderScanner::importIntoChapter($chapter, $url, $this->outline(), true);
+                            $count += $res['imported'];
+                            if (! empty($res['errors'])) {
+                                $errors = array_merge($errors, $res['errors']);
+                            }
+                        } catch (\Throwable $e) {
+                            $errors[] = Str::limit($url, 45).': '.$e->getMessage();
+                        }
+                        continue;
                     }
 
                     try {
@@ -167,6 +183,173 @@ class ManageCurriculum extends Page
                 }
                 if (! empty($errors)) {
                     Notification::make()->title('Some files could not be imported')->body(implode("\n", array_slice($errors, 0, 5)))->warning()->persistent()->send();
+                }
+            });
+    }
+
+    /** Import an entire Google Drive folder directly into a specific Chapter. arguments: chapter */
+    public function importChapterFolderAction(): Action
+    {
+        return Action::make('importChapterFolder')
+            ->modalHeading(fn (array $arguments) => 'Import Google Drive Folder into “'.$this->findChapter($arguments['chapter'])->title.'”')
+            ->modalDescription('Paste a Google Drive folder link. The server will automatically scan all PDFs inside the folder (including subfolders), download them, and add them to this chapter.')
+            ->modalSubmitActionLabel('Start Folder Download & Import')
+            ->modalWidth('xl')
+            ->schema([
+                TextInput::make('folder_url')
+                    ->label('Google Drive Folder Link')
+                    ->placeholder('https://drive.google.com/drive/folders/...')
+                    ->required()
+                    ->helperText('Make sure the folder General Access is set to "Anyone with the link can view".'),
+                Toggle::make('recursive')
+                    ->label('Include files inside nested subfolders')
+                    ->default(true)
+                    ->helperText('If checked, PDFs located inside subfolders will also be downloaded into this chapter.'),
+            ])
+            ->action(function (array $data, array $arguments) {
+                $chapter = $this->findChapter($arguments['chapter']);
+                try {
+                    $res = GoogleDriveFolderScanner::importIntoChapter(
+                        $chapter,
+                        $data['folder_url'],
+                        $this->outline(),
+                        (bool) ($data['recursive'] ?? true)
+                    );
+
+                    Notification::make()
+                        ->title("Imported {$res['imported']} PDF(s) into “{$chapter->title}”")
+                        ->body("Downloaded from folder “{$res['folder_title']}”.")
+                        ->success()
+                        ->send();
+
+                    if (! empty($res['errors'])) {
+                        Notification::make()
+                            ->title("Some files had warnings ({$res['skipped']} skipped)")
+                            ->body(implode("\n", array_slice($res['errors'], 0, 5)))
+                            ->warning()
+                            ->persistent()
+                            ->send();
+                    }
+                } catch (\Throwable $e) {
+                    Notification::make()
+                        ->title('Folder import failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->persistent()
+                        ->send();
+                }
+            });
+    }
+
+    /** Import an entire Google Drive folder structure into a Subject (creates chapters automatically). arguments: subject */
+    public function importSubjectFolderAction(): Action
+    {
+        return Action::make('importSubjectFolder')
+            ->modalHeading(fn (array $arguments) => 'Import Drive Folder into “'.$this->findSubject($arguments['subject'])->title.'”')
+            ->modalDescription('Paste a Google Drive folder link containing chapter subfolders or files (e.g. "Chemistry Material"). The server will automatically create a chapter for each subfolder, download all PDFs, and build your curriculum in one click.')
+            ->modalSubmitActionLabel('Download & Build Curriculum')
+            ->modalWidth('xl')
+            ->schema([
+                TextInput::make('folder_url')
+                    ->label('Google Drive Folder Link')
+                    ->placeholder('https://drive.google.com/drive/folders/...')
+                    ->required()
+                    ->helperText('Make sure the folder General Access is set to "Anyone with the link can view".'),
+                TextInput::make('fallback_chapter_title')
+                    ->label('Default Chapter Name (Optional)')
+                    ->placeholder('Leave blank to use the Google Drive folder name')
+                    ->helperText('Only used if the folder directly contains PDFs without chapter subfolders.'),
+            ])
+            ->action(function (array $data, array $arguments) {
+                $subject = $this->findSubject($arguments['subject']);
+                try {
+                    $res = GoogleDriveFolderScanner::importIntoSubject(
+                        $subject,
+                        $data['folder_url'],
+                        $this->outline(),
+                        filled($data['fallback_chapter_title'] ?? null) ? $data['fallback_chapter_title'] : null
+                    );
+
+                    Notification::make()
+                        ->title("Curriculum Built: {$res['files_imported']} file(s) across {$res['chapters_created']} chapter(s)")
+                        ->body("Imported from “{$res['folder_title']}” into subject “{$subject->title}”.")
+                        ->success()
+                        ->persistent()
+                        ->send();
+
+                    if (! empty($res['errors'])) {
+                        Notification::make()
+                            ->title('Some files could not be imported')
+                            ->body(implode("\n", array_slice($res['errors'], 0, 5)))
+                            ->warning()
+                            ->persistent()
+                            ->send();
+                    }
+                } catch (\Throwable $e) {
+                    Notification::make()
+                        ->title('Folder import failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->persistent()
+                        ->send();
+                }
+            });
+    }
+
+    /** Import a Google Drive folder as a brand new Subject in this course. */
+    public function importCourseFolderAction(): Action
+    {
+        return Action::make('importCourseFolder')
+            ->modalHeading('Import Google Drive Folder as New Subject')
+            ->modalDescription('Paste a Google Drive folder link (e.g. "Chemistry Material"). The server will create a new Subject, create a chapter for each subfolder, and download all PDFs automatically.')
+            ->modalSubmitActionLabel('Import New Subject')
+            ->modalWidth('xl')
+            ->schema([
+                TextInput::make('folder_url')
+                    ->label('Google Drive Folder Link')
+                    ->placeholder('https://drive.google.com/drive/folders/...')
+                    ->required()
+                    ->helperText('Make sure the folder General Access is set to "Anyone with the link can view".'),
+                TextInput::make('subject_title')
+                    ->label('Subject Name (Optional)')
+                    ->placeholder('Leave empty to use the Google Drive folder name')
+                    ->helperText('If left blank, the Subject will be named after the Google Drive folder.'),
+            ])
+            ->action(function (array $data) {
+                try {
+                    $scanned = GoogleDriveFolderScanner::scanFolder($data['folder_url'], false);
+                    $subjectTitle = filled($data['subject_title'] ?? null) ? trim($data['subject_title']) : $scanned['title'];
+
+                    $subject = $this->outline()->addSubject($this->getRecord(), $subjectTitle);
+
+                    $res = GoogleDriveFolderScanner::importIntoSubject(
+                        $subject,
+                        $data['folder_url'],
+                        $this->outline()
+                    );
+
+                    Notification::make()
+                        ->title("Created Subject “{$subject->title}” with {$res['files_imported']} file(s)")
+                        ->body("Built {$res['chapters_created']} chapter(s) from “{$res['folder_title']}”.")
+                        ->success()
+                        ->persistent()
+                        ->send();
+
+                    if (! empty($res['errors'])) {
+                        Notification::make()
+                            ->title('Some files could not be imported')
+                            ->body(implode("\n", array_slice($res['errors'], 0, 5)))
+                            ->warning()
+                            ->persistent()
+                            ->send();
+                    }
+                } catch (\Throwable $e) {
+                    Notification::make()
+                        ->title('Folder import failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->persistent()
+                        ->send();
                 }
             });
     }

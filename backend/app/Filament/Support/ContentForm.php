@@ -70,7 +70,7 @@ class ContentForm
                 TextInput::make('pdf_url')
                     ->label('Google Drive or PDF URL')
                     ->placeholder('https://drive.google.com/file/d/... or any direct PDF link')
-                    ->helperText('Paste a shared Google Drive link (set to "Anyone with the link can view") or direct web PDF link. The server downloads it directly.')
+                    ->helperText('Paste a shared Google Drive link (set to "Anyone with the link can view") or direct web PDF link. To import an entire Google Drive folder of PDFs at once, use “Import Google Drive folder” on the chapter.')
                     ->visible(fn (Get $get) => ($get('source_type') ?? 'url') === 'url')
                     ->required(fn (Get $get) => ($get('source_type') ?? 'url') === 'url' && empty($get('file')))
                     ->columnSpanFull(),

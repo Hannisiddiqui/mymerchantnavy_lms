@@ -27,6 +27,12 @@ class RemotePdfDownloader
             ]);
         }
 
+        if (GoogleDriveFolderScanner::isFolderUrl($url)) {
+            throw ValidationException::withMessages([
+                'pdf_url' => 'This link is a Google Drive folder. Please use the “Import Google Drive folder” option to download and import all files from this folder automatically.',
+            ]);
+        }
+
         $gdriveId = self::extractGoogleDriveId($url);
         $result = $gdriveId ? self::fetchGoogleDrive($gdriveId) : self::fetchDirectUrl($url);
 

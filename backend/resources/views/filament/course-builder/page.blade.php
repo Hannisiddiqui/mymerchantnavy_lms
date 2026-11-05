@@ -81,6 +81,8 @@
                             <x-filament::dropdown placement="bottom-end">
                                 <x-slot name="trigger"><x-filament::icon-button icon="heroicon-m-ellipsis-vertical" color="gray" label="More" /></x-slot>
                                 <x-filament::dropdown.list>
+                                    <x-filament::dropdown.list.item icon="heroicon-m-folder-arrow-down"
+                                        wire:click="mountAction('importSubjectFolder', { subject: {{ $item->id }} })">Import Drive folder (auto-chapters)</x-filament::dropdown.list.item>
                                     <x-filament::dropdown.list.item icon="heroicon-m-clipboard-document-list"
                                         wire:click="mountAction('mockTest', { after: {{ $entry->id }} })">Add a mock test after this subject</x-filament::dropdown.list.item>
                                     <x-filament::dropdown.list.item icon="heroicon-m-trash" color="danger"
@@ -140,6 +142,10 @@
                                             <x-filament::dropdown placement="bottom-end">
                                                 <x-slot name="trigger"><x-filament::icon-button icon="heroicon-m-ellipsis-vertical" color="gray" size="sm" label="More" /></x-slot>
                                                 <x-filament::dropdown.list>
+                                                    <x-filament::dropdown.list.item icon="heroicon-m-folder-arrow-down"
+                                                        wire:click="mountAction('importChapterFolder', { chapter: {{ $chapter->id }} })">Import Google Drive folder</x-filament::dropdown.list.item>
+                                                    <x-filament::dropdown.list.item icon="heroicon-m-arrow-down-tray"
+                                                        wire:click="mountAction('bulkDriveImport', { chapter: {{ $chapter->id }} })">Bulk import PDF links</x-filament::dropdown.list.item>
                                                     <x-filament::dropdown.list.item icon="heroicon-m-clipboard-document-list"
                                                         wire:click="mountAction('mockTest', { subject: {{ $item->id }}, afterChapter: {{ $chapter->id }} })">Add a mock test after this chapter</x-filament::dropdown.list.item>
                                                 </x-filament::dropdown.list>
@@ -198,8 +204,10 @@
                                                         <x-filament::dropdown.list.item :icon="$type['icon']"
                                                             wire:click="mountAction('content', { chapter: {{ $chapter->id }}, type: '{{ $type['value'] }}' })">{{ $type['label'] }}</x-filament::dropdown.list.item>
                                                     @endforeach
+                                                    <x-filament::dropdown.list.item icon="heroicon-m-folder-arrow-down"
+                                                        wire:click="mountAction('importChapterFolder', { chapter: {{ $chapter->id }} })">Import Google Drive folder</x-filament::dropdown.list.item>
                                                     <x-filament::dropdown.list.item icon="heroicon-m-arrow-down-tray"
-                                                        wire:click="mountAction('bulkDriveImport', { chapter: {{ $chapter->id }} })">Bulk import from Google Drive</x-filament::dropdown.list.item>
+                                                        wire:click="mountAction('bulkDriveImport', { chapter: {{ $chapter->id }} })">Bulk import from Google Drive / links</x-filament::dropdown.list.item>
                                                 </x-filament::dropdown.list>
                                             </x-filament::dropdown>
                                         </div>
@@ -213,6 +221,8 @@
                                 <input class="cb-input" type="text" placeholder="New chapter name — press Enter to add"
                                     wire:model="newChapter.{{ $item->id }}" wire:keydown.enter="addChapter({{ $item->id }})">
                                 <x-filament::button color="gray" icon="heroicon-m-plus" wire:click="addChapter({{ $item->id }})">Add chapter</x-filament::button>
+                                <x-filament::button color="gray" icon="heroicon-m-folder-arrow-down"
+                                    wire:click="mountAction('importSubjectFolder', { subject: {{ $item->id }} })">Import Drive folder</x-filament::button>
                                 <x-filament::button color="gray" icon="heroicon-m-clipboard-document-list"
                                     wire:click="mountAction('mockTest', { subject: {{ $item->id }} })">Add mock test</x-filament::button>
                             </div>
@@ -253,6 +263,7 @@
             <div class="cb-add">
                 <input class="cb-input" type="text" placeholder="New subject name — press Enter to add" wire:model="newSubject" wire:keydown.enter="addSubject">
                 <x-filament::button icon="heroicon-m-plus" wire:click="addSubject">Add subject</x-filament::button>
+                <x-filament::button color="gray" icon="heroicon-m-folder-arrow-down" wire:click="mountAction('importCourseFolder')">Import Drive folder as subject</x-filament::button>
                 <x-filament::button color="gray" icon="heroicon-m-clipboard-document-list" wire:click="mountAction('mockTest')">Add mock test</x-filament::button>
             </div>
             <p class="cb-muted" style="margin-top:.5rem">Tip: add a chapter (or mock test), then drag its ☰ handle to put it between any existing chapters. Drag a content item into another chapter to move it. A chapter's ⋮ menu inserts a mock test right after it.</p>
