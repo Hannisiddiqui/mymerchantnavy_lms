@@ -7,5 +7,23 @@ student-app/.env*
 !student-app/.env.example
 !student-app/.env.production.example
 
+# Dependencies
+node_modules/
+backend/vendor/
+vendor/
+.next/
+out/
+build/
+dist/
+
+# Laravel
+backend/storage/app/private/
+backend/storage/app/public/
+backend/storage/framework/cache/
+backend/storage/framework/sessions/
+backend/storage/framework/views/
+backend/storage/logs/
+backend/.env
+
 # accidental local database file
 backend/mmp_lms
