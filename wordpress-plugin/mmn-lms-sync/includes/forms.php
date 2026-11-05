@@ -42,6 +42,11 @@ function mmn_lms_form_message($code)
 
 function mmn_lms_is_disposable_email($email)
 {
+    if (class_exists('MMN_Email_Detector')) {
+        $check = MMN_Email_Detector::inspect($email);
+        return ! empty($check['blocked']);
+    }
+
     $email = strtolower(trim((string) $email));
     $parts = explode('@', $email);
     if (count($parts) !== 2 || empty($parts[1])) {
@@ -49,23 +54,31 @@ function mmn_lms_is_disposable_email($email)
     }
     $domain = trim($parts[1]);
 
+    static $cache = null;
+    if ($cache === null) {
+        $file = dirname(__FILE__) . '/disposable-domains.json';
+        if (file_exists($file)) {
+            $raw = @file_get_contents($file);
+            $list = $raw ? json_decode($raw, true) : null;
+            if (is_array($list)) {
+                $cache = array_fill_keys(array_map('strtolower', $list), true);
+            }
+        }
+        if ($cache === null) {
+            $cache = [];
+        }
+    }
+
+    if (isset($cache[$domain])) {
+        return true;
+    }
+
     $blocked_domains = [
         'protonmail.com', 'proton.me', 'pm.me', 'protonmail.ch', 'proton.com',
         'tutanota.com', 'tuta.com', 'tuta.io', 'tutanota.de', 'tutamail.com',
         'keemail.me', 'skiff.com', 'mailfence.com',
         'bankwen.com', 'mailinator.com', 'temp-mail.org', 'tempmail.com', 'tempmailo.com',
-        '10minutemail.com', '10minutemail.net', '10minutemail.org', 'guerrillamail.com',
-        'guerrillamail.net', 'guerrillamail.org', 'guerrillamail.biz', 'guerrillamailblock.com',
-        'grr.la', 'sharklasers.com', 'spam4.me', 'yopmail.com', 'yopmail.fr', 'yopmail.net',
-        'trashmail.com', 'trashmail.net', 'trashmail.me', 'dispostable.com', 'throwawaymail.com',
-        'crazymailing.com', 'mohmal.com', 'fakemailgenerator.com', 'burnermail.io', 'mytemp.email',
-        'inboxkitten.com', 'generator.email', 'emailondeck.com', 'tempail.com', 'tmail.com',
-        'internxt.com', 'dropmail.me', '1secmail.com', '1secmail.org', '1secmail.net', 'wwjmp.com',
-        'esiix.com', 'xmailer.org', 'brefmail.com', 'chacuo.net', '0-mail.com', 'nada.ltd',
-        'nada.email', 'getnada.com', 'inboxbear.com', 'getairmail.com', 'mintemail.com', 'meltmail.com',
-        'maildrop.cc', 'fakeinbox.com', 'mytempemail.com', 'spambog.com', 'pokemail.net',
-        'trashymail.com', 'temporary-mail.net', 'tempinbox.com', 'disposablemail.com', 'boximail.com',
-        'temp-mail.io', 'harakirimail.com', 'mailcatch.com', 'mailnesia.com', 'discard.email',
+        'en2ch.com',
     ];
 
     if (in_array($domain, $blocked_domains, true)) {
@@ -87,7 +100,7 @@ function mmn_lms_is_disposable_email($email)
         if (@getmxrr($domain, $mx) && ! empty($mx)) {
             foreach ($mx as $h) {
                 $h = strtolower($h);
-                if (strpos($h, 'protonmail') !== false || strpos($h, 'proton.ch') !== false || strpos($h, 'mailinator') !== false || strpos($h, 'yopmail') !== false) {
+                if (strpos($h, 'protonmail') !== false || strpos($h, 'proton.ch') !== false || strpos($h, 'mailinator') !== false || strpos($h, 'yopmail') !== false || strpos($h, 'temp') !== false) {
                     return true;
                 }
             }
