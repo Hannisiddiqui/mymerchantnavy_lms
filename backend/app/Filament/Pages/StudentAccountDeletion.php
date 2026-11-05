@@ -47,7 +47,7 @@ class StudentAccountDeletion extends Page implements HasTable
     public function table(Table $table): Table
     {
         return $table
-            ->query(fn (): Builder => User::query()->withCount(['courses', 'attempts']))
+            ->query(fn (): Builder => User::query()->real()->withCount(['courses', 'attempts']))
             ->columns([
                 TextColumn::make('email')
                     ->label('Student Email')

@@ -4,6 +4,7 @@
  */
 export * as auth from "./auth";
 export * as profile from "./profile";
+export * as twoFactor from "./twoFactor";
 export * as courses from "./courses";
 export * as batches from "./batches";
 export * as pageVisibility from "./pageVisibility";

@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api\V1;
 
 use App\Http\Controllers\Controller;
 use App\Services\Auth\DeviceSessionService;
+use App\Services\Auth\StudentTwoFactor;
 use App\Services\WordPress\WordPressLink;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -89,7 +90,7 @@ class WordPressController extends Controller
     }
 
     /** POST /auth/sso {token}: the "go to my course" link from WordPress. Same answer as the code login. */
-    public function sso(Request $request, DeviceSessionService $devices): JsonResponse
+    public function sso(Request $request, DeviceSessionService $devices, StudentTwoFactor $twoFactor): JsonResponse
     {
         abort_unless($this->link->enabled(), 503, 'The WordPress link is not set up.');
         $token = (string) $request->validate(['token' => ['required', 'string', 'max:1000']])['token'];
@@ -106,6 +107,15 @@ class WordPressController extends Controller
         // A link from a WordPress account whose email was NOT verified there (an old or other kind of registration) must
         // never open an account whose owner has proved the address; only the emailed code does that.
         abort_if($user->email_verified_at && ! $claims['verified'], 401, 'For your security, please log in with the code we email you.');
+
+        // A student with two-step verification still has to type the code of their authenticator app.
+        if (StudentTwoFactor::featureOn() && $twoFactor->enabledFor($user)) {
+            return response()->json(['data' => [
+                'requiresTwoFactor' => true,
+                'challenge' => $twoFactor->startChallenge($user, (string) ($request->input('device_name') ?? 'Unknown device')),
+                'redirect' => $claims['go'],
+            ]]);
+        }
 
         return response()->json(['data' => [
             'token' => $devices->login($user, $request->input('device_name') ?? 'Unknown device'),

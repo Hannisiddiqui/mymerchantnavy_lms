@@ -18,7 +18,7 @@ import {
   CheckCheck,
   ExternalLink
 } from "lucide-react";
-import { apiBaseUrl } from "@/lib/api/client";
+import { apiBaseUrl, tokenStore } from "@/lib/api/client";
 import * as api from "@/lib/api";
 
 interface SupportConfig {
@@ -149,7 +149,7 @@ export function SupportChatbot() {
   // Fetch answered queries whenever chatbot opens
   useEffect(() => {
     if (isOpen && email) {
-      fetch(`${apiBaseUrl()}/support/my-queries?email=${encodeURIComponent(email)}`)
+      fetch(`${apiBaseUrl()}/support/my-queries`, { headers: tokenStore.get() ? { Authorization: `Bearer ${tokenStore.get()}`, Accept: "application/json" } : { Accept: "application/json" } })
         .then((r) => (r.ok ? r.json() : null))
         .then((data) => {
           if (data?.data && Array.isArray(data.data)) {

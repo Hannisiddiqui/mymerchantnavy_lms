@@ -1,11 +1,12 @@
 {{-- Loaded in every admin page: styles for the course/test builders + KaTeX so formulas display as formulas. --}}
 {{-- KaTeX is served from this site (public/vendor/katex, same version as the student app): no outside website is needed. --}}
 <link rel="stylesheet" href="{{ asset('vendor/katex/katex.min.css') }}">
+<link rel="stylesheet" href="{{ asset('vendor/mmn/admin-utilities.css') }}?v={{ @filemtime(public_path('vendor/mmn/admin-utilities.css')) }}">
 <script defer src="{{ asset('vendor/katex/katex.min.js') }}"></script>
 <script defer src="{{ asset('vendor/katex/contrib/mhchem.min.js') }}"></script> {{-- chemistry formulas, e.g. ce{H2O} --}}
 <script defer src="{{ asset('vendor/katex/contrib/auto-render.min.js') }}"></script>
 {{-- The script that draws the formulas is its own file (public/vendor/mmn/admin-math.js). --}}
-<script defer src="{{ asset('vendor/mmn/admin-math.js') }}?v={{ filemtime(public_path('vendor/mmn/admin-math.js')) }}"></script>
+<script defer src="{{ asset('vendor/mmn/admin-math.js') }}?v={{ @filemtime(public_path('vendor/mmn/admin-math.js')) }}"></script>
 
 <style>
     /* Prevent raw SVGs in custom blade views, callouts or tables from expanding across the full screen */
@@ -256,7 +257,7 @@
     .mmn-table td { padding: .6rem .75rem; border-top: 1px solid var(--gray-200); vertical-align: top; }
     .dark .mmn-table td { border-top-color: rgba(255,255,255,.08); }
     .mmn-table-wide { min-width: 720px; }
-    .mmn-table:not(.mmn-table-wide) th { width: 11rem; }
+    .mmn-kv th { width: 11rem; }
 
     /* the cards follow the panel theme in light and dark */
     .mmn-card, .mmn-action-card { background-color: #fff; border-color: var(--gray-200); }
@@ -268,4 +269,12 @@
         .mmn-actions > * { flex: 1 1 100%; }
         .mmn-action-card { flex-direction: column; align-items: stretch; }
     }
+
+    .mmn-check-list { list-style: none; margin: .75rem 0 0; padding: 0; display: flex; flex-direction: column; gap: .75rem; }
+    .mmn-check-list li { display: flex; gap: .625rem; align-items: flex-start; font-size: .875rem; }
+    .mmn-check-list small { display: block; margin-top: .125rem; color: var(--gray-500); font-size: .75rem; line-height: 1.4; }
+    .mmn-check-list .dot { flex: none; width: .75rem; height: .75rem; border-radius: 50%; margin-top: .3rem; background: #16a34a; }
+    .mmn-check-list li.bad .dot { background: #dc2626; }
+    .mmn-check-list li.bad strong { color: #b91c1c; }
+    .dark .mmn-check-list li.bad strong { color: #f87171; }
 </style>

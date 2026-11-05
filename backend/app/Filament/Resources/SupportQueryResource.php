@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SuperAdminOnlyDeletes;
 use App\Filament\Resources\SupportQueryResource\Pages;
 use App\Models\ActivityLog;
 use App\Models\SupportQuery;
@@ -23,6 +24,8 @@ use Illuminate\Support\Facades\Mail;
 
 class SupportQueryResource extends Resource
 {
+    use SuperAdminOnlyDeletes;
+
     protected static ?string $model = SupportQuery::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-chat-bubble-left-right';

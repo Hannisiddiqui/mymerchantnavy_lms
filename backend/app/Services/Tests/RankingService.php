@@ -14,7 +14,7 @@ class RankingService
     /** @return array{rank:int, totalCandidates:int, percentile:float} */
     public function for(TestAttempt $attempt): array
     {
-        $others = TestAttempt::where('test_id', $attempt->test_id)
+        $others = TestAttempt::real()->where('test_id', $attempt->test_id)
             ->where('attempt_no', 1)
             ->whereNotNull('submitted_at')
             ->where('user_id', '!=', $attempt->user_id);

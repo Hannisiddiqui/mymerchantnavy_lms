@@ -7,6 +7,7 @@ use App\Http\Requests\Auth\SendOtpRequest;
 use App\Http\Requests\Auth\VerifyOtpRequest;
 use App\Models\User;
 use App\Services\Auth\DeviceSessionService;
+use App\Services\Auth\StudentTwoFactor;
 use App\Services\Otp\OtpService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,7 @@ use Illuminate\Http\Request;
  */
 class AuthController extends Controller
 {
-    public function __construct(private OtpService $otp, private DeviceSessionService $devices) {}
+    public function __construct(private OtpService $otp, private DeviceSessionService $devices, private StudentTwoFactor $twoFactor) {}
 
     /** POST /api/v1/auth/otp/send */
     public function sendOtp(SendOtpRequest $request): JsonResponse
@@ -45,6 +46,12 @@ class AuthController extends Controller
         }
 
         $deviceName = $request->validated('device_name') ?? 'Unknown device';
+
+        // Two-step verification switched on by the student: the emailed code alone is not enough.
+        if (StudentTwoFactor::featureOn() && $this->twoFactor->enabledFor($user)) {
+            return response()->json(['data' => ['requiresTwoFactor' => true, 'challenge' => $this->twoFactor->startChallenge($user, $deviceName)]]);
+        }
+
         $token = $this->devices->login($user, $deviceName);
 
         \App\Models\ActivityLog::record(

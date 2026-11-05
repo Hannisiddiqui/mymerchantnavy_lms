@@ -2,8 +2,14 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SuperAdminOnlyDeletes;
 use App\Filament\Resources\CustomPageResource\Pages;
+use App\Models\Batch;
+use App\Models\Course;
 use App\Models\CustomPage;
+use Filament\Actions\Action;
+use Filament\Forms\Components\ColorPicker;
+use Filament\Forms\Components\DateTimePicker;
 use Filament\Actions\BulkActionGroup;
 use Filament\Actions\DeleteAction;
 use Filament\Actions\DeleteBulkAction;
@@ -29,6 +35,8 @@ use Illuminate\Support\Str;
 
 class CustomPageResource extends Resource
 {
+    use SuperAdminOnlyDeletes;
+
     protected static ?string $model = CustomPage::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-document-plus';
@@ -114,12 +122,42 @@ class CustomPageResource extends Resource
                         ->helperText('Lower numbers appear higher up in the sidebar.'),
                 ])->columns(3),
 
+            Section::make('Look, Layout & Who Can See It')
+                ->description('Make the page feel like yours: colour theme, width, cover image, schedule and who is allowed to open it.')
+                ->collapsible()
+                ->schema([
+                    Select::make('theme')->label('Colour theme')->options([
+                        'brand' => 'Brand blue', 'navy' => 'Deep navy', 'emerald' => 'Emerald green', 'violet' => 'Violet', 'amber' => 'Amber / gold', 'rose' => 'Rose red',
+                    ])->default('brand')->native(false)->helperText('Colours the accents (buttons, badges, highlights) on this page.'),
+                    Select::make('width')->label('Page width')->options([
+                        'narrow' => 'Narrow (reading article)', 'normal' => 'Normal', 'wide' => 'Wide', 'full' => 'Full width',
+                    ])->default('normal')->native(false),
+                    Toggle::make('show_header')->label('Show the title bar')->default(true)->inline(false)
+                        ->helperText('Turn off when your first section (for example a Hero) already carries the title.'),
+                    TextInput::make('cover_image_url')->label('Cover image (optional)')->url()->placeholder('https://… banner shown above the sections')->columnSpan(2),
+                    Select::make('access')->label('Who can open this page')->options([
+                        'students' => 'Every logged-in student',
+                        'courses' => 'Only students enrolled in selected courses',
+                        'public' => 'Anyone with the link (even before logging in)',
+                    ])->default('students')->native(false)->live(),
+                    Select::make('access_course_ids')->label('Courses allowed')->multiple()->searchable()->preload()
+                        ->options(fn () => Course::where('is_active', true)->orderBy('title')->pluck('title', 'id'))
+                        ->visible(fn ($get) => $get('access') === 'courses')->required(fn ($get) => $get('access') === 'courses')
+                        ->helperText('Only students whose access to one of these courses is still valid see the page.'),
+                    DateTimePicker::make('publish_at')->label('Go live on (optional)')->seconds(false)->helperText('Leave empty to publish immediately.'),
+                    DateTimePicker::make('unpublish_at')->label('Hide on (optional)')->seconds(false)->after('publish_at')->helperText('For offers and notices that should disappear by themselves.'),
+                ])->columns(3),
+
             Section::make('Visual Page Builder')
-                ->description('Build rich, dynamic layouts with drag-and-drop sections (Hero Banners, Feature Grids, FAQ Accordions, Rich Text, and Call-to-Action Boxes).')
+                ->description('Build the page from sections: add, drag to reorder, duplicate or collapse each one. 22 section types: banners, text, columns, images, galleries, video, tables, timelines, FAQs, downloads, countdowns, batches for sale and more.')
                 ->collapsible()
                 ->schema([
                     Builder::make('blocks')
                         ->label('Page Sections')
+                        ->collapsible()
+                        ->cloneable()
+                        ->blockNumbers(false)
+                        ->addActionLabel('Add a section')
                         ->blocks([
                             Builder\Block::make('hero')
                                 ->label('Hero Announcement Banner')
@@ -382,6 +420,132 @@ class CustomPageResource extends Resource
                                         ->label('Overview / Notes')
                                         ->rows(2),
                                 ])->columns(2),
+
+                            Builder\Block::make('section_heading')
+                                ->label('Heading')
+                                ->icon('heroicon-o-bars-3-bottom-left')
+                                ->schema([
+                                    TextInput::make('title')->label('Heading')->required(),
+                                    TextInput::make('subtitle')->label('Small text under it'),
+                                    Select::make('align')->label('Alignment')->options(['left' => 'Left', 'center' => 'Centre'])->default('left'),
+                                    Select::make('size')->label('Size')->options(['md' => 'Medium', 'lg' => 'Large', 'xl' => 'Extra large'])->default('lg'),
+                                ])->columns(2),
+
+                            Builder\Block::make('text_columns')
+                                ->label('Text in 2 or 3 columns')
+                                ->icon('heroicon-o-view-columns')
+                                ->schema([
+                                    Select::make('columns')->label('Columns')->options(['2' => '2 columns', '3' => '3 columns'])->default('2'),
+                                    Repeater::make('items')->label('Columns')->minItems(2)->maxItems(3)->defaultItems(2)->schema([
+                                        TextInput::make('title')->label('Column heading'),
+                                        RichEditor::make('body')->label('Text')->required(),
+                                    ])->columnSpanFull(),
+                                ])->columns(2),
+
+                            Builder\Block::make('button_row')
+                                ->label('Buttons')
+                                ->icon('heroicon-o-cursor-arrow-rays')
+                                ->schema([
+                                    Select::make('align')->label('Alignment')->options(['left' => 'Left', 'center' => 'Centre', 'right' => 'Right'])->default('left'),
+                                    Repeater::make('buttons')->label('Buttons')->minItems(1)->maxItems(6)->defaultItems(1)->schema([
+                                        TextInput::make('label')->required(),
+                                        TextInput::make('url')->label('Link')->required()->placeholder('https://… or /my-courses'),
+                                        Select::make('style')->options(['primary' => 'Solid', 'outline' => 'Outline', 'dark' => 'Dark'])->default('primary'),
+                                        Toggle::make('new_tab')->label('Open in a new tab')->inline(false),
+                                    ])->columns(4)->columnSpanFull(),
+                                ])->columns(1),
+
+                            Builder\Block::make('image_gallery')
+                                ->label('Photo Gallery')
+                                ->icon('heroicon-o-squares-2x2')
+                                ->schema([
+                                    TextInput::make('section_title')->label('Gallery title'),
+                                    Select::make('columns')->label('Photos per row')->options(['2' => '2', '3' => '3', '4' => '4'])->default('3'),
+                                    Repeater::make('images')->label('Photos')->minItems(1)->schema([
+                                        FileUpload::make('image_file')->label('Upload')->image()->directory('pages')->disk('public'),
+                                        TextInput::make('image_url')->label('Or image link')->url(),
+                                        TextInput::make('caption')->label('Caption'),
+                                    ])->columns(3)->columnSpanFull(),
+                                ])->columns(2),
+
+                            Builder\Block::make('timeline')
+                                ->label('Steps / Timeline / Study Plan')
+                                ->icon('heroicon-o-queue-list')
+                                ->schema([
+                                    TextInput::make('section_title')->label('Title'),
+                                    Repeater::make('steps')->label('Steps')->minItems(1)->schema([
+                                        TextInput::make('label')->label('Label (Week 1, Step 2, Jan 15…)'),
+                                        TextInput::make('title')->label('Step title')->required(),
+                                        Textarea::make('description')->rows(2),
+                                    ])->columns(3)->columnSpanFull(),
+                                ])->columns(1),
+
+                            Builder\Block::make('data_table')
+                                ->label('Table')
+                                ->icon('heroicon-o-table-cells')
+                                ->schema([
+                                    TextInput::make('section_title')->label('Title'),
+                                    TagsInput::make('columns')->label('Column headings (press Enter after each)')->required()->placeholder('e.g. Subject'),
+                                    Repeater::make('rows')->label('Rows')->minItems(1)->schema([
+                                        TagsInput::make('cells')->label('Cells, in column order (press Enter after each)')->required(),
+                                    ])->columnSpanFull(),
+                                ])->columns(1),
+
+                            Builder\Block::make('downloads')
+                                ->label('Downloads & Links (PDFs, notes, forms)')
+                                ->icon('heroicon-o-arrow-down-tray')
+                                ->schema([
+                                    TextInput::make('section_title')->label('Title')->default('Resources'),
+                                    Repeater::make('files')->label('Files and links')->minItems(1)->schema([
+                                        TextInput::make('label')->required(),
+                                        TextInput::make('file_url')->label('Link to the file or page')->required()->placeholder('https://…'),
+                                        TextInput::make('note')->label('Small note (size, year…)'),
+                                    ])->columns(3)->columnSpanFull(),
+                                ])->columns(1),
+
+                            Builder\Block::make('batches_showcase')
+                                ->label('Batches for Sale (cards with price and Enroll button)')
+                                ->icon('heroicon-o-shopping-bag')
+                                ->schema([
+                                    TextInput::make('section_title')->label('Title')->default('Join a batch'),
+                                    Select::make('batch_ids')->label('Batches to show')->multiple()->searchable()->preload()->required()
+                                        ->options(fn () => Batch::orderBy('title')->pluck('title', 'id'))
+                                        ->helperText('Only batches that are live are shown. Price and link are read from the batch, so they always stay current.'),
+                                ])->columns(1),
+
+                            Builder\Block::make('countdown')
+                                ->label('Countdown Timer (exam / offer)')
+                                ->icon('heroicon-o-clock')
+                                ->schema([
+                                    TextInput::make('title')->label('What is it counting down to?')->required()->placeholder('IMU-CET 2027 exam'),
+                                    DateTimePicker::make('target')->label('Date and time')->required()->seconds(false),
+                                    TextInput::make('after_text')->label('Text after it has passed')->default('This event has started.'),
+                                ])->columns(2),
+
+                            Builder\Block::make('checklist')
+                                ->label('Checklist / Key Points')
+                                ->icon('heroicon-o-check-circle')
+                                ->schema([
+                                    TextInput::make('section_title')->label('Title'),
+                                    TagsInput::make('items')->label('Points (press Enter after each)')->required(),
+                                    Select::make('style')->options(['check' => 'Ticks', 'bullet' => 'Bullets', 'numbered' => 'Numbers'])->default('check'),
+                                ])->columns(1),
+
+                            Builder\Block::make('spacer')
+                                ->label('Space / Divider line')
+                                ->icon('heroicon-o-minus')
+                                ->schema([
+                                    Select::make('height')->label('Space')->options(['sm' => 'Small', 'md' => 'Medium', 'lg' => 'Large'])->default('md'),
+                                    Toggle::make('line')->label('Show a thin line')->default(true)->inline(false),
+                                ])->columns(2),
+
+                            Builder\Block::make('custom_html')
+                                ->label('Custom HTML (advanced)')
+                                ->icon('heroicon-o-code-bracket')
+                                ->schema([
+                                    Textarea::make('body')->label('HTML')->rows(8)->required()
+                                        ->helperText('For layouts the other sections cannot do. For safety, scripts, forms and unknown embeds are removed automatically; YouTube/Vimeo iframes, images, links, tables and basic styling are kept.'),
+                                ])->columns(1),
                         ]),
                 ]),
 
@@ -424,6 +588,10 @@ class CustomPageResource extends Resource
                 ToggleColumn::make('is_published')
                     ->label('Published'),
 
+                TextColumn::make('access')->label('Who sees it')->badge()
+                    ->formatStateUsing(fn (?string $state) => match ($state) { 'public' => 'Anyone', 'courses' => 'Selected courses', default => 'All students' })
+                    ->color(fn (?string $state) => $state === 'public' ? 'warning' : ($state === 'courses' ? 'info' : 'success')),
+
                 TextColumn::make('sort_order')
                     ->label('Sort')
                     ->sortable(),
@@ -435,6 +603,17 @@ class CustomPageResource extends Resource
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->recordActions([
+                Action::make('open')->label('Open')->icon('heroicon-o-arrow-top-right-on-square')->color('gray')
+                    ->url(fn (CustomPage $record) => rtrim((string) config('lms.student_app_url'), '/').'/pages/'.$record->slug, shouldOpenInNewTab: true)
+                    ->visible(fn (CustomPage $record) => $record->is_published),
+                Action::make('duplicate')->label('Duplicate')->icon('heroicon-o-document-duplicate')->color('gray')
+                    ->action(function (CustomPage $record) {
+                        $copy = $record->replicate();
+                        $copy->title = $record->title.' (copy)';
+                        $copy->slug = $record->slug.'-copy-'.Str::lower(Str::random(4));
+                        $copy->is_published = false;
+                        $copy->save();
+                    }),
                 EditAction::make(),
                 DeleteAction::make(),
             ])

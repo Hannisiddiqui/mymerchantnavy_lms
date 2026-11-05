@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SuperAdminOnlyDeletes;
 use App\Filament\Resources\BatchResource\Pages;
 use App\Models\Batch;
 use Filament\Actions\BulkActionGroup;
@@ -27,6 +28,8 @@ use Illuminate\Support\Str;
 
 class BatchResource extends Resource
 {
+    use SuperAdminOnlyDeletes;
+
     protected static ?string $model = Batch::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-sparkles';

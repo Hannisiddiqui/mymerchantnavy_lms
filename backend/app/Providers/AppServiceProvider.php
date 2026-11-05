@@ -28,6 +28,10 @@ class AppServiceProvider extends ServiceProvider
 
     public function boot(): void
     {
+        // Every form section spans the full width. Filament puts sections side by side in two narrow columns, which
+        // squeezed fields and wrapped labels (Create Batch, Page Builder). Sections still arrange their own fields in columns.
+        \Filament\Schemas\Components\Section::configureUsing(fn (\Filament\Schemas\Components\Section $section) => $section->columnSpanFull());
+
         // Logged-in API calls: generous (a student saves an answer on every click) but not unlimited. Per student.
         RateLimiter::for('api', fn (Request $request) => Limit::perMinute(300)->by($request->user()?->id ?: $request->ip()));
 

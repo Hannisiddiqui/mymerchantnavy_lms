@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SuperAdminOnlyDeletes;
 use App\Enums\TestKind;
 use App\Filament\Resources\TestResource\Pages;
 use App\Models\Test;
@@ -25,6 +26,8 @@ use Filament\Tables\Table;
 /** Practice tests (placed inside chapters) and mock tests (placed in the course between subjects). */
 class TestResource extends Resource
 {
+    use SuperAdminOnlyDeletes;
+
     protected static ?string $model = Test::class;
 
     protected static string|\BackedEnum|null $navigationIcon = 'heroicon-o-clipboard-document-list';

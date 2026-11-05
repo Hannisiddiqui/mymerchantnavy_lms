@@ -8,7 +8,9 @@ use App\Models\Enrollment;
 use App\Services\Courses\EnrollmentService;
 use App\Services\Purchases\CouponService;
 use App\Services\Purchases\PurchaseNotifier;
+use App\Models\Setting;
 use Illuminate\Support\Facades\Cache;
+use Illuminate\Support\Facades\Crypt;
 
 /**
  * Everything about the link with the WordPress site: checking its signed messages, finding or creating the student,
@@ -24,9 +26,32 @@ class WordPressLink
         private CouponService $coupons,
     ) {}
 
+    /**
+     * The shared secret. A secret made on Super Admin > WordPress link (stored encrypted) wins; otherwise LMS_WP_SECRET from .env.
+     * WordPress must hold the very same text (WordPress > Settings > LMS link > Shared secret).
+     */
+    public static function secret(): string
+    {
+        $stored = Setting::get('wordpress_secret');
+        if ($stored) {
+            try {
+                return Crypt::decryptString($stored);
+            } catch (\Throwable) {
+                // an unreadable value (APP_KEY changed) falls back to .env
+            }
+        }
+
+        return (string) config('lms.wordpress.secret');
+    }
+
+    public static function secretIsStrong(): bool
+    {
+        return strlen(self::secret()) >= 32;
+    }
+
     public function enabled(): bool
     {
-        return filled(config('lms.wordpress.secret'));
+        return filled(self::secret());
     }
 
     // ------------------------------------------------------------ signed messages
@@ -43,7 +68,7 @@ class WordPressLink
 
     private function mac(string $data): string
     {
-        return hash_hmac('sha256', $data, (string) config('lms.wordpress.secret'));
+        return hash_hmac('sha256', $data, self::secret());
     }
 
     // ------------------------------------------------------------ students and courses

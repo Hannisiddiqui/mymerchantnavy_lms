@@ -15,7 +15,8 @@ return [
     'email_driver' => env('OTP_EMAIL_DRIVER', 'mail'),
 
     // DEVELOPMENT ONLY: when set, every OTP is this code (e.g. 123456). Ignored when APP_ENV=production.
-    'fixed_code' => env('OTP_FIXED_CODE'),
+    // A fixed login code is a test shortcut: it is honoured only when APP_ENV is local/testing, never on a live server.
+    'fixed_code' => in_array(env('APP_ENV'), ['local', 'testing'], true) ? env('OTP_FIXED_CODE') : null,
 
     'length' => 6,
     'ttl_minutes' => 10,

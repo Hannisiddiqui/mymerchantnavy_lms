@@ -21,6 +21,7 @@ class StudentsRelationManager extends RelationManager
     public function table(Table $table): Table
     {
         return $table
+            ->modifyQueryUsing(fn ($query) => $query->where('users.is_preview', false))
             ->columns([
                 TextColumn::make('email')->searchable(),
                 TextColumn::make('name')->searchable()->placeholder('— profile not completed —'),

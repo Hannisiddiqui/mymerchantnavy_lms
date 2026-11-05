@@ -37,6 +37,11 @@ class TestAttempt extends Model
         return 'uuid';
     }
 
+    public function scopeReal($query)
+    {
+        return $query->whereIn('user_id', User::query()->real()->select('id'));
+    }
+
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);

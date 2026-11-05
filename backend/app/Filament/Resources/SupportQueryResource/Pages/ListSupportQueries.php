@@ -10,6 +10,7 @@ use Filament\Resources\Pages\ListRecords;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\RateLimiter;
 
 class ListSupportQueries extends ListRecords
 {
@@ -81,49 +82,118 @@ class ListSupportQueries extends ListRecords
         $this->statusFilter = $status;
     }
 
-    public function sendChatMessage(): void
+    /** Max replies / emails one admin can send per hour (stops a stolen session from being used to spam students). */
+    private const SENDS_PER_HOUR = 40;
+
+    private function allowedToSend(): bool
     {
-        if (! $this->selectedQueryId || empty(trim($this->chatMessage))) {
+        $key = 'support-send:'.(Auth::guard('admin')->id() ?? 'x');
+        if (RateLimiter::tooManyAttempts($key, self::SENDS_PER_HOUR)) {
+            Notification::make()->title('Sending limit reached')->body('Too many messages in the last hour. Please wait a little and try again.')->danger()->send();
+
+            return false;
+        }
+        RateLimiter::hit($key, 3600);
+
+        return true;
+    }
+
+    /**
+     * Saves the reply to the student's record and e-mails it to them. WhatsApp itself is not sent from here
+     * (that needs the WhatsApp Business API): the "Open in WhatsApp" button opens the message ready to send.
+     */
+    public function sendReply(): void
+    {
+        $msg = trim($this->chatMessage);
+        $query = $this->selectedQueryId ? SupportQuery::find($this->selectedQueryId) : null;
+        if (! $query || $msg === '') {
             return;
         }
-
-        $query = SupportQuery::find($this->selectedQueryId);
-        if (! $query) {
+        if (! $this->allowedToSend()) {
             return;
         }
 
         $admin = Auth::guard('admin')->user();
-        $msg = trim($this->chatMessage);
+        $emailed = false;
+        $problem = null;
 
-        $newReply = filled($query->admin_reply)
-            ? $query->admin_reply . "\n\n" . $msg
-            : $msg;
+        if (filter_var($query->email, FILTER_VALIDATE_EMAIL)) {
+            try {
+                Mail::send('emails.support-reply', [
+                    'studentName' => $query->name,
+                    'category' => $query->category,
+                    'originalMessage' => $query->message,
+                    'replyMessage' => $msg,
+                    'facultyName' => $admin?->name ?? 'Academic Support Team',
+                    'timestamp' => now()->format('Y-m-d H:i:s'),
+                ], fn ($m) => $m->to($query->email)->subject("[My Merchant Navy] Response to your inquiry: {$query->category}"));
+                $emailed = true;
+            } catch (\Throwable $e) {
+                report($e);
+                $problem = 'The email could not be sent (check the mail settings).';
+            }
+        } else {
+            $problem = 'This student has no valid email address.';
+        }
 
+        // The reply is always kept, so nothing typed is lost; the query is only marked resolved when the student got it.
         $query->update([
-            'admin_reply' => $newReply,
-            'status' => 'resolved',
+            'admin_reply' => filled($query->admin_reply) ? $query->admin_reply."\n\n".$msg : $msg,
+            'status' => $emailed ? 'resolved' : $query->status,
             'replied_by_admin_id' => $admin?->id,
             'replied_at' => now(),
         ]);
 
         ActivityLog::record(
-            event: 'support.whatsapp_replied',
-            description: "Site Manager {$admin?->name} replied on WhatsApp to {$query->name} ({$query->phone}).",
-            properties: [
-                'query_id' => $query->id,
-                'phone' => $query->phone,
-                'reply' => $msg,
-            ],
+            event: 'support.reply_sent',
+            description: "{$admin?->name} replied to {$query->name} ({$query->email}); emailed: ".($emailed ? 'yes' : 'no').'.',
+            properties: ['query_id' => $query->id, 'emailed' => $emailed],
             admin: $admin
         );
 
         $this->chatMessage = '';
 
-        Notification::make()
-            ->title('Message Sent & Delivered')
-            ->body("Reply saved and synced to student chat record.")
-            ->success()
-            ->send();
+        $emailed
+            ? Notification::make()->title('Reply saved and emailed')->body("Sent to {$query->email}. Use “Open in WhatsApp” to message them there too.")->success()->send()
+            : Notification::make()->title('Reply saved, but not emailed')->body($problem.' Use “Open in WhatsApp” to reach the student.')->warning()->send();
+    }
+
+    public function sendChatMessage(): void
+    {
+        $this->sendReply();
+    }
+
+    public function setQueryStatus(int $id, string $status): void
+    {
+        if (! in_array($status, ['open', 'resolved'], true)) {
+            return;
+        }
+        $query = SupportQuery::find($id);
+        if ($query) {
+            $query->update(['status' => $status]);
+            ActivityLog::record(
+                event: 'support.status_changed',
+                description: 'Support query #'.$query->id." marked {$status}.",
+                properties: ['query_id' => $query->id, 'status' => $status],
+                admin: Auth::guard('admin')->user()
+            );
+        }
+    }
+
+    /** wa.me link that opens WhatsApp with the typed message ready to send (the admin presses send there). */
+    public function getWhatsappUrlProperty(): ?string
+    {
+        $q = $this->selectedQuery;
+        $digits = preg_replace('/\D/', '', (string) $q?->phone);
+        if (strlen($digits) === 10) {
+            $digits = '91'.$digits;
+        }
+        if (strlen($digits) < 11) {
+            return null;
+        }
+        $text = trim($this->chatMessage) ?: "Hello {$q->name}, this is My Merchant Navy regarding your inquiry ({$q->category}). How can we help?";
+
+        return 'https://wa.me/'.$digits.'?text='.rawurlencode($text);
     }
 
     public function insertChatSnippet(string $snippet): void
@@ -179,7 +249,7 @@ class ListSupportQueries extends ListRecords
     {
         $recipient = trim($this->recipientEmail);
         $body = trim($this->emailBody);
-        $subject = trim($this->emailSubject) ?: 'Response from My Merchant Navy Support';
+        $subject = trim(str_replace(["\r", "\n"], ' ', $this->emailSubject)) ?: 'Response from My Merchant Navy Support';
 
         if (empty($recipient) || ! filter_var($recipient, FILTER_VALIDATE_EMAIL)) {
             Notification::make()
@@ -197,26 +267,29 @@ class ListSupportQueries extends ListRecords
 
         $admin = Auth::guard('admin')->user();
 
-        // If linked to an active support query, update it
-        if ($this->selectedQueryId) {
-            $query = SupportQuery::find($this->selectedQueryId);
-            if ($query) {
-                $query->update([
-                    'admin_reply' => $body,
-                    'status' => $this->emailStatus,
-                    'replied_by_admin_id' => $admin?->id,
-                    'replied_at' => now(),
-                ]);
-            }
+        if (! $this->allowedToSend()) {
+            return;
         }
 
         try {
             Mail::raw($body, function ($msg) use ($recipient, $subject) {
-                $msg->to($recipient)
-                    ->subject($subject);
+                $msg->to($recipient)->subject($subject);
             });
         } catch (\Throwable $e) {
             report($e);
+            Notification::make()->title('The email was not sent')->body('The mail server refused it. Nothing was marked as replied. Please check the mail settings and try again.')->danger()->send();
+
+            return;
+        }
+
+        // Only after it really went out: link it to the support query.
+        if ($this->selectedQueryId && ($query = SupportQuery::find($this->selectedQueryId))) {
+            $query->update([
+                'admin_reply' => $body,
+                'status' => $this->emailStatus,
+                'replied_by_admin_id' => $admin?->id,
+                'replied_at' => now(),
+            ]);
         }
 
         ActivityLog::record(
@@ -233,7 +306,7 @@ class ListSupportQueries extends ListRecords
 
         Notification::make()
             ->title('Email Sent Successfully')
-            ->body("Dispatched via Brevo to {$recipient}.")
+            ->body("Delivered to the mail server for {$recipient}.")
             ->success()
             ->send();
     }

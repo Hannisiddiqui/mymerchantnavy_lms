@@ -22,6 +22,13 @@ use Illuminate\Support\Facades\Schema;
  */
 class Dashboard extends BaseDashboard implements HasTable
 {
+    public static function canAccess(): bool
+    {
+        $admin = auth('admin')->user();
+
+        return $admin && ! $admin->isStudentPreview();
+    }
+
     use InteractsWithTable;
 
     protected static ?string $title = 'Dashboard';
@@ -70,21 +77,21 @@ class Dashboard extends BaseDashboard implements HasTable
         $hasExpiresAt = Schema::hasColumn('enrollments', 'expires_at');
         $hasPurchaseType = Schema::hasColumn('enrollments', 'purchase_type');
 
-        $totalStudents = User::count();
+        $totalStudents = User::real()->count();
         $paidStudents = $hasPurchaseType ? User::withPaidEnrollment()->count() : 0;
         $freeStudents = $hasPurchaseType ? User::withFreeEnrollment()->count() : 0;
         $studentsWithoutCourse = User::withoutCourses()->count();
 
-        $activeEnrollments = $hasExpiresAt ? Enrollment::active()->count() : Enrollment::count();
-        $expiredEnrollments = $hasExpiresAt ? Enrollment::expired()->count() : 0;
-        $testsToday = TestAttempt::whereDate('submitted_at', today())->count();
+        $activeEnrollments = $hasExpiresAt ? Enrollment::real()->active()->count() : Enrollment::real()->count();
+        $expiredEnrollments = $hasExpiresAt ? Enrollment::real()->expired()->count() : 0;
+        $testsToday = TestAttempt::real()->whereDate('submitted_at', today())->count();
 
         return [
             'total_students' => [
                 'key' => 'all',
                 'label' => 'Total Students',
                 'count' => $totalStudents,
-                'desc' => User::whereDate('created_at', today())->count() . ' registered today',
+                'desc' => User::real()->whereDate('created_at', today())->count() . ' registered today',
                 'color' => 'blue',
             ],
             'paid_students' => [
@@ -126,7 +133,7 @@ class Dashboard extends BaseDashboard implements HasTable
                 'key' => 'today',
                 'label' => 'Tests Taken Today',
                 'count' => $testsToday,
-                'desc' => TestAttempt::whereNotNull('submitted_at')->count() . ' total test attempts',
+                'desc' => TestAttempt::real()->whereNotNull('submitted_at')->count() . ' total test attempts',
                 'color' => 'indigo',
             ],
         ];
@@ -157,7 +164,7 @@ class Dashboard extends BaseDashboard implements HasTable
                 $hasPurchaseType = Schema::hasColumn('enrollments', 'purchase_type');
                 $hasExpiresAt = Schema::hasColumn('enrollments', 'expires_at');
 
-                $query = User::query()->with(['enrollments.course', 'attempts']);
+                $query = User::query()->real()->with(['enrollments.course', 'attempts']);
 
                 // Card and Quick Filter
                 $query = match ($this->activeFilter) {

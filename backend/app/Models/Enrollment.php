@@ -100,6 +100,11 @@ class Enrollment extends Model
     }
 
     /** Scopes */
+    public function scopeReal(Builder $query): Builder
+    {
+        return $query->whereIn('user_id', \App\Models\User::query()->real()->select('id'));
+    }
+
     public function scopeActive(Builder $query): Builder
     {
         return $query->where('status', '!=', 'cancelled')

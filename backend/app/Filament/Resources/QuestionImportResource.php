@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SuperAdminOnlyDeletes;
 use App\Filament\Resources\QuestionImportResource\Pages;
 use App\Models\QuestionImport;
 use Filament\Actions\Action;
@@ -18,6 +19,8 @@ use Illuminate\Support\Facades\Storage;
  */
 class QuestionImportResource extends Resource
 {
+    use SuperAdminOnlyDeletes;
+
     protected static ?string $model = QuestionImport::class;
 
     protected static ?string $navigationLabel = 'Question imports';

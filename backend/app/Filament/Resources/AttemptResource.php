@@ -2,6 +2,7 @@
 
 namespace App\Filament\Resources;
 
+use App\Filament\Support\SuperAdminOnlyDeletes;
 use App\Filament\Resources\AttemptResource\Pages\ListAttempts;
 use App\Models\TestAttempt;
 use Filament\Resources\Resource;
@@ -12,6 +13,8 @@ use Filament\Tables\Table;
 /** Report: every test attempt by every student (read-only). */
 class AttemptResource extends Resource
 {
+    use SuperAdminOnlyDeletes;
+
     protected static ?string $model = TestAttempt::class;
 
     protected static ?string $modelLabel = 'result';
@@ -32,7 +35,7 @@ class AttemptResource extends Resource
     public static function table(Table $table): Table
     {
         return $table
-            ->modifyQueryUsing(fn ($query) => $query->with(['user', 'test'])->whereNotNull('submitted_at'))
+            ->modifyQueryUsing(fn ($query) => $query->real()->with(['user', 'test'])->whereNotNull('submitted_at'))
             ->columns([
                 TextColumn::make('user.name')->label('Student')->searchable()->description(fn ($record) => $record->user->loginId()),
                 TextColumn::make('test.title')->label('Test')->searchable()->wrap(),

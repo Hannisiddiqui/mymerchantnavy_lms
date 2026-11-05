@@ -1,13 +1,14 @@
 import katex from "katex";
 import "katex/contrib/mhchem"; // chemistry: $\ce{H2O}$, $\ce{2H2 + O2 -> 2H2O}$
 import { cn } from "@/lib/utils";
+import { cleanHtml } from "@/lib/sanitize";
 
 /**
  * Renders admin-written HTML that contains LaTeX (KaTeX).
  *   Inline:  $x^2 + y^2$      or  \(x^2 + y^2\)
  *   Block:   $$\int_0^1 x\,dx$$  or  \[\int_0^1 x\,dx\]
  * Used for questions, options, explanations, notes and results.
- * (HTML is sanitised by the backend before it is stored.)
+ * (HTML is cleaned by the backend before it is stored AND again here before it is shown.)
  */
 const MATH = /\$\$([\s\S]+?)\$\$|\\\[([\s\S]+?)\\\]|\$([^$\n]+?)\$|\\\(([\s\S]+?)\\\)/g;
 
@@ -26,5 +27,5 @@ export function renderMath(html: string) {
 }
 
 export function MathText({ html, className, as: Tag = "div" }: { html: string; className?: string; as?: "div" | "span" }) {
-  return <Tag className={cn("rich-text", className)} dangerouslySetInnerHTML={{ __html: renderMath(html) }} />;
+  return <Tag className={cn("rich-text", className)} dangerouslySetInnerHTML={{ __html: renderMath(cleanHtml(html)) }} />;
 }

@@ -6,6 +6,7 @@ import * as api from "@/lib/api";
 import { useApi } from "@/lib/use-api";
 import { timeAgo } from "@/lib/utils";
 import { ProfileForm } from "@/components/profile/ProfileForm";
+import { TwoFactorCard } from "@/components/profile/TwoFactorCard";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader } from "@/components/ui/Card";
@@ -50,7 +51,9 @@ export default function ProfilePage() {
           </div>
         </Card>
 
-        <Card className="self-start">
+        <div className="flex flex-col gap-6 self-start">
+        <TwoFactorCard />
+        <Card>
           <CardHeader title="Logged-in devices" />
           <div className="p-5">
             <p className="mb-4 text-xs leading-relaxed text-slate-500">
@@ -78,6 +81,7 @@ export default function ProfilePage() {
             </ul>
           </div>
         </Card>
+        </div>
       </div>
     </>
   );

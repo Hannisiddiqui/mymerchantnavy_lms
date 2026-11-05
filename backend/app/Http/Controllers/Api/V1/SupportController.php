@@ -45,21 +45,21 @@ class SupportController extends Controller
         ];
     }
 
-    /** Return history of student's queries and manager responses for the in-app chatbot. */
+    /**
+     * A logged-in student's own support history. Never takes an email from the request: that used to let anyone read
+     * another student's questions and the replies by typing their address, and a missing user matched every anonymous query.
+     */
     public function myQueries(Request $request): JsonResponse
     {
         $user = $request->user('sanctum');
-        $email = $user?->email ?: $request->query('email');
-
-        if (! $email) {
+        if (! $user) {
             return response()->json(['data' => []]);
         }
 
-        $queries = SupportQuery::where('email', $email)
-            ->orWhere('student_id', $user?->id)
+        $queries = SupportQuery::where(fn ($q) => $q->where('student_id', $user->id)->orWhere('email', $user->email))
             ->orderBy('id', 'desc')
             ->limit(10)
-            ->get();
+            ->get(['id', 'category', 'message', 'status', 'admin_reply', 'replied_at', 'created_at']);
 
         return response()->json(['data' => $queries]);
     }
