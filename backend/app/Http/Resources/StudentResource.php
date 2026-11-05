@@ -19,6 +19,7 @@ class StudentResource extends JsonResource
             'emailVerified' => $this->email_verified_at !== null,
             'targetExam' => $this->target_exam ?? '',
             'attemptYear' => $this->attempt_year ?? 0,
+            'profileCompleted' => $this->profile_completed_at !== null && filled($this->name),
         ];
     }
 }

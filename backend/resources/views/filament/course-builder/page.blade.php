@@ -198,6 +198,8 @@
                                                         <x-filament::dropdown.list.item :icon="$type['icon']"
                                                             wire:click="mountAction('content', { chapter: {{ $chapter->id }}, type: '{{ $type['value'] }}' })">{{ $type['label'] }}</x-filament::dropdown.list.item>
                                                     @endforeach
+                                                    <x-filament::dropdown.list.item icon="heroicon-m-arrow-down-tray"
+                                                        wire:click="mountAction('bulkDriveImport', { chapter: {{ $chapter->id }} })">Bulk import from Google Drive</x-filament::dropdown.list.item>
                                                 </x-filament::dropdown.list>
                                             </x-filament::dropdown>
                                         </div>

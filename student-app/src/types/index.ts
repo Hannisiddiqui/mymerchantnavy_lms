@@ -16,6 +16,7 @@ export interface Student {
   emailVerified: boolean;
   targetExam: string;
   attemptYear: number;
+  profileCompleted?: boolean;
 }
 
 export interface Device {

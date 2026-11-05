@@ -1,20 +1,33 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { Sidebar } from "@/components/layout/Sidebar";
 import { Topbar } from "@/components/layout/Topbar";
 import { PageVisibilityGuard } from "@/components/layout/PageVisibilityGuard";
 import { SupportChatbot } from "@/components/support/SupportChatbot";
+import * as api from "@/lib/api";
+import { useApi } from "@/lib/use-api";
 import { useRequireAuth } from "@/lib/use-require-auth";
 import { cn } from "@/lib/utils";
 
 /** Shell for every logged-in page: sidebar + top bar + page content. */
 export default function StudentLayout({ children }: { children: React.ReactNode }) {
+  const router = useRouter();
   const pathname = usePathname();
   const signedIn = useRequireAuth();
+  const { data: me } = useApi(() => api.profile.getMe(), [signedIn]);
   const [menuOpen, setMenuOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  // Strictly enforce profile completion: if name is missing or profile incomplete, redirect to /onboarding
+  useEffect(() => {
+    if (signedIn && me) {
+      if (!me.name || me.name.trim() === "" || me.profileCompleted === false) {
+        router.replace("/onboarding");
+      }
+    }
+  }, [signedIn, me, router]);
 
   // Lesson pages (/learn/...) give the content the full width: the sidebar collapses automatically.
   // The student can still expand it with the button.
@@ -24,6 +37,9 @@ export default function StudentLayout({ children }: { children: React.ReactNode 
   }, [inLesson]);
 
   if (!signedIn) return null;
+  if (me && (!me.name || me.name.trim() === "" || me.profileCompleted === false)) {
+    return null;
+  }
 
   return (
     <div className="min-h-dvh">

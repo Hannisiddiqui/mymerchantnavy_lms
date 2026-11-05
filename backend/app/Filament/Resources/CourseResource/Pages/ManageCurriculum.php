@@ -12,6 +12,7 @@ use App\Models\CurriculumItem;
 use App\Models\Subject;
 use App\Models\Test;
 use App\Services\Courses\CourseOutline;
+use App\Services\Courses\RemotePdfDownloader;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\Textarea;
@@ -20,6 +21,7 @@ use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
 use Filament\Schemas\Schema;
+use Illuminate\Support\Str;
 
 /**
  * THE COURSE BUILDER: an outline of the whole course, edited in place.
@@ -109,6 +111,63 @@ class ManageCurriculum extends Page
                 $this->outline()->saveContent($chapter, ContentType::from($arguments['type']), $data, $existing);
 
                 Notification::make()->title($existing ? 'Saved' : 'Added to “'.$chapter->title.'”')->success()->send();
+            });
+    }
+
+    /** Bulk import multiple PDFs from Google Drive / direct links into a chapter. arguments: chapter */
+    public function bulkDriveImportAction(): Action
+    {
+        return Action::make('bulkDriveImport')
+            ->modalHeading('Bulk Import PDFs from Google Drive / Links')
+            ->modalDescription('Paste one or more shared Google Drive links or direct PDF URLs (one per line). The server downloads each file directly and adds them to this chapter.')
+            ->modalSubmitActionLabel('Start Download & Import')
+            ->modalWidth('2xl')
+            ->schema([
+                Textarea::make('urls')
+                    ->label('Google Drive or PDF URLs (one per line)')
+                    ->placeholder("https://drive.google.com/file/d/...\nhttps://drive.google.com/file/d/...\nCustom Title | https://drive.google.com/file/d/...")
+                    ->rows(8)
+                    ->required()
+                    ->helperText('Make sure Google Drive files have General Access set to "Anyone with the link can view". You can optionally prefix a title: "Title | https://..."'),
+            ])
+            ->action(function (array $data, array $arguments) {
+                $chapter = $this->findChapter($arguments['chapter']);
+                $lines = preg_split('/[\r\n]+/', trim($data['urls']));
+                $count = 0;
+                $errors = [];
+
+                foreach ($lines as $line) {
+                    $line = trim($line);
+                    if (empty($line)) {
+                        continue;
+                    }
+
+                    $customTitle = null;
+                    $url = $line;
+                    if (str_contains($line, '|')) {
+                        [$customTitle, $url] = array_map('trim', explode('|', $line, 2));
+                    }
+
+                    try {
+                        $downloaded = RemotePdfDownloader::download($url);
+                        $title = filled($customTitle) ? $customTitle : $downloaded['title'];
+
+                        $this->outline()->saveContent($chapter, ContentType::Pdf, [
+                            'title' => $title,
+                            'file' => $downloaded['file_path'],
+                        ]);
+                        $count++;
+                    } catch (\Throwable $e) {
+                        $errors[] = Str::limit($url, 45).': '.$e->getMessage();
+                    }
+                }
+
+                if ($count > 0) {
+                    Notification::make()->title("Imported {$count} PDF(s) into “{$chapter->title}”")->success()->send();
+                }
+                if (! empty($errors)) {
+                    Notification::make()->title('Some files could not be imported')->body(implode("\n", array_slice($errors, 0, 5)))->warning()->persistent()->send();
+                }
             });
     }
 

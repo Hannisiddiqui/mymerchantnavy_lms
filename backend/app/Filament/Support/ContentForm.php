@@ -52,9 +52,36 @@ class ContentForm
                     ->helperText('Live streaming is connected in a later milestone. Students are reminded before the class starts.'),
             ],
             ContentType::Pdf => [
-                FileUpload::make('file')->label('PDF file')->required()->acceptedFileTypes(['application/pdf'])
+                ToggleButtons::make('source_type')
+                    ->label('PDF Source')
+                    ->inline()
+                    ->grouped()
+                    ->options([
+                        'url' => 'Paste Google Drive / Web Link',
+                        'upload' => 'Upload from computer',
+                    ])
+                    ->icons([
+                        'url' => 'heroicon-m-link',
+                        'upload' => 'heroicon-m-arrow-up-tray',
+                    ])
+                    ->default('url')
+                    ->live(),
+
+                TextInput::make('pdf_url')
+                    ->label('Google Drive or PDF URL')
+                    ->placeholder('https://drive.google.com/file/d/... or any direct PDF link')
+                    ->helperText('Paste a shared Google Drive link (set to "Anyone with the link can view") or direct web PDF link. The server downloads it directly.')
+                    ->visible(fn (Get $get) => ($get('source_type') ?? 'url') === 'url')
+                    ->required(fn (Get $get) => ($get('source_type') ?? 'url') === 'url' && empty($get('file')))
+                    ->columnSpanFull(),
+
+                FileUpload::make('file')
+                    ->label('PDF file')
+                    ->acceptedFileTypes(['application/pdf'])
                     ->disk('local')->directory('pdfs')->maxSize(51200)
-                    ->helperText('Stored privately. Students see watermarked pages only and can never download the file.'),
+                    ->helperText('Stored privately. Students see watermarked pages only and can never download the file.')
+                    ->visible(fn (Get $get) => $get('source_type') === 'upload')
+                    ->required(fn (Get $get) => $get('source_type') === 'upload' && empty($get('pdf_url'))),
             ],
             ContentType::Note => [
                 RichEditor::make('body')->label('Notes')->required()

@@ -108,6 +108,9 @@ function mmn_lms_student_payload(WP_User $user)
     if ($name === '') {
         $name = trim(get_user_meta($user->ID, 'billing_first_name', true) . ' ' . get_user_meta($user->ID, 'billing_last_name', true));
     }
+    if ($name === '' && ! empty($user->display_name) && $user->display_name !== $user->user_login && $user->display_name !== $user->user_email) {
+        $name = trim($user->display_name);
+    }
 
     // No name yet (a bare registration) is sent empty: the LMS fills it in from the first payment or the student's profile.
     return [

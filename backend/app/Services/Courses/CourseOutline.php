@@ -16,6 +16,7 @@ use App\Models\PdfDocument;
 use App\Models\Subject;
 use App\Models\Test;
 use App\Models\Video;
+use App\Services\Courses\RemotePdfDownloader;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\MorphTo;
 use Illuminate\Support\Collection;
@@ -86,7 +87,7 @@ class CourseOutline
         return $data + match ($content->type) {
             ContentType::Video => ['provider' => $m->provider->value, 'provider_ref' => $m->provider_ref, 'duration_minutes' => (int) round($m->duration_seconds / 60)],
             ContentType::LiveClass => ['provider' => $m->provider, 'starts_at' => $m->starts_at, 'duration_minutes' => $m->duration_minutes],
-            ContentType::Pdf => ['file' => $m->file_path],
+            ContentType::Pdf => ['source_type' => 'upload', 'file' => $m->file_path, 'pdf_url' => ''],
             ContentType::Note => ['body' => $m->body],
             ContentType::Assignment => ['instructions' => $m->instructions, 'due_at' => $m->due_at],
             ContentType::PracticeTest => ['mode' => 'existing', 'test_id' => $m->id],
@@ -289,7 +290,7 @@ class CourseOutline
                 'starts_at' => $data['starts_at'],
                 'duration_minutes' => $data['duration_minutes'] ?? 60,
             ]),
-            ContentType::Pdf => $this->savePdf($existing, $fill, $data['file']),
+            ContentType::Pdf => $this->savePdf($existing, $fill, $data),
             ContentType::Note => $fill(Note::class, ['body' => $data['body']]),
             ContentType::Assignment => $fill(Assignment::class, [
                 'instructions' => $data['instructions'],
@@ -300,8 +301,33 @@ class CourseOutline
     }
 
     /** A new or replaced file has to be rendered to page images again (in the background). */
-    private function savePdf(?Model $existing, \Closure $fill, string $file): Model
+    private function savePdf(?Model $existing, \Closure $fill, array|string $data): Model
     {
+        $file = null;
+        if (is_array($data)) {
+            $sourceType = $data['source_type'] ?? null;
+            $url = $data['pdf_url'] ?? null;
+            if ($sourceType === 'url' || (! empty($url) && empty($data['file']))) {
+                $downloaded = RemotePdfDownloader::download($url);
+                $file = $downloaded['file_path'];
+            } else {
+                $file = $data['file'] ?? null;
+            }
+        } else {
+            $file = $data;
+        }
+
+        if (is_array($file)) {
+            $file = reset($file);
+        }
+
+        if (empty($file)) {
+            throw \Illuminate\Validation\ValidationException::withMessages([
+                'pdf_url' => 'Please provide a valid Google Drive link or upload a PDF file.',
+                'file' => 'Please provide a valid Google Drive link or upload a PDF file.',
+            ]);
+        }
+
         $unchanged = $existing instanceof PdfDocument && $existing->file_path === $file && $existing->processed_at;
 
         $pdf = $fill(PdfDocument::class, [

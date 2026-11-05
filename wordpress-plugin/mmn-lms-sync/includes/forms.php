@@ -452,8 +452,30 @@ function mmn_lms_registration_finish($pid, $given)
 
     if ($existing_id = email_exists($pending['email'])) {
         delete_transient('mmn_pending_' . $pid);
+        // Ensure name and phone are updated if missing
+        if (! empty($pending['name'])) {
+            wp_update_user(['ID' => $existing_id, 'first_name' => $pending['name'], 'display_name' => $pending['name']]);
+        }
+        if (! empty($pending['phone'])) {
+            update_user_meta($existing_id, 'phone', $pending['phone']);
+            update_user_meta($existing_id, 'billing_phone', $pending['phone']);
+        }
         wp_set_current_user($existing_id);
         wp_set_auth_cookie($existing_id, true);
+
+        // Immediate sync to LMS
+        if (function_exists('mmn_lms_send_with_retry')) {
+            $user_obj = get_user_by('id', $existing_id);
+            if ($user_obj) {
+                mmn_lms_send_with_retry('student', [
+                    'email'          => $pending['email'],
+                    'name'           => $pending['name'],
+                    'phone'          => $pending['phone'],
+                    'wp_user_id'     => $existing_id,
+                    'email_verified' => true,
+                ]);
+            }
+        }
 
         return [
             'user_id' => $existing_id,
@@ -469,11 +491,18 @@ function mmn_lms_registration_finish($pid, $given)
         'first_name'   => $pending['name'],
         'display_name' => $pending['name'],
         'role'         => 'subscriber',
-        'meta_input'   => ['phone' => $pending['phone'], 'mmn_email_verified' => time()],
+        'meta_input'   => [
+            'phone'              => $pending['phone'],
+            'billing_phone'      => $pending['phone'],
+            'mmn_email_verified' => time(),
+        ],
     ]);
     if (is_wp_error($user_id)) {
         return ['error' => 'failed'];
     }
+
+    update_user_meta($user_id, 'phone', $pending['phone']);
+    update_user_meta($user_id, 'billing_phone', $pending['phone']);
 
     global $wpdb;
     $wpdb->update($wpdb->users, ['user_pass' => $pending['pass']], ['ID' => $user_id]);
@@ -482,6 +511,17 @@ function mmn_lms_registration_finish($pid, $given)
 
     wp_set_current_user($user_id);
     wp_set_auth_cookie($user_id, true);
+
+    // Immediate sync to LMS with full name and phone
+    if (function_exists('mmn_lms_send_with_retry')) {
+        mmn_lms_send_with_retry('student', [
+            'email'          => $pending['email'],
+            'name'           => $pending['name'],
+            'phone'          => $pending['phone'],
+            'wp_user_id'     => $user_id,
+            'email_verified' => true,
+        ]);
+    }
 
     return [
         'user_id' => $user_id,
