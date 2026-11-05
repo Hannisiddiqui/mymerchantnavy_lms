@@ -27,7 +27,8 @@ class GoogleDriveFolderScanner
         return str_contains($url, '/drive/folders/')
             || str_contains($url, '/folders/')
             || str_contains($url, 'embeddedfolderview')
-            || (str_contains($url, 'drive.google.com') && str_contains($url, 'folder'));
+            || (str_contains($url, 'drive.google.com') && str_contains($url, 'folder'))
+            || (str_contains($url, 'drive.google.com') && str_contains($url, 'open?id='));
     }
 
     /**
@@ -164,7 +165,7 @@ class GoogleDriveFolderScanner
      *
      * @throws ValidationException
      */
-    public static function scanFolder(string $urlOrId, bool $recursive = true, int $depth = 0, int $maxDepth = 2): array
+    public static function scanFolder(string $urlOrId, bool $recursive = false, int $depth = 0, int $maxDepth = 2): array
     {
         $folderId = self::extractFolderId($urlOrId);
         if (! $folderId) {
@@ -310,7 +311,7 @@ class GoogleDriveFolderScanner
      */
     public static function getFilesList(string $folderUrl): array
     {
-        $scanned = self::scanFolder($folderUrl, true);
+        $scanned = self::scanFolder($folderUrl, false);
         $all = [];
 
         foreach ($scanned['files'] as $f) {
@@ -323,15 +324,22 @@ class GoogleDriveFolderScanner
             ];
         }
 
-        foreach ($scanned['subfolders'] as $sub) {
-            foreach ($sub['files'] ?? [] as $f) {
-                $all[] = [
-                    'id'        => $f['id'],
-                    'name'      => $f['name'],
-                    'url'       => $f['url'],
-                    'subfolder' => $sub['title'],
-                    'weight'    => $f['weight'],
-                ];
+        // If root has no files but has subfolders, scan direct subfolders (max 10)
+        if (empty($all) && ! empty($scanned['subfolders'])) {
+            foreach (array_slice($scanned['subfolders'], 0, 10) as $sub) {
+                try {
+                    $subScanned = self::scanFolder($sub['id'], false);
+                    foreach ($subScanned['files'] ?? [] as $f) {
+                        $all[] = [
+                            'id'        => $f['id'],
+                            'name'      => $f['name'],
+                            'url'       => $f['url'],
+                            'subfolder' => $sub['title'],
+                            'weight'    => $f['weight'],
+                        ];
+                    }
+                } catch (\Throwable) {
+                }
             }
         }
 
@@ -348,26 +356,26 @@ class GoogleDriveFolderScanner
 
     /**
      * Get an organized list of detected chapters (arranged 1 to 19) for subject import preview.
+     * Fast non-recursive scan: extracts all 19 chapter subfolders in ~1 second.
      *
      * @return array<int, array{id: string, chapter_num: int, clean_title: string, display_name: string, files_count: int, files: array}>
      */
     public static function getChaptersList(string $folderUrl): array
     {
-        $scanned = self::scanFolder($folderUrl, true);
+        $scanned = self::scanFolder($folderUrl, false);
 
         // If the Drive folder has subfolders: each subfolder is a chapter (sorted 1 to 19)
         if (! empty($scanned['subfolders'])) {
             $chapters = [];
             foreach ($scanned['subfolders'] as $sub) {
-                $count = count($sub['files'] ?? []);
                 $chNum = $sub['chapter_num'] !== 9999 ? "Chapter {$sub['chapter_num']}: " : '';
                 $chapters[] = [
                     'id'           => $sub['id'],
                     'chapter_num'  => $sub['chapter_num'],
                     'clean_title'  => $sub['title'],
-                    'display_name' => "{$chNum}{$sub['title']} ({$count} " . Str::plural('file', $count) . ')',
-                    'files_count'  => $count,
-                    'files'        => $sub['files'] ?? [],
+                    'display_name' => "{$chNum}{$sub['title']}",
+                    'files_count'  => 0,
+                    'files'        => [],
                 ];
             }
             return $chapters;
@@ -453,8 +461,9 @@ class GoogleDriveFolderScanner
     {
         @ini_set('max_execution_time', '600');
         @set_time_limit(600);
+        @ignore_user_abort(true);
 
-        $scanned = self::scanFolder($folderUrl, true);
+        $scanned = self::scanFolder($folderUrl, false);
         $chaptersCreated = 0;
         $filesImported = 0;
         $errors = [];
@@ -485,8 +494,15 @@ class GoogleDriveFolderScanner
                     $chaptersCreated++;
                 }
 
-                // Files within the chapter are already sorted: Notes first (10), Practice (20), Interview (30)
-                $subFiles = $sub['files'] ?? [];
+                // Scan this specific chapter folder for its files
+                try {
+                    $subScanned = self::scanFolder($sub['id'], false);
+                    $subFiles = $subScanned['files'] ?? [];
+                } catch (\Throwable $e) {
+                    $errors[] = "Chapter {$sub['title']}: " . $e->getMessage();
+                    continue;
+                }
+
                 foreach ($subFiles as $file) {
                     try {
                         $downloaded = RemotePdfDownloader::download($file['url']);

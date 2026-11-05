@@ -96,6 +96,21 @@ class ManageCurriculum extends Page
         ];
     }
 
+    protected function getActions(): array
+    {
+        return [
+            $this->contentAction(),
+            $this->bulkDriveImportAction(),
+            $this->importChapterFolderAction(),
+            $this->importSubjectFolderAction(),
+            $this->importCourseFolderAction(),
+            $this->subjectAction(),
+            $this->chapterAction(),
+            $this->mockTestAction(),
+            $this->moveContentAction(),
+        ];
+    }
+
     // ------------------------------------------------------------------
     // Modals (opened with mountAction('name', {...}) from the Blade view)
     // ------------------------------------------------------------------
@@ -105,9 +120,9 @@ class ManageCurriculum extends Page
     {
         return Action::make('content')
             ->slideOver()->modalWidth('3xl')
-            ->modalHeading(fn (array $arguments) => (isset($arguments['id']) ? 'Edit ' : 'Add ').strtolower(ContentType::from($arguments['type'])->label()))
+            ->modalHeading(fn (array $arguments) => (isset($arguments['id']) ? 'Edit ' : 'Add ').(isset($arguments['type']) ? strtolower(ContentType::tryFrom($arguments['type'])?->label() ?? 'content') : 'content'))
             ->modalSubmitActionLabel(fn (array $arguments) => isset($arguments['id']) ? 'Save changes' : 'Add to chapter')
-            ->schema(fn (array $arguments) => ContentForm::schema(ContentType::from($arguments['type']), $this->getRecord()->id))
+            ->schema(fn (array $arguments) => isset($arguments['type']) && ContentType::tryFrom($arguments['type']) ? ContentForm::schema(ContentType::from($arguments['type']), $this->getRecord()->id) : [])
             // Editing: fill with the saved values. Adding: fill() with no data so field defaults apply.
             ->mountUsing(fn (Schema $schema, array $arguments) => $schema->fill(
                 isset($arguments['id']) ? $this->outline()->contentData($this->findContent($arguments['id'])) : null,
@@ -143,7 +158,10 @@ class ManageCurriculum extends Page
                     ->helperText('Make sure Google Drive files and folders have General Access set to "Anyone with the link can view". Folder links will automatically expand and download all PDFs inside them.'),
             ])
             ->action(function (array $data, array $arguments) {
-                $chapter = $this->findChapter($arguments['chapter']);
+                if (empty($arguments['chapter'])) {
+                    throw new \Exception('No chapter specified.');
+                }
+                $chapter = $this->findChapter((int) $arguments['chapter']);
                 $lines = preg_split('/[\r\n]+/', trim($data['urls']));
                 $count = 0;
                 $errors = [];
@@ -201,7 +219,16 @@ class ManageCurriculum extends Page
     public function importChapterFolderAction(): Action
     {
         return Action::make('importChapterFolder')
-            ->modalHeading(fn (array $arguments) => 'Import Google Drive Folder into “'.$this->findChapter($arguments['chapter'])->title.'”')
+            ->modalHeading(function (array $arguments) {
+                if (empty($arguments['chapter'])) {
+                    return 'Import Google Drive Folder';
+                }
+                try {
+                    return 'Import Google Drive Folder into “'.$this->findChapter((int) $arguments['chapter'])->title.'”';
+                } catch (\Throwable) {
+                    return 'Import Google Drive Folder';
+                }
+            })
             ->modalDescription('Paste a Google Drive folder link. The system will scan the folder and let you choose exactly which PDFs to download into this chapter.')
             ->modalSubmitActionLabel('Start Download & Import')
             ->modalWidth('2xl')
@@ -211,6 +238,18 @@ class ManageCurriculum extends Page
                     ->placeholder('https://drive.google.com/drive/folders/...')
                     ->required()
                     ->live(onBlur: true)
+                    ->afterStateUpdated(function (Set $set, ?string $state) {
+                        if (empty($state) || ! GoogleDriveFolderScanner::isFolderUrl($state)) {
+                            $set('selected_files', []);
+                            return;
+                        }
+                        try {
+                            $files = GoogleDriveFolderScanner::getFilesList($state);
+                            $set('selected_files', collect($files)->pluck('id')->toArray());
+                        } catch (\Throwable) {
+                            $set('selected_files', []);
+                        }
+                    })
                     ->helperText('Paste folder link and click outside to load files. General Access must be "Anyone with the link can view".'),
 
                 CheckboxList::make('selected_files')
@@ -247,7 +286,10 @@ class ManageCurriculum extends Page
                     ->helperText('All files found are checked by default. Uncheck any files you do not want to download.'),
             ])
             ->action(function (array $data, array $arguments) {
-                $chapter = $this->findChapter($arguments['chapter']);
+                if (empty($arguments['chapter'])) {
+                    throw new \Exception('No chapter specified.');
+                }
+                $chapter = $this->findChapter((int) $arguments['chapter']);
                 try {
                     $selectedIds = ! empty($data['selected_files']) ? array_values(array_filter($data['selected_files'], fn ($id) => $id !== 'error')) : null;
                     $res = GoogleDriveFolderScanner::importIntoChapter(
@@ -286,7 +328,16 @@ class ManageCurriculum extends Page
     public function importSubjectFolderAction(): Action
     {
         return Action::make('importSubjectFolder')
-            ->modalHeading(fn (array $arguments) => 'Import Drive Folder into “'.$this->findSubject($arguments['subject'])->title.'”')
+            ->modalHeading(function (array $arguments) {
+                if (empty($arguments['subject'])) {
+                    return 'Import Drive Folder into Subject';
+                }
+                try {
+                    return 'Import Drive Folder into “'.$this->findSubject((int) $arguments['subject'])->title.'”';
+                } catch (\Throwable) {
+                    return 'Import Drive Folder into Subject';
+                }
+            })
             ->modalDescription('Paste a Google Drive folder link (e.g. containing 19 chapter subfolders). The algorithm automatically arranges chapters 1 to 19, renames them cleanly, organizes materials, and downloads all PDFs.')
             ->modalSubmitActionLabel('Build & Download Curriculum')
             ->modalWidth('2xl')
@@ -296,6 +347,18 @@ class ManageCurriculum extends Page
                     ->placeholder('https://drive.google.com/drive/folders/...')
                     ->required()
                     ->live(onBlur: true)
+                    ->afterStateUpdated(function (Set $set, ?string $state) {
+                        if (empty($state) || ! GoogleDriveFolderScanner::isFolderUrl($state)) {
+                            $set('selected_chapters', []);
+                            return;
+                        }
+                        try {
+                            $chapters = GoogleDriveFolderScanner::getChaptersList($state);
+                            $set('selected_chapters', collect($chapters)->pluck('id')->toArray());
+                        } catch (\Throwable) {
+                            $set('selected_chapters', []);
+                        }
+                    })
                     ->helperText('Paste link and click outside to scan. General Access must be "Anyone with the link can view".'),
 
                 CheckboxList::make('selected_chapters')
@@ -335,7 +398,10 @@ class ManageCurriculum extends Page
                     ->visible(fn (Get $get) => filled($get('folder_url'))),
             ])
             ->action(function (array $data, array $arguments) {
-                $subject = $this->findSubject($arguments['subject']);
+                if (empty($arguments['subject'])) {
+                    throw new \Exception('No subject specified.');
+                }
+                $subject = $this->findSubject((int) $arguments['subject']);
                 try {
                     $selectedChapters = ! empty($data['selected_chapters']) ? array_values(array_filter($data['selected_chapters'], fn ($id) => $id !== 'error')) : null;
                     $res = GoogleDriveFolderScanner::importIntoSubject(
@@ -386,6 +452,18 @@ class ManageCurriculum extends Page
                     ->placeholder('https://drive.google.com/drive/folders/...')
                     ->required()
                     ->live(onBlur: true)
+                    ->afterStateUpdated(function (Set $set, ?string $state) {
+                        if (empty($state) || ! GoogleDriveFolderScanner::isFolderUrl($state)) {
+                            $set('selected_chapters', []);
+                            return;
+                        }
+                        try {
+                            $chapters = GoogleDriveFolderScanner::getChaptersList($state);
+                            $set('selected_chapters', collect($chapters)->pluck('id')->toArray());
+                        } catch (\Throwable) {
+                            $set('selected_chapters', []);
+                        }
+                    })
                     ->helperText('Paste link and click outside to scan. General Access must be "Anyone with the link can view".'),
 
                 TextInput::make('subject_title')
@@ -472,8 +550,8 @@ class ManageCurriculum extends Page
                 TextInput::make('title')->label('Subject name')->required()->maxLength(150)->autofocus(),
                 Textarea::make('description')->rows(3),
             ])
-            ->fillForm(fn (array $arguments) => $this->findSubject($arguments['id'])->only(['title', 'description']))
-            ->action(fn (array $data, array $arguments) => $this->outline()->updateSubject($this->findSubject($arguments['id']), $data));
+            ->fillForm(fn (array $arguments) => isset($arguments['id']) ? $this->findSubject((int) $arguments['id'])->only(['title', 'description']) : [])
+            ->action(fn (array $data, array $arguments) => isset($arguments['id']) ? $this->outline()->updateSubject($this->findSubject((int) $arguments['id']), $data) : null);
     }
 
     /** Rename a chapter. arguments: id */
@@ -481,8 +559,8 @@ class ManageCurriculum extends Page
     {
         return Action::make('chapter')->modalHeading('Rename chapter')->modalWidth('lg')
             ->schema([TextInput::make('title')->label('Chapter name')->required()->maxLength(150)->autofocus()])
-            ->fillForm(fn (array $arguments) => ['title' => $this->findChapter($arguments['id'])->title])
-            ->action(fn (array $data, array $arguments) => $this->outline()->renameChapter($this->findChapter($arguments['id']), $data['title']));
+            ->fillForm(fn (array $arguments) => isset($arguments['id']) ? ['title' => $this->findChapter((int) $arguments['id'])->title] : [])
+            ->action(fn (array $data, array $arguments) => isset($arguments['id']) ? $this->outline()->renameChapter($this->findChapter((int) $arguments['id']), $data['title']) : null);
     }
 
     /**
