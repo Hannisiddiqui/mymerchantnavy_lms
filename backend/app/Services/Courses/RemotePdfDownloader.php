@@ -290,3 +290,4 @@ class RemotePdfDownloader
         return Str::limit(ucwords($raw), 140);
     }
 }
+

@@ -130,6 +130,30 @@ class DisposableEmailBlocker
         'trashmail',
     ];
 
+    private static ?array $extendedDomainsMap = null;
+
+    private static function getExtendedMap(): array
+    {
+        if (self::$extendedDomainsMap !== null) {
+            return self::$extendedDomainsMap;
+        }
+
+        $file = __DIR__ . '/disposable-domains.json';
+        if (file_exists($file)) {
+            $raw = @file_get_contents($file);
+            if ($raw) {
+                $list = json_decode($raw, true);
+                if (is_array($list)) {
+                    self::$extendedDomainsMap = array_fill_keys(array_map('strtolower', $list), true);
+                    return self::$extendedDomainsMap;
+                }
+            }
+        }
+
+        self::$extendedDomainsMap = array_fill_keys(self::DISPOSABLE_DOMAINS, true);
+        return self::$extendedDomainsMap;
+    }
+
     /**
      * Checks if an email address is from a temporary, disposable, or anonymous service.
      *
@@ -153,8 +177,9 @@ class DisposableEmailBlocker
             ];
         }
 
-        // 2. Direct Disposable Domain check
-        if (in_array($domain, self::DISPOSABLE_DOMAINS, true)) {
+        // 2. Direct & Extended 10,000+ Disposable Domain check
+        $extended = self::getExtendedMap();
+        if (isset($extended[$domain]) || in_array($domain, self::DISPOSABLE_DOMAINS, true)) {
             return [
                 'blocked' => true,
                 'reason' => 'Temporary and disposable email addresses are not allowed. Please use your genuine personal email address (e.g. Gmail, Yahoo, Outlook).',
@@ -183,12 +208,48 @@ class DisposableEmailBlocker
                             'reason' => 'ProtonMail and anonymous email services are not allowed. Please use your personal Gmail, Yahoo, or Outlook address.',
                         ];
                     }
-                    if (str_contains($hostLower, 'mailinator') || str_contains($hostLower, 'yopmail') || str_contains($hostLower, 'trashmail')) {
+                    if (str_contains($hostLower, 'mailinator') || str_contains($hostLower, 'yopmail') || str_contains($hostLower, 'trashmail') || str_contains($hostLower, 'temp')) {
                         return [
                             'blocked' => true,
                             'reason' => 'Disposable email services are not allowed. Please use your genuine personal email address.',
                         ];
                     }
+                }
+            }
+        }
+
+        // 5. Fast Live API check for newly created disposable domains
+        $trusted = [
+            'gmail.com', 'googlemail.com', 'yahoo.com', 'yahoo.co.in', 'outlook.com',
+            'hotmail.com', 'live.com', 'icloud.com', 'rediffmail.com', 'zoho.com', 'aol.com',
+        ];
+
+        if (! in_array($domain, $trusted, true)) {
+            $cacheKey = 'disposable_email_' . md5($domain);
+            $cached = cache()->get($cacheKey);
+            if ($cached === 'disposable') {
+                return [
+                    'blocked' => true,
+                    'reason' => 'Temporary and disposable email addresses are not allowed. Please use your genuine personal email address.',
+                ];
+            }
+            if ($cached !== 'clean') {
+                try {
+                    $resp = \Illuminate\Support\Facades\Http::timeout(2)->get('https://disposable.debounce.io/?email=' . urlencode($email));
+                    if ($resp->successful()) {
+                        $json = $resp->json();
+                        if (! empty($json['disposable']) && ($json['disposable'] === 'true' || $json['disposable'] === true)) {
+                            cache()->put($cacheKey, 'disposable', now()->addDays(30));
+                            return [
+                                'blocked' => true,
+                                'reason' => 'Temporary and disposable email addresses are not allowed. Please use your genuine personal email address.',
+                            ];
+                        } elseif (isset($json['disposable'])) {
+                            cache()->put($cacheKey, 'clean', now()->addDays(7));
+                        }
+                    }
+                } catch (\Throwable) {
+                    // Fail open on network timeout so legitimate users aren't blocked
                 }
             }
         }
