@@ -646,32 +646,41 @@ class ManageCurriculum extends Page
                         ]
                     );
 
-                    $msg = "Imported {$res['tests_processed']} practice test(s) into “{$subject->title}”";
-                    if ($res['questions_extracted'] > 0) {
-                        $msg .= " with {$res['questions_extracted']} questions extracted";
+                    $successCount = $res['tests_processed'] - count($res['errors']);
+                    if ($successCount > 0) {
+                        $msg = "✓ Imported {$successCount} Practice Test(s)";
+                        $body = "Organized into “{$subject->title}”.";
+                        if ($res['questions_extracted'] > 0) {
+                            $body .= " {$res['questions_extracted']} questions extracted into interactive tests.";
+                        }
+                        Notification::make()
+                            ->title($msg)
+                            ->body($body)
+                            ->success()
+                            ->send();
                     }
 
-                    Notification::make()
-                        ->title($msg)
-                        ->body("Auto-matched and attached to chapters. Students can now take them online.")
-                        ->success()
-                        ->persistent()
-                        ->send();
-
                     if (! empty($res['errors'])) {
+                        $errCount = count($res['errors']);
+                        $sample = array_slice($res['errors'], 0, 3);
+                        $errBody = "• " . implode("\n• ", $sample);
+                        if ($errCount > 3) {
+                            $errBody .= "\n...and " . ($errCount - 3) . " more.";
+                        }
+
                         Notification::make()
-                            ->title('Some practice tests had notices')
-                            ->body(implode("\n", array_slice($res['errors'], 0, 5)))
+                            ->title("Notice: {$errCount} item(s) skipped")
+                            ->body($errBody)
                             ->warning()
-                            ->persistent()
                             ->send();
                     }
                 } catch (\Throwable $e) {
+                    $rawMsg = $e->getMessage();
+                    $clean = str_contains($rawMsg, 'SQLSTATE') ? 'Database structure error. Please try again.' : Str::limit($rawMsg, 100);
                     Notification::make()
-                        ->title('Practice test import failed')
-                        ->body($e->getMessage())
+                        ->title('Import failed')
+                        ->body($clean)
                         ->danger()
-                        ->persistent()
                         ->send();
                 }
             });
@@ -778,32 +787,41 @@ class ManageCurriculum extends Page
                         ]
                     );
 
-                    $msg = "Imported {$res['tests_processed']} practice test(s) into “{$subject->title}”";
-                    if ($res['questions_extracted'] > 0) {
-                        $msg .= " with {$res['questions_extracted']} questions extracted";
+                    $successCount = $res['tests_processed'] - count($res['errors']);
+                    if ($successCount > 0) {
+                        $msg = "✓ Imported {$successCount} Practice Test(s)";
+                        $body = "Organized into “{$subject->title}”.";
+                        if ($res['questions_extracted'] > 0) {
+                            $body .= " {$res['questions_extracted']} questions extracted into interactive tests.";
+                        }
+                        Notification::make()
+                            ->title($msg)
+                            ->body($body)
+                            ->success()
+                            ->send();
                     }
 
-                    Notification::make()
-                        ->title($msg)
-                        ->body("Auto-matched and attached to chapters. Students can now take them online.")
-                        ->success()
-                        ->persistent()
-                        ->send();
-
                     if (! empty($res['errors'])) {
+                        $errCount = count($res['errors']);
+                        $sample = array_slice($res['errors'], 0, 3);
+                        $errBody = "• " . implode("\n• ", $sample);
+                        if ($errCount > 3) {
+                            $errBody .= "\n...and " . ($errCount - 3) . " more.";
+                        }
+
                         Notification::make()
-                            ->title('Some practice tests had notices')
-                            ->body(implode("\n", array_slice($res['errors'], 0, 5)))
+                            ->title("Notice: {$errCount} item(s) skipped")
+                            ->body($errBody)
                             ->warning()
-                            ->persistent()
                             ->send();
                     }
                 } catch (\Throwable $e) {
+                    $rawMsg = $e->getMessage();
+                    $clean = str_contains($rawMsg, 'SQLSTATE') ? 'Database structure error. Please try again.' : Str::limit($rawMsg, 100);
                     Notification::make()
-                        ->title('Practice test import failed')
-                        ->body($e->getMessage())
+                        ->title('Import failed')
+                        ->body($clean)
                         ->danger()
-                        ->persistent()
                         ->send();
                 }
             });

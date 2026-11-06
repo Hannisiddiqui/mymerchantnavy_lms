@@ -653,7 +653,7 @@ class GoogleDriveFolderScanner
      */
     public static function findMatchingChapter(Subject $subject, int $chapterNum, string $chapterTitle): ?Chapter
     {
-        $chapters = $subject->chapters()->where('is_mock_test', false)->orderBy('position')->get();
+        $chapters = $subject->chapters()->whereNull('test_id')->orderBy('position')->get();
         if ($chapters->isEmpty()) {
             return null;
         }
@@ -891,7 +891,20 @@ class GoogleDriveFolderScanner
                     }
                 }
             } catch (\Throwable $e) {
-                $errors[] = "{$item['display']}: " . $e->getMessage();
+                $rawMsg = $e->getMessage();
+                $cleanMsg = 'An unexpected error occurred';
+                if (str_contains($rawMsg, 'SQLSTATE') || str_contains($rawMsg, 'Column not found')) {
+                    $cleanMsg = 'Database structure error';
+                } elseif (str_contains($rawMsg, '404') || str_contains($rawMsg, 'Not Found')) {
+                    $cleanMsg = 'File not found in Google Drive';
+                } elseif (str_contains($rawMsg, '403') || str_contains($rawMsg, 'Access denied')) {
+                    $cleanMsg = 'Access denied by Google Drive';
+                } elseif (str_contains($rawMsg, 'Google Drive')) {
+                    $cleanMsg = Str::limit($rawMsg, 60);
+                } else {
+                    $cleanMsg = Str::limit($rawMsg, 60);
+                }
+                $errors[] = "Chapter {$item['chapter_num']}: {$item['chapter_title']} ({$cleanMsg})";
             }
         }
 
