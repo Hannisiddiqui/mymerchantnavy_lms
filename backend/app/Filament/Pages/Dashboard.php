@@ -197,10 +197,23 @@ class Dashboard extends BaseDashboard implements HasTable
             ->columns([
                 TextColumn::make('name')
                     ->label('Student')
+                    ->state(fn (User $record) => filled($record->name) ? $record->name : $record->display_name)
                     ->searchable(['name', 'email', 'phone'])
                     ->weight('bold')
-                    ->description(fn (User $record) => $record->email . ($record->phone ? " • {$record->phone}" : ''))
-                    ->formatStateUsing(fn ($state, User $record) => $state ?: $record->email),
+                    ->description(function (User $record) {
+                        $parts = [];
+                        if (filled($record->email)) {
+                            $parts[] = $record->email;
+                        }
+                        if (filled($record->phone)) {
+                            $parts[] = $record->phone;
+                        }
+                        if (! $record->profile_completed_at) {
+                            $parts[] = '(Profile Pending)';
+                        }
+
+                        return implode(' • ', $parts);
+                    }),
 
                 TextColumn::make('purchase_status')
                     ->label('Purchase Type')

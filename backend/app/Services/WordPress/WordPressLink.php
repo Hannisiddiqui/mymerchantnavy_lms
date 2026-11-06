@@ -79,14 +79,22 @@ class WordPressLink
         $email = mb_strtolower(trim($email));
         $user = User::whereRaw('lower(email) = ?', [$email])->first() ?? new User(['email' => $email]);
 
-        $user->name = $user->name ?: ($name ? mb_substr(trim($name), 0, 120) : null);
+        if (blank($user->name)) {
+            if (filled($name)) {
+                $user->name = mb_substr(trim($name), 0, 120);
+            } else {
+                $prefix = explode('@', $email)[0];
+                $cleanName = ucwords(str_replace(['.', '_', '-'], ' ', preg_replace('/[0-9]+$/', '', $prefix)));
+                $user->name = filled($cleanName) ? $cleanName : $prefix;
+            }
+        }
         $user->phone = $user->phone ?: $this->phone($phone);
         $user->wordpress_user_id = $user->wordpress_user_id ?: $wpUserId;
         // WordPress emailed a code to this address and the student typed it back: the address is proven.
         $user->email_verified_at = $user->email_verified_at ?: ($verified ? now() : null);
         // A student who came from WordPress already gave their name there: no profile form on their first visit.
         // (Target exam and attempt year stay empty; they can add them under My Profile.)
-        if (! $user->profile_completed_at && filled($user->name)) {
+        if (! $user->profile_completed_at && filled($name)) {
             $user->nickname = $user->nickname ?: explode(' ', trim($user->name))[0];
             $user->profile_completed_at = now();
         }

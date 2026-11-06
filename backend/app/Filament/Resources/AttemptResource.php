@@ -37,7 +37,9 @@ class AttemptResource extends Resource
         return $table
             ->modifyQueryUsing(fn ($query) => $query->real()->with(['user', 'test'])->whereNotNull('submitted_at'))
             ->columns([
-                TextColumn::make('user.name')->label('Student')->searchable()->description(fn ($record) => $record->user->loginId()),
+                TextColumn::make('user.name')->label('Student')->searchable()
+                    ->state(fn ($record) => filled($record->user?->name) ? $record->user->name : ($record->user?->display_name ?: $record->user?->email))
+                    ->description(fn ($record) => $record->user?->loginId()),
                 TextColumn::make('test.title')->label('Test')->searchable()->wrap(),
                 TextColumn::make('attempt_no')->label('Attempt')->sortable(),
                 TextColumn::make('score')->sortable()->weight('bold'),

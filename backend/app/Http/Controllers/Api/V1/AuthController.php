@@ -95,6 +95,18 @@ class AuthController extends Controller
             return User::firstOrCreate(['phone' => $identifier]);
         }
 
-        return User::whereRaw('lower(email) = ?', [$identifier])->first() ?? User::create(['email' => $identifier]);
+        $user = User::whereRaw('lower(email) = ?', [$identifier])->first();
+        if (! $user) {
+            $prefix = explode('@', $identifier)[0];
+            $cleanName = ucwords(str_replace(['.', '_', '-'], ' ', preg_replace('/[0-9]+$/', '', $prefix)));
+            $defaultName = filled($cleanName) ? $cleanName : $prefix;
+            $user = User::create([
+                'email' => $identifier,
+                'name' => $defaultName,
+                'nickname' => $defaultName,
+            ]);
+        }
+
+        return $user;
     }
 }

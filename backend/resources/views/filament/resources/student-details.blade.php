@@ -4,10 +4,15 @@
         <div class="flex items-start justify-between">
             <div class="flex items-center space-x-3">
                 <div class="w-12 h-12 rounded-full bg-brand-600 text-white flex items-center justify-center font-bold text-lg shadow-sm">
-                    {{ strtoupper(substr($record->name ?: $record->email, 0, 1)) }}
+                    {{ strtoupper(substr($record->name ?: ($record->display_name ?: $record->email), 0, 1)) }}
                 </div>
                 <div>
-                    <h3 class="text-base font-bold text-gray-900 dark:text-white">{{ $record->name ?: 'Profile Incomplete' }}</h3>
+                    <h3 class="text-base font-bold text-gray-900 dark:text-white">
+                        {{ $record->name ?: $record->display_name }}
+                        @if (! $record->profile_completed_at)
+                            <span class="ml-2 text-xs font-normal text-amber-600 bg-amber-50 dark:bg-amber-950/40 px-2 py-0.5 rounded border border-amber-200 dark:border-amber-900/50">Profile Pending</span>
+                        @endif
+                    </h3>
                     <p class="text-gray-500 font-mono text-xs">{{ $record->email }}</p>
                     @if ($record->phone)
                         <p class="text-gray-500 text-xs mt-0.5">{{ $record->phone }}</p>

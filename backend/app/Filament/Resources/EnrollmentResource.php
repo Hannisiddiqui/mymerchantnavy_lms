@@ -47,6 +47,7 @@ class EnrollmentResource extends Resource
                 TextColumn::make('purchase_date')->label('Purchased on')->dateTime('d M Y, h:i A')->sortable()
                     ->description(fn (Enrollment $r) => $r->purchase_date?->diffForHumans()),
                 TextColumn::make('user.name')->label('Student')->searchable()->placeholder('—')
+                    ->state(fn (Enrollment $r) => filled($r->user?->name) ? $r->user->name : ($r->user?->display_name ?: '—'))
                     ->description(fn (Enrollment $r) => $r->user?->email),
                 TextColumn::make('user.phone')->label('Mobile')->searchable()->placeholder('—'),
                 TextColumn::make('course.title')->label('Course')->sortable()->wrap(),

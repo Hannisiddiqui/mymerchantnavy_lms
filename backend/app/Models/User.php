@@ -129,6 +129,26 @@ class User extends Authenticatable
         return null;
     }
 
+    /** Returns human-friendly display name, cleanly formatted from email or phone if name is not set. */
+    public function getDisplayNameAttribute(): string
+    {
+        if (filled($this->name)) {
+            return $this->name;
+        }
+
+        if (filled($this->email)) {
+            $prefix = explode('@', $this->email)[0];
+            $clean = ucwords(str_replace(['.', '_', '-'], ' ', preg_replace('/[0-9]+$/', '', $prefix)));
+            return filled($clean) ? $clean : $prefix;
+        }
+
+        if (filled($this->phone)) {
+            return $this->phone;
+        }
+
+        return 'Student #' . $this->id;
+    }
+
     public function expiredEnrollments(): HasMany
     {
         return $this->enrollments()->expired();

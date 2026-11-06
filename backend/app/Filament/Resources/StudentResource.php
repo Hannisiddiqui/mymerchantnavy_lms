@@ -91,12 +91,12 @@ class StudentResource extends Resource
             ->columns([
                 TextColumn::make('name')
                     ->label('Student')
-                    ->state(fn (User $record) => filled($record->name) ? $record->name : ($record->email ?: 'Unknown Student'))
+                    ->state(fn (User $record) => filled($record->name) ? $record->name : $record->display_name)
                     ->searchable(['name', 'email', 'phone'])
                     ->weight('bold')
                     ->description(fn (User $record) => filled($record->name)
                         ? ($record->email . ($record->phone ? " • {$record->phone}" : ''))
-                        : ($record->phone ? "{$record->phone} • (Profile Pending)" : '(Profile Pending)')),
+                        : ($record->email . ($record->phone ? " • {$record->phone}" : '') . ' • (Profile Pending)')),
 
                 TextColumn::make('purchase_status')
                     ->label('Purchase Type')
