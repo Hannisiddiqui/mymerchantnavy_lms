@@ -102,6 +102,9 @@ class ManageCurriculum extends Page
             $this->importChapterFolderAction(),
             $this->importSubjectFolderAction(),
             $this->importCourseFolderAction(),
+            $this->importSubjectPracticeTestsAction(),
+            $this->importCoursePracticeTestsAction(),
+            $this->importChapterPracticeTestAction(),
             $this->subjectAction(),
             $this->chapterAction(),
             $this->mockTestAction(),
@@ -532,6 +535,347 @@ class ManageCurriculum extends Page
                 } catch (\Throwable $e) {
                     Notification::make()
                         ->title('Folder import failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->persistent()
+                        ->send();
+                }
+            });
+    }
+
+    /** Bulk import practice test PDFs from Google Drive into a Subject's chapters. arguments: subject */
+    public function importSubjectPracticeTestsAction(): Action
+    {
+        return Action::make('importSubjectPracticeTests')
+            ->modalHeading(function (array $arguments) {
+                if (empty($arguments['subject'])) {
+                    return 'Bulk Import Practice Tests from Google Drive';
+                }
+                try {
+                    return 'Bulk Import Practice Tests into “'.$this->findSubject((int) $arguments['subject'])->title.'”';
+                } catch (\Throwable) {
+                    return 'Bulk Import Practice Tests into Subject';
+                }
+            })
+            ->modalDescription('Paste a Google Drive folder link containing chapter practice tests (either a subject folder with 19 chapter subfolders, or a folder of practice test PDFs). The algorithm auto-detects practice test PDFs, matches each test to its chapter, downloads them, creates the online practice tests, and automatically extracts questions.')
+            ->modalSubmitActionLabel('Import & Extract Practice Tests')
+            ->modalWidth('2xl')
+            ->schema([
+                TextInput::make('folder_url')
+                    ->label('Google Drive Folder Link')
+                    ->placeholder('https://drive.google.com/drive/folders/...')
+                    ->required()
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(function ($set, ?string $state) {
+                        if (empty($state) || ! GoogleDriveFolderScanner::isFolderUrl($state)) {
+                            $set('selected_tests', []);
+                            return;
+                        }
+                        try {
+                            $tests = GoogleDriveFolderScanner::getPracticeTestsList($state);
+                            $set('selected_tests', collect($tests)->pluck('id')->toArray());
+                        } catch (\Throwable) {
+                            $set('selected_tests', []);
+                        }
+                    })
+                    ->helperText('Paste folder link and click outside to scan. General Access must be "Anyone with the link can view".'),
+
+                CheckboxList::make('selected_tests')
+                    ->label('Detected Practice Tests (Auto-Matched to Chapters)')
+                    ->bulkToggleable()
+                    ->options(function ($get) {
+                        $url = $get('folder_url');
+                        if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
+                            return [];
+                        }
+                        try {
+                            $tests = GoogleDriveFolderScanner::getPracticeTestsList($url);
+                            if (empty($tests)) {
+                                return ['none' => 'No practice test files detected. Make sure PDFs contain "Practice Test" or are inside chapter subfolders.'];
+                            }
+                            return collect($tests)->mapWithKeys(fn ($t) => [$t['id'] => $t['display']])->toArray();
+                        } catch (\Throwable $e) {
+                            return ['error' => 'Could not read folder: ' . $e->getMessage()];
+                        }
+                    })
+                    ->default(function ($get) {
+                        $url = $get('folder_url');
+                        if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
+                            return [];
+                        }
+                        try {
+                            $tests = GoogleDriveFolderScanner::getPracticeTestsList($url);
+                            return collect($tests)->pluck('id')->toArray();
+                        } catch (\Throwable) {
+                            return [];
+                        }
+                    })
+                    ->visible(fn ($get) => filled($get('folder_url')))
+                    ->helperText('All detected practice tests are auto-matched to chapters (1 to 19) and selected by default.'),
+
+                Toggle::make('auto_parse_questions')
+                    ->label('Automatically extract questions from PDFs into online tests')
+                    ->default(true)
+                    ->helperText('Reads questions and options directly from the PDF so students can take the test interactively on the LMS.')
+                    ->visible(fn ($get) => filled($get('folder_url'))),
+
+                \Filament\Schemas\Components\Group::make([
+                    TextInput::make('duration_minutes')->label('Duration (min)')->numeric()->default(90)->minValue(1)->required(),
+                    TextInput::make('marks_correct')->label('Marks correct')->numeric()->default(2)->required(),
+                    TextInput::make('marks_wrong')->label('Marks wrong (-ve)')->numeric()->step(0.25)->default(0.25)->required(),
+                ])->columns(3)->visible(fn ($get) => filled($get('folder_url'))),
+            ])
+            ->action(function (array $data, array $arguments) {
+                if (empty($arguments['subject'])) {
+                    throw new \Exception('No subject specified.');
+                }
+                $subject = $this->findSubject((int) $arguments['subject']);
+                try {
+                    $selectedTests = ! empty($data['selected_tests']) ? array_values(array_filter($data['selected_tests'], fn ($id) => ! in_array($id, ['error', 'none'], true))) : null;
+
+                    $res = GoogleDriveFolderScanner::importPracticeTestsIntoSubject(
+                        $subject,
+                        $data['folder_url'],
+                        $this->outline(),
+                        $selectedTests,
+                        [
+                            'duration_minutes'     => $data['duration_minutes'] ?? 90,
+                            'marks_correct'        => $data['marks_correct'] ?? 2,
+                            'marks_wrong'          => $data['marks_wrong'] ?? 0.25,
+                            'auto_parse_questions' => (bool) ($data['auto_parse_questions'] ?? true),
+                        ]
+                    );
+
+                    $msg = "Imported {$res['tests_processed']} practice test(s) into “{$subject->title}”";
+                    if ($res['questions_extracted'] > 0) {
+                        $msg .= " with {$res['questions_extracted']} questions extracted";
+                    }
+
+                    Notification::make()
+                        ->title($msg)
+                        ->body("Auto-matched and attached to chapters. Students can now take them online.")
+                        ->success()
+                        ->persistent()
+                        ->send();
+
+                    if (! empty($res['errors'])) {
+                        Notification::make()
+                            ->title('Some practice tests had notices')
+                            ->body(implode("\n", array_slice($res['errors'], 0, 5)))
+                            ->warning()
+                            ->persistent()
+                            ->send();
+                    }
+                } catch (\Throwable $e) {
+                    Notification::make()
+                        ->title('Practice test import failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->persistent()
+                        ->send();
+                }
+            });
+    }
+
+    /** Bulk import practice test PDFs from Google Drive into any subject of this course. */
+    public function importCoursePracticeTestsAction(): Action
+    {
+        return Action::make('importCoursePracticeTests')
+            ->modalHeading('Bulk Import Practice Tests from Google Drive')
+            ->modalDescription('Paste a Google Drive folder link containing chapter practice tests. Choose the target subject; the algorithm will auto-detect practice test PDFs, match them to chapters, download them, create the online tests, and extract questions.')
+            ->modalSubmitActionLabel('Import & Extract Practice Tests')
+            ->modalWidth('2xl')
+            ->schema([
+                Select::make('subject_id')
+                    ->label('Target Subject')
+                    ->options(fn () => $this->getRecord()->subjects()->orderBy('id')->pluck('title', 'id'))
+                    ->required()
+                    ->searchable()
+                    ->preload()
+                    ->helperText('Select the subject whose chapters correspond to these practice tests.'),
+
+                TextInput::make('folder_url')
+                    ->label('Google Drive Folder Link')
+                    ->placeholder('https://drive.google.com/drive/folders/...')
+                    ->required()
+                    ->live(onBlur: true)
+                    ->afterStateUpdated(function ($set, ?string $state) {
+                        if (empty($state) || ! GoogleDriveFolderScanner::isFolderUrl($state)) {
+                            $set('selected_tests', []);
+                            return;
+                        }
+                        try {
+                            $tests = GoogleDriveFolderScanner::getPracticeTestsList($state);
+                            $set('selected_tests', collect($tests)->pluck('id')->toArray());
+                        } catch (\Throwable) {
+                            $set('selected_tests', []);
+                        }
+                    })
+                    ->helperText('Paste folder link and click outside to scan.'),
+
+                CheckboxList::make('selected_tests')
+                    ->label('Detected Practice Tests (Auto-Matched to Chapters)')
+                    ->bulkToggleable()
+                    ->options(function ($get) {
+                        $url = $get('folder_url');
+                        if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
+                            return [];
+                        }
+                        try {
+                            $tests = GoogleDriveFolderScanner::getPracticeTestsList($url);
+                            if (empty($tests)) {
+                                return ['none' => 'No practice test files detected. Make sure PDFs contain "Practice Test" or are inside chapter subfolders.'];
+                            }
+                            return collect($tests)->mapWithKeys(fn ($t) => [$t['id'] => $t['display']])->toArray();
+                        } catch (\Throwable $e) {
+                            return ['error' => 'Could not read folder: ' . $e->getMessage()];
+                        }
+                    })
+                    ->default(function ($get) {
+                        $url = $get('folder_url');
+                        if (empty($url) || ! GoogleDriveFolderScanner::isFolderUrl($url)) {
+                            return [];
+                        }
+                        try {
+                            $tests = GoogleDriveFolderScanner::getPracticeTestsList($url);
+                            return collect($tests)->pluck('id')->toArray();
+                        } catch (\Throwable) {
+                            return [];
+                        }
+                    })
+                    ->visible(fn ($get) => filled($get('folder_url'))),
+
+                Toggle::make('auto_parse_questions')
+                    ->label('Automatically extract questions from PDFs into online tests')
+                    ->default(true)
+                    ->helperText('Reads questions and options directly from the PDF so students can take the test interactively on the LMS.')
+                    ->visible(fn ($get) => filled($get('folder_url'))),
+
+                \Filament\Schemas\Components\Group::make([
+                    TextInput::make('duration_minutes')->label('Duration (min)')->numeric()->default(90)->minValue(1)->required(),
+                    TextInput::make('marks_correct')->label('Marks correct')->numeric()->default(2)->required(),
+                    TextInput::make('marks_wrong')->label('Marks wrong (-ve)')->numeric()->step(0.25)->default(0.25)->required(),
+                ])->columns(3)->visible(fn ($get) => filled($get('folder_url'))),
+            ])
+            ->action(function (array $data) {
+                if (empty($data['subject_id'])) {
+                    throw new \Exception('No subject selected.');
+                }
+                $subject = $this->findSubject((int) $data['subject_id']);
+                try {
+                    $selectedTests = ! empty($data['selected_tests']) ? array_values(array_filter($data['selected_tests'], fn ($id) => ! in_array($id, ['error', 'none'], true))) : null;
+
+                    $res = GoogleDriveFolderScanner::importPracticeTestsIntoSubject(
+                        $subject,
+                        $data['folder_url'],
+                        $this->outline(),
+                        $selectedTests,
+                        [
+                            'duration_minutes'     => $data['duration_minutes'] ?? 90,
+                            'marks_correct'        => $data['marks_correct'] ?? 2,
+                            'marks_wrong'          => $data['marks_wrong'] ?? 0.25,
+                            'auto_parse_questions' => (bool) ($data['auto_parse_questions'] ?? true),
+                        ]
+                    );
+
+                    $msg = "Imported {$res['tests_processed']} practice test(s) into “{$subject->title}”";
+                    if ($res['questions_extracted'] > 0) {
+                        $msg .= " with {$res['questions_extracted']} questions extracted";
+                    }
+
+                    Notification::make()
+                        ->title($msg)
+                        ->body("Auto-matched and attached to chapters. Students can now take them online.")
+                        ->success()
+                        ->persistent()
+                        ->send();
+
+                    if (! empty($res['errors'])) {
+                        Notification::make()
+                            ->title('Some practice tests had notices')
+                            ->body(implode("\n", array_slice($res['errors'], 0, 5)))
+                            ->warning()
+                            ->persistent()
+                            ->send();
+                    }
+                } catch (\Throwable $e) {
+                    Notification::make()
+                        ->title('Practice test import failed')
+                        ->body($e->getMessage())
+                        ->danger()
+                        ->persistent()
+                        ->send();
+                }
+            });
+    }
+
+    /** Import a single practice test from Google Drive directly into a chapter. arguments: chapter */
+    public function importChapterPracticeTestAction(): Action
+    {
+        return Action::make('importChapterPracticeTest')
+            ->modalHeading(function (array $arguments) {
+                if (empty($arguments['chapter'])) {
+                    return 'Import Practice Test from Google Drive';
+                }
+                try {
+                    return 'Import Practice Test into “'.$this->findChapter((int) $arguments['chapter'])->title.'”';
+                } catch (\Throwable) {
+                    return 'Import Practice Test into Chapter';
+                }
+            })
+            ->modalDescription('Paste a Google Drive link to a Practice Test PDF (or chapter folder). The algorithm downloads the PDF, creates the online practice test, attaches it to this chapter, and extracts questions.')
+            ->modalSubmitActionLabel('Import Practice Test')
+            ->modalWidth('xl')
+            ->schema([
+                TextInput::make('file_or_folder_url')
+                    ->label('Google Drive Link (PDF file or folder)')
+                    ->placeholder('https://drive.google.com/file/d/... or folder link')
+                    ->required()
+                    ->helperText('Direct file link or chapter folder link. General access must be "Anyone with the link can view".'),
+
+                Toggle::make('auto_parse_questions')
+                    ->label('Automatically extract questions from PDF into online test')
+                    ->default(true)
+                    ->helperText('Reads questions and options directly from the PDF.'),
+
+                \Filament\Schemas\Components\Group::make([
+                    TextInput::make('duration_minutes')->label('Duration (min)')->numeric()->default(90)->minValue(1)->required(),
+                    TextInput::make('marks_correct')->label('Marks correct')->numeric()->default(2)->required(),
+                    TextInput::make('marks_wrong')->label('Marks wrong (-ve)')->numeric()->step(0.25)->default(0.25)->required(),
+                ])->columns(3),
+            ])
+            ->action(function (array $data, array $arguments) {
+                if (empty($arguments['chapter'])) {
+                    throw new \Exception('No chapter specified.');
+                }
+                $chapter = $this->findChapter((int) $arguments['chapter']);
+                try {
+                    $res = GoogleDriveFolderScanner::importPracticeTestIntoChapter(
+                        $chapter,
+                        $data['file_or_folder_url'],
+                        $this->outline(),
+                        [
+                            'duration_minutes'     => $data['duration_minutes'] ?? 90,
+                            'marks_correct'        => $data['marks_correct'] ?? 2,
+                            'marks_wrong'          => $data['marks_wrong'] ?? 0.25,
+                            'auto_parse_questions' => (bool) ($data['auto_parse_questions'] ?? true),
+                        ]
+                    );
+
+                    $msg = "Practice Test “{$res['test_title']}” created";
+                    if ($res['questions_extracted'] > 0) {
+                        $msg .= " with {$res['questions_extracted']} questions extracted";
+                    }
+
+                    Notification::make()
+                        ->title($msg)
+                        ->body("Attached to chapter “{$chapter->title}”. Students can take it online.")
+                        ->success()
+                        ->persistent()
+                        ->send();
+                } catch (\Throwable $e) {
+                    Notification::make()
+                        ->title('Practice test import failed')
                         ->body($e->getMessage())
                         ->danger()
                         ->persistent()

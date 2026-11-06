@@ -3,12 +3,19 @@
 namespace App\Services\Courses;
 
 use App\Enums\ContentType;
+use App\Enums\ImportMethod;
+use App\Enums\TestKind;
+use App\Jobs\ProcessQuestionImport;
 use App\Models\Chapter;
 use App\Models\Subject;
+use App\Models\Test;
 use App\Services\Courses\CourseOutline;
 use App\Services\Courses\RemotePdfDownloader;
+use App\Services\Imports\Ai\AiReaderManager;
+use App\Services\Imports\QuestionImportService;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Str;
 use Illuminate\Validation\ValidationException;
 
@@ -573,6 +580,438 @@ class GoogleDriveFolderScanner
             'chapters_created' => $chaptersCreated,
             'files_imported'   => $filesImported,
             'errors'           => $errors,
+        ];
+    }
+
+    /**
+     * Check if a filename corresponds to a Practice Test PDF.
+     */
+    public static function isPracticeTestFile(string $filename): bool
+    {
+        $lower = strtolower($filename);
+
+        // Negative filters: exclude interview questions and pure theory/notes
+        if (str_contains($lower, 'interview') || str_contains($lower, 'study material') || str_contains($lower, 'theory')) {
+            return false;
+        }
+
+        // Positive keywords
+        if (str_contains($lower, 'practice') && (str_contains($lower, 'test') || str_contains($lower, 'paper') || str_contains($lower, 'sheet') || str_contains($lower, 'exam'))) {
+            return true;
+        }
+        if (str_contains($lower, 'practice test') || str_contains($lower, 'practice_test') || str_contains($lower, 'practicetest')) {
+            return true;
+        }
+        if (str_contains($lower, 'dpp') || str_contains($lower, 'daily practice')) {
+            return true;
+        }
+        if (preg_match('/\btest\b/i', $lower) && ! str_contains($lower, 'mock')) {
+            return true;
+        }
+
+        return false;
+    }
+
+    /**
+     * Clean test filename to extract the underlying chapter title.
+     */
+    public static function cleanTestChapterTitle(string $raw): string
+    {
+        $clean = preg_replace('/\.pdf$/i', '', $raw);
+        $clean = preg_replace('/^practice\s*test[\s\-_:]*/i', '', $clean);
+        $clean = preg_replace('/[\s\-_:]*practice\s*test$/i', '', $clean);
+        $clean = preg_replace('/[\s\-_:]*test$/i', '', $clean);
+        $clean = preg_replace('/^dpp[\s\-_:]*/i', '', $clean);
+        $clean = str_replace('_', ' ', $clean);
+        $clean = preg_replace('/\s+/', ' ', $clean);
+
+        return self::beautifyTitle(trim($clean));
+    }
+
+    /**
+     * Format a clean, standardized Practice Test title (e.g. "Structure Of Atoms Practice Test").
+     */
+    public static function formatPracticeTestTitle(string $chapterTitle, ?string $rawFileName = null): string
+    {
+        $clean = trim($chapterTitle);
+        // Remove "Chapter 1: " or "1. " numbering prefix if present
+        $clean = preg_replace('/^(?:chapter\s*|ch\s*)?\d+[\.\s\-_:]+/i', '', $clean);
+
+        if (str_ends_with(strtolower($clean), 'practice test')) {
+            return self::beautifyTitle($clean);
+        }
+
+        if (str_ends_with(strtolower($clean), 'test')) {
+            $clean = preg_replace('/[\s\-_:]*test$/i', '', $clean);
+        }
+
+        return self::beautifyTitle(trim($clean) . ' Practice Test');
+    }
+
+    /**
+     * Find a matching chapter in a subject by number or title similarity.
+     */
+    public static function findMatchingChapter(Subject $subject, int $chapterNum, string $chapterTitle): ?Chapter
+    {
+        $chapters = $subject->chapters()->where('is_mock_test', false)->orderBy('position')->get();
+        if ($chapters->isEmpty()) {
+            return null;
+        }
+
+        $normTitle = strtolower(preg_replace('/[^a-z0-9]/', '', $chapterTitle));
+
+        // 1. Exact or fuzzy normalized title match
+        foreach ($chapters as $ch) {
+            $cleanChTitle = preg_replace('/^(?:chapter\s*|ch\s*)?\d+[\.\s\-_:]+/i', '', $ch->title);
+            $chNorm = strtolower(preg_replace('/[^a-z0-9]/', '', $cleanChTitle));
+
+            if ($chNorm === $normTitle || (! empty($normTitle) && str_contains($chNorm, $normTitle)) || (! empty($chNorm) && str_contains($normTitle, $chNorm))) {
+                return $ch;
+            }
+        }
+
+        // 2. By chapter number if present (1..19)
+        if ($chapterNum !== 9999) {
+            foreach ($chapters as $ch) {
+                if (preg_match('/^(?:chapter\s*|ch\s*)?0*' . $chapterNum . '[\.\s\-_:]/i', $ch->title)) {
+                    return $ch;
+                }
+            }
+            // Fallback: match by position index
+            $index = $chapterNum - 1;
+            if (isset($chapters[$index])) {
+                return $chapters[$index];
+            }
+        }
+
+        return null;
+    }
+
+    /**
+     * Get a list of detected practice test PDFs from a Google Drive folder.
+     * Scans chapter subfolders (1..19) or direct files, extracting chapter numbers and practice tests.
+     *
+     * @return array<int, array{id: string, chapter_num: int, chapter_title: string, test_title: string, file_id: string, file_name: string, raw_name: string, file_url: string, subfolder_id: ?string, display: string}>
+     */
+    public static function getPracticeTestsList(string $folderUrl): array
+    {
+        $scanned = self::scanFolder($folderUrl, false);
+        $items = [];
+        $seenFileIds = [];
+
+        // Scenario A: Folder contains chapter subfolders (e.g. 1. Structure of Atom, 2. Chemical Bonding...)
+        if (! empty($scanned['subfolders'])) {
+            foreach ($scanned['subfolders'] as $sub) {
+                try {
+                    $subScanned = self::scanFolder($sub['id'], false);
+                    $foundTest = null;
+                    $highestScore = 0;
+
+                    foreach ($subScanned['files'] ?? [] as $f) {
+                        $score = 0;
+                        $raw = $f['raw_name'];
+                        if (self::isPracticeTestFile($raw) || self::isPracticeTestFile($f['name'])) {
+                            $score = 10;
+                            if (str_contains(strtolower($raw), 'practice') && str_contains(strtolower($raw), 'test')) {
+                                $score = 20;
+                            }
+                        }
+                        if ($score > $highestScore) {
+                            $highestScore = $score;
+                            $foundTest = $f;
+                        }
+                    }
+
+                    if ($foundTest && ! isset($seenFileIds[$foundTest['id']])) {
+                        $seenFileIds[$foundTest['id']] = true;
+                        $chapterNum = $sub['chapter_num'];
+                        $cleanTitle = $sub['title'];
+                        $testTitle = self::formatPracticeTestTitle($cleanTitle, $foundTest['name']);
+                        $displayName = ($chapterNum !== 9999 ? "Chapter {$chapterNum}: " : '') . "{$cleanTitle} → {$testTitle}";
+
+                        $items[] = [
+                            'id'            => $foundTest['id'],
+                            'chapter_num'   => $chapterNum,
+                            'chapter_title' => $cleanTitle,
+                            'test_title'    => $testTitle,
+                            'file_id'       => $foundTest['id'],
+                            'file_name'     => $foundTest['name'],
+                            'raw_name'      => $foundTest['raw_name'],
+                            'file_url'      => $foundTest['url'],
+                            'subfolder_id'  => $sub['id'],
+                            'display'       => $displayName,
+                        ];
+                    }
+                } catch (\Throwable) {
+                    continue;
+                }
+            }
+        }
+
+        // Scenario B: Root folder contains practice test files directly
+        foreach ($scanned['files'] as $f) {
+            if (! isset($seenFileIds[$f['id']]) && (self::isPracticeTestFile($f['raw_name']) || self::isPracticeTestFile($f['name']))) {
+                $seenFileIds[$f['id']] = true;
+                $info = self::parseChapterInfo($f['raw_name']);
+                $cleanTitle = self::cleanTestChapterTitle($f['name']);
+                $chapterNum = $info['num'];
+                $testTitle = self::formatPracticeTestTitle($cleanTitle, $f['name']);
+                $displayName = ($chapterNum !== 9999 ? "Chapter {$chapterNum}: " : '') . "{$cleanTitle} → {$testTitle}";
+
+                $items[] = [
+                    'id'            => $f['id'],
+                    'chapter_num'   => $chapterNum,
+                    'chapter_title' => $cleanTitle,
+                    'test_title'    => $testTitle,
+                    'file_id'       => $f['id'],
+                    'file_name'     => $f['name'],
+                    'raw_name'      => $f['raw_name'],
+                    'file_url'      => $f['url'],
+                    'subfolder_id'  => null,
+                    'display'       => $displayName,
+                ];
+            }
+        }
+
+        // Sort numerically by chapter_num 1..19
+        usort($items, function ($a, $b) {
+            if ($a['chapter_num'] !== $b['chapter_num']) {
+                return $a['chapter_num'] <=> $b['chapter_num'];
+            }
+            return strnatcasecmp($a['chapter_title'], $b['chapter_title']);
+        });
+
+        return $items;
+    }
+
+    /**
+     * Import practice tests from Google Drive in bulk into a Subject.
+     * Auto-detects practice test PDFs, matches them to chapters, creates the online test, and extracts questions.
+     *
+     * @param  array<int, string>|null  $selectedTestIds
+     * @param  array<string, mixed>  $options
+     * @return array{folder_title: string, tests_processed: int, tests_created: int, tests_linked: int, questions_extracted: int, errors: array<int, string>}
+     */
+    public static function importPracticeTestsIntoSubject(Subject $subject, string $folderUrl, CourseOutline $outline, ?array $selectedTestIds = null, array $options = []): array
+    {
+        @ini_set('max_execution_time', '900');
+        @set_time_limit(900);
+        @ignore_user_abort(true);
+
+        $scanned = self::scanFolder($folderUrl, false);
+        $detected = self::getPracticeTestsList($folderUrl);
+
+        if (empty($detected)) {
+            throw ValidationException::withMessages([
+                'folder_url' => "No practice test PDFs detected in folder “{$scanned['title']}”. Make sure files contain 'Practice Test' or are inside chapter folders.",
+            ]);
+        }
+
+        // Filter by selected test IDs if passed
+        if (! empty($selectedTestIds)) {
+            $selectedMap = array_fill_keys($selectedTestIds, true);
+            $detected = array_values(array_filter($detected, fn ($t) => isset($selectedMap[$t['id']])));
+        }
+
+        $testsCreated = 0;
+        $testsLinked = 0;
+        $questionsExtracted = 0;
+        $errors = [];
+
+        $durationMinutes = (int) ($options['duration_minutes'] ?? 90);
+        $marksCorrect = (float) ($options['marks_correct'] ?? 2);
+        $marksWrong = (float) ($options['marks_wrong'] ?? 0.25);
+        $autoParse = (bool) ($options['auto_parse_questions'] ?? true);
+
+        foreach ($detected as $item) {
+            try {
+                // 1. Find or create matching Chapter in this subject
+                $chapter = self::findMatchingChapter($subject, $item['chapter_num'], $item['chapter_title']);
+                if (! $chapter) {
+                    $chapter = $outline->addChapter($subject, $item['chapter_title']);
+                }
+
+                // 2. Find or create the Test record
+                $testTitle = $item['test_title'] ?: self::formatPracticeTestTitle($chapter->title);
+                $practiceContent = $chapter->contents()->where('type', ContentType::PracticeTest)->first();
+                $test = null;
+
+                if ($practiceContent && $practiceContent->contentable instanceof Test) {
+                    $test = $practiceContent->contentable;
+                } else {
+                    $test = Test::where('course_id', $subject->course_id)
+                        ->where('kind', TestKind::Practice)
+                        ->where('title', $testTitle)
+                        ->first();
+
+                    if (! $test) {
+                        $test = Test::create([
+                            'course_id'        => $subject->course_id,
+                            'kind'             => TestKind::Practice,
+                            'title'            => $testTitle,
+                            'duration_minutes' => $durationMinutes,
+                            'marks_correct'    => $marksCorrect,
+                            'marks_wrong'      => $marksWrong,
+                            'is_published'     => true,
+                        ]);
+                        $testsCreated++;
+                    }
+
+                    if (! $practiceContent) {
+                        $outline->saveContent($chapter, ContentType::PracticeTest, [
+                            'title'   => $test->title,
+                            'test_id' => $test->id,
+                            'mode'    => 'existing',
+                        ]);
+                        $testsLinked++;
+                    }
+                }
+
+                // 3. Download the PDF directly onto the server
+                $downloaded = RemotePdfDownloader::download($item['file_url']);
+
+                // 4. Auto-extract questions from PDF into the Test
+                if ($autoParse && $test) {
+                    try {
+                        $importService = app(QuestionImportService::class);
+                        $admin = auth('admin')->user();
+                        $import = $importService->start($downloaded['file_path'], basename($item['raw_name']), ImportMethod::Pdf, $test, $admin);
+
+                        $draftIds = $import->drafts()->pluck('id')->all();
+                        if (! empty($draftIds)) {
+                            $committed = $importService->commit($import, $draftIds, $test);
+                            $questionsExtracted += ($committed['added'] ?? 0) + ($committed['reused'] ?? 0);
+                        } elseif (app(AiReaderManager::class)->configured()) {
+                            // Queue AI parser if standard regex didn't find questions
+                            $import->update(['method' => ImportMethod::PdfAi]);
+                            ProcessQuestionImport::dispatch($import->id);
+                        }
+                    } catch (\Throwable $e) {
+                        Log::warning("Question parsing warning for {$item['raw_name']}: " . $e->getMessage());
+                    }
+                }
+            } catch (\Throwable $e) {
+                $errors[] = "{$item['display']}: " . $e->getMessage();
+            }
+        }
+
+        return [
+            'folder_title'        => $scanned['title'],
+            'tests_processed'     => count($detected),
+            'tests_created'       => $testsCreated,
+            'tests_linked'        => $testsLinked,
+            'questions_extracted' => $questionsExtracted,
+            'errors'              => $errors,
+        ];
+    }
+
+    /**
+     * Import a practice test from Google Drive directly into a single chapter.
+     */
+    public static function importPracticeTestIntoChapter(Chapter $chapter, string $fileOrFolderUrl, CourseOutline $outline, array $options = []): array
+    {
+        @ini_set('max_execution_time', '300');
+        @set_time_limit(300);
+
+        $subject = $chapter->subject;
+        $url = trim($fileOrFolderUrl);
+
+        $downloadUrl = null;
+        $rawName = null;
+        $cleanTitle = $chapter->title;
+
+        if (self::isFolderUrl($url)) {
+            $tests = self::getPracticeTestsList($url);
+            if (empty($tests)) {
+                $files = self::getFilesList($url);
+                $testFile = collect($files)->first(fn ($f) => self::isPracticeTestFile($f['raw_name'] ?? $f['name']));
+                if (! $testFile && ! empty($files)) {
+                    $testFile = $files[0];
+                }
+                if ($testFile) {
+                    $downloadUrl = $testFile['url'];
+                    $rawName = $testFile['raw_name'] ?? $testFile['name'];
+                }
+            } else {
+                $downloadUrl = $tests[0]['file_url'];
+                $rawName = $tests[0]['raw_name'];
+                $cleanTitle = $tests[0]['chapter_title'] ?: $chapter->title;
+            }
+        } else {
+            $downloadUrl = $url;
+            $rawName = basename(parse_url($url, PHP_URL_PATH) ?? 'practice_test.pdf');
+        }
+
+        if (! $downloadUrl) {
+            throw ValidationException::withMessages([
+                'file_url' => 'No practice test PDF found at the provided link.',
+            ]);
+        }
+
+        $durationMinutes = (int) ($options['duration_minutes'] ?? 90);
+        $marksCorrect = (float) ($options['marks_correct'] ?? 2);
+        $marksWrong = (float) ($options['marks_wrong'] ?? 0.25);
+        $autoParse = (bool) ($options['auto_parse_questions'] ?? true);
+
+        $testTitle = self::formatPracticeTestTitle($cleanTitle);
+        $practiceContent = $chapter->contents()->where('type', ContentType::PracticeTest)->first();
+        $test = null;
+
+        if ($practiceContent && $practiceContent->contentable instanceof Test) {
+            $test = $practiceContent->contentable;
+        } else {
+            $test = Test::where('course_id', $subject->course_id)
+                ->where('kind', TestKind::Practice)
+                ->where('title', $testTitle)
+                ->first();
+
+            if (! $test) {
+                $test = Test::create([
+                    'course_id'        => $subject->course_id,
+                    'kind'             => TestKind::Practice,
+                    'title'            => $testTitle,
+                    'duration_minutes' => $durationMinutes,
+                    'marks_correct'    => $marksCorrect,
+                    'marks_wrong'      => $marksWrong,
+                    'is_published'     => true,
+                ]);
+            }
+
+            if (! $practiceContent) {
+                $outline->saveContent($chapter, ContentType::PracticeTest, [
+                    'title'   => $test->title,
+                    'test_id' => $test->id,
+                    'mode'    => 'existing',
+                ]);
+            }
+        }
+
+        $downloaded = RemotePdfDownloader::download($downloadUrl);
+        $questionsExtracted = 0;
+
+        if ($autoParse && $test) {
+            try {
+                $importService = app(QuestionImportService::class);
+                $admin = auth('admin')->user();
+                $import = $importService->start($downloaded['file_path'], $rawName ?: 'practice_test.pdf', ImportMethod::Pdf, $test, $admin);
+
+                $draftIds = $import->drafts()->pluck('id')->all();
+                if (! empty($draftIds)) {
+                    $committed = $importService->commit($import, $draftIds, $test);
+                    $questionsExtracted = ($committed['added'] ?? 0) + ($committed['reused'] ?? 0);
+                } elseif (app(AiReaderManager::class)->configured()) {
+                    $import->update(['method' => ImportMethod::PdfAi]);
+                    ProcessQuestionImport::dispatch($import->id);
+                }
+            } catch (\Throwable $e) {
+                Log::warning("Question parsing warning: " . $e->getMessage());
+            }
+        }
+
+        return [
+            'test_title'          => $test->title,
+            'chapter_title'       => $chapter->title,
+            'questions_extracted' => $questionsExtracted,
         ];
     }
 }
