@@ -183,59 +183,102 @@ class TestBatchService
     }
 
     /**
-     * Merge all questions from a source Practice Test into a target Practice Test.
+     * Merge one or multiple source Practice Tests into a target Practice Test.
      * Prevents duplicate questions: only unique questions not already in target are added.
-     * Combines test duration and removes source test cleanly.
+     * Combines test durations in order and removes source test records cleanly.
      *
-     * @return array{success: bool, target_title: string, added_count: int, total_questions: int, duration_minutes: int, skipped_duplicates: int}
+     * @param Test $targetTest
+     * @param Test|array<int, int|Test> $sourceTests
+     * @param Chapter|null $chapter
+     * @return array{success: bool, target_title: string, sources_merged_count: int, added_count: int, total_questions: int, duration_minutes: int, skipped_duplicates: int}
      *
      * @throws ValidationException
      */
-    public function mergeTests(Test $targetTest, Test $sourceTest, ?Chapter $chapter = null): array
+    public function mergeTests(Test $targetTest, Test|array $sourceTests, ?Chapter $chapter = null): array
     {
-        if ($targetTest->kind !== TestKind::Practice || $sourceTest->kind !== TestKind::Practice) {
+        if ($targetTest->kind !== TestKind::Practice) {
             throw ValidationException::withMessages([
-                'merge_source_test_id' => 'Merging is only available for practice tests.',
+                'source_test_ids' => 'Merging is only available for practice tests.',
             ]);
         }
 
-        if ($targetTest->id === $sourceTest->id) {
+        if ($sourceTests instanceof Test) {
+            $sourceTests = [$sourceTests];
+        }
+
+        if (empty($sourceTests)) {
             throw ValidationException::withMessages([
-                'merge_source_test_id' => 'Cannot merge a practice test into itself.',
+                'source_test_ids' => 'Please select at least one practice test to merge.',
             ]);
         }
 
-        $targetQuestionIds = $targetTest->questions()->pluck('questions.id')->all();
-        $sourceQuestionIds = $sourceTest->questions()->orderByPivot('position')->pluck('questions.id')->all();
+        $models = [];
+        foreach ($sourceTests as $item) {
+            $test = $item instanceof Test ? $item : Test::findOrFail($item);
+            if ($test->id === $targetTest->id) {
+                continue;
+            }
+            if ($test->kind !== TestKind::Practice) {
+                throw ValidationException::withMessages([
+                    'source_test_ids' => "Test '{$test->title}' is not a practice test. Only practice tests can be merged.",
+                ]);
+            }
+            $models[$test->id] = $test;
+        }
 
-        $toAdd = array_values(array_diff($sourceQuestionIds, $targetQuestionIds));
-        $skipped = count($sourceQuestionIds) - count($toAdd);
-        $addedCount = count($toAdd);
+        if (empty($models)) {
+            throw ValidationException::withMessages([
+                'source_test_ids' => 'Cannot merge a practice test into itself. Please choose one or more other practice tests.',
+            ]);
+        }
 
-        $mergedDuration = (int) max(1, ($targetTest->duration_minutes ?: 0) + ($sourceTest->duration_minutes ?: 0));
+        $addedCount = 0;
+        $skippedTotal = 0;
+        $totalDurationAdded = 0;
 
-        DB::transaction(function () use ($targetTest, $sourceTest, $toAdd, $mergedDuration) {
-            // 1. Append non-duplicate questions from source to target
-            if (! empty($toAdd)) {
-                $startPos = (DB::table('test_questions')->where('test_id', $targetTest->id)->max('position') ?? -1) + 1;
+        DB::transaction(function () use ($targetTest, $models, &$addedCount, &$skippedTotal, &$totalDurationAdded) {
+            $targetQuestionIds = $targetTest->questions()->pluck('questions.id')->all();
+            $targetQuestionMap = array_fill_keys($targetQuestionIds, true);
+
+            $startPos = (DB::table('test_questions')->where('test_id', $targetTest->id)->max('position') ?? -1) + 1;
+
+            foreach ($models as $sourceTest) {
+                $sourceQuestionIds = $sourceTest->questions()->orderByPivot('position')->pluck('questions.id')->all();
                 $attachData = [];
-                foreach ($toAdd as $idx => $qId) {
-                    $attachData[$qId] = ['position' => $startPos + $idx];
+
+                foreach ($sourceQuestionIds as $qId) {
+                    if (isset($targetQuestionMap[$qId])) {
+                        $skippedTotal++;
+                        continue;
+                    }
+
+                    $attachData[$qId] = ['position' => $startPos++];
+                    $targetQuestionMap[$qId] = true;
+                    $addedCount++;
                 }
-                $targetTest->questions()->attach($attachData);
+
+                if (! empty($attachData)) {
+                    $targetTest->questions()->attach($attachData);
+                }
+
+                $totalDurationAdded += (int) ($sourceTest->duration_minutes ?: 0);
+
+                // Remove source from ChapterContent
+                ChapterContent::where('contentable_type', $sourceTest->getMorphClass())
+                    ->where('contentable_id', $sourceTest->id)
+                    ->delete();
+
+                // Safely delete source test record
+                $sourceTest->delete();
             }
 
-            // 2. Remove source test from ChapterContent
-            ChapterContent::where('contentable_type', $sourceTest->getMorphClass())
-                ->where('contentable_id', $sourceTest->id)
-                ->delete();
-
-            // 3. Clean up the target test title if it had "Part 1" or " 1", and combine duration
+            // Clean up the target test title if it had "Part 1" or " 1", and combine duration
             $cleanTitle = preg_replace('/\s*[-–(]?\s*part\s*1\s*(?:of\s*\d+)?\)?$/i', '', $targetTest->title);
             $cleanTitle = preg_replace('/\s+1$/', '', $cleanTitle);
             $cleanTitle = trim($cleanTitle);
 
-            $updateData = ['duration_minutes' => $mergedDuration];
+            $newDuration = (int) max(1, ($targetTest->duration_minutes ?: 0) + $totalDurationAdded);
+            $updateData = ['duration_minutes' => $newDuration];
             if (! empty($cleanTitle)) {
                 $updateData['title'] = $cleanTitle;
             }
@@ -246,18 +289,16 @@ class TestBatchService
                     ->where('contentable_id', $targetTest->id)
                     ->update(['title' => $cleanTitle]);
             }
-
-            // 4. Safely delete the source test record (questions are now in targetTest, so Question::delete() will not delete them)
-            $sourceTest->delete();
         });
 
         return [
-            'success'            => true,
-            'target_title'       => $targetTest->fresh()->title,
-            'added_count'        => $addedCount,
-            'total_questions'    => $targetTest->fresh()->questions()->count(),
-            'duration_minutes'   => $mergedDuration,
-            'skipped_duplicates' => $skipped,
+            'success'              => true,
+            'target_title'         => $targetTest->fresh()->title,
+            'sources_merged_count' => count($models),
+            'added_count'          => $addedCount,
+            'total_questions'      => $targetTest->fresh()->questions()->count(),
+            'duration_minutes'     => $targetTest->fresh()->duration_minutes,
+            'skipped_duplicates'   => $skippedTotal,
         ];
     }
 

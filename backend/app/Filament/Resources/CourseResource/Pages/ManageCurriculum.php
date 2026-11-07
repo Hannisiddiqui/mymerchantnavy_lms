@@ -166,16 +166,16 @@ class ManageCurriculum extends Page
                     }
                 }
 
-                // Handle merging with another test if selected
-                if ($arguments['type'] === ContentType::PracticeTest->value && ! empty($data['merge_with_test']) && ! empty($data['merge_source_test_id'])) {
+                // Handle merging with other test(s) if selected
+                $mergeIds = (array) ($data['merge_source_test_ids'] ?? ($data['merge_source_test_id'] ?? []));
+                if ($arguments['type'] === ContentType::PracticeTest->value && ! empty($data['merge_with_test']) && ! empty($mergeIds)) {
                     $test = Test::find($data['test_id']);
-                    $source = Test::find($data['merge_source_test_id']);
-                    if ($test && $source && $test->kind === TestKind::Practice && $source->kind === TestKind::Practice) {
+                    if ($test && $test->kind === TestKind::Practice) {
                         try {
-                            $res = app(TestBatchService::class)->mergeTests($test, $source, $chapter);
+                            $res = app(TestBatchService::class)->mergeTests($test, $mergeIds, $chapter);
                             Notification::make()
                                 ->title('Merged tests successfully')
-                                ->body("Added {$res['added_count']} questions into '{$res['target_title']}' (skipped {$res['skipped_duplicates']} duplicates). Total: {$res['total_questions']} questions, {$res['duration_minutes']} min.")
+                                ->body("Merged {$res['sources_merged_count']} test(s) into '{$res['target_title']}' (+{$res['added_count']} questions). Total: {$res['total_questions']} questions, {$res['duration_minutes']} min.")
                                 ->success()
                                 ->send();
 
@@ -242,22 +242,23 @@ class ManageCurriculum extends Page
             });
     }
 
-    /** Merge another practice test into this one. arguments: id (ChapterContent id) */
+    /** Merge one or more practice tests into this one. arguments: id (ChapterContent id) */
     public function mergeTestAction(): Action
     {
         return Action::make('mergeTest')
             ->modalHeading(function (array $arguments) {
                 $content = isset($arguments['id']) ? $this->findContent($arguments['id']) : null;
 
-                return $content ? "Merge another Practice Test into “{$content->title}”" : 'Merge Practice Tests';
+                return $content ? "Merge Practice Tests into “{$content->title}”" : 'Merge Practice Tests';
             })
-            ->modalDescription('All unique questions from the selected practice test will be appended to this test in order, and test durations will be combined. The other test is safely removed from the chapter.')
-            ->modalSubmitActionLabel('Merge Tests')
+            ->modalDescription('Select one or more practice tests to merge into this test. Questions and durations will be combined in order, and selected tests will be cleaned up.')
+            ->modalSubmitActionLabel('Merge Selected Tests')
             ->modalWidth('lg')
             ->schema([
-                Select::make('source_test_id')
-                    ->label('Select practice test to merge into this one')
-                    ->placeholder('Choose practice test')
+                Select::make('source_test_ids')
+                    ->label('Select practice tests to merge into this one')
+                    ->placeholder('Choose practice tests (can select multiple)')
+                    ->multiple()
                     ->options(function (array $arguments) {
                         $content = isset($arguments['id']) ? $this->findContent($arguments['id']) : null;
                         $currentTestId = $content?->contentable_id;
@@ -273,22 +274,23 @@ class ManageCurriculum extends Page
                     })
                     ->searchable()
                     ->preload()
-                    ->required(),
+                    ->required()
+                    ->helperText('You can select multiple tests (e.g. Part 2, Part 3, Part 4) to merge them all together in one step.'),
             ])
             ->action(function (array $data, array $arguments) {
                 $content = $this->findContent($arguments['id']);
                 $targetTest = $content->contentable;
-                $sourceTest = Test::findOrFail($data['source_test_id']);
+                $sourceIds = (array) ($data['source_test_ids'] ?? []);
 
-                if (! $targetTest instanceof Test || $targetTest->kind !== TestKind::Practice || $sourceTest->kind !== TestKind::Practice) {
+                if (! $targetTest instanceof Test || $targetTest->kind !== TestKind::Practice) {
                     throw new \Exception('Merging can only be applied to practice tests.');
                 }
 
                 try {
-                    $res = app(TestBatchService::class)->mergeTests($targetTest, $sourceTest, $content->chapter);
+                    $res = app(TestBatchService::class)->mergeTests($targetTest, $sourceIds, $content->chapter);
                     Notification::make()
                         ->title('Successfully merged tests')
-                        ->body("Added {$res['added_count']} questions into '{$res['target_title']}' (skipped {$res['skipped_duplicates']} duplicates). New total: {$res['total_questions']} questions, {$res['duration_minutes']} min.")
+                        ->body("Merged {$res['sources_merged_count']} test(s) into '{$res['target_title']}' (+{$res['added_count']} questions). Total: {$res['total_questions']} questions, {$res['duration_minutes']} min.")
                         ->success()
                         ->send();
                 } catch (\Throwable $e) {

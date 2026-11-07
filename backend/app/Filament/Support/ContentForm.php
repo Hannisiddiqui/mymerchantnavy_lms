@@ -161,18 +161,19 @@ class ContentForm
                         }),
                 ]),
 
-            Section::make('Merge with Another Practice Test')
-                ->description('Merge all questions from another practice test into this one. Duplicates are strictly avoided and durations are combined.')
+            Section::make('Merge Practice Tests')
+                ->description('Merge one or more practice tests into this one. Duplicates are strictly avoided and durations are combined.')
                 ->collapsible()
                 ->collapsed(true)
                 ->schema([
                     Toggle::make('merge_with_test')
-                        ->label('Merge another practice test into this test')
+                        ->label('Merge other practice test(s) into this test')
                         ->live(),
 
-                    Select::make('merge_source_test_id')
-                        ->label('Practice test to merge into this one')
-                        ->placeholder('Select test to merge')
+                    Select::make('merge_source_test_ids')
+                        ->label('Practice tests to merge into this one')
+                        ->placeholder('Choose tests to merge (can select multiple)')
+                        ->multiple()
                         ->options(function (Get $get) use ($courseId, $testResolver) {
                             $test = $testResolver($get);
 
@@ -188,7 +189,7 @@ class ContentForm
                         ->searchable()
                         ->preload()
                         ->visible(fn (Get $get) => (bool) $get('merge_with_test'))
-                        ->helperText('All unique questions from the selected test will be appended to this test in order. The other test is removed from the chapter.'),
+                        ->helperText('Select one or more practice tests (e.g. Part 2, Part 3, Part 4). All will be merged into this test at once and removed from the chapter.'),
                 ]),
         ];
     }

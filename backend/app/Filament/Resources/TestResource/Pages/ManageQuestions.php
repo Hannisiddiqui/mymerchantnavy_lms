@@ -171,25 +171,28 @@ class ManageQuestions extends Page
                     ->label('Merge tests')
                     ->icon('heroicon-o-arrows-pointing-in')
                     ->color('gray')
-                    ->modalHeading("Merge Another Test into “{$test->title}”")
-                    ->modalDescription('All questions from the selected test will be appended in order and test durations will be combined. Any duplicates are filtered out.')
+                    ->modalHeading("Merge Other Practice Tests into “{$test->title}”")
+                    ->modalDescription('Select one or more practice tests to merge into this test. Questions and durations will be combined in order, and selected tests will be cleaned up.')
                     ->modalSubmitActionLabel('Merge into this test')
                     ->modalWidth('lg')
                     ->schema([
-                        Select::make('source_test_id')
-                            ->label('Practice test to merge into this one')
+                        Select::make('source_test_ids')
+                            ->label('Select practice test(s) to merge into this one')
+                            ->placeholder('Choose practice tests (can select multiple)')
+                            ->multiple()
                             ->options(fn () => app(TestBatchService::class)->getMergeableTests($this->getRecord()))
                             ->searchable()
                             ->preload()
-                            ->required(),
+                            ->required()
+                            ->helperText('You can select multiple tests (e.g. Part 2, Part 3, Part 4) to merge them all in one step.'),
                     ])
                     ->action(function (array $data) {
-                        $source = Test::findOrFail($data['source_test_id']);
+                        $sourceIds = (array) ($data['source_test_ids'] ?? []);
                         try {
-                            $res = app(TestBatchService::class)->mergeTests($this->getRecord(), $source);
+                            $res = app(TestBatchService::class)->mergeTests($this->getRecord(), $sourceIds);
                             Notification::make()
                                 ->title('Merged successfully')
-                                ->body("Added {$res['added_count']} unique questions. Total now: {$res['total_questions']} questions, {$res['duration_minutes']} min.")
+                                ->body("Merged {$res['sources_merged_count']} test(s) (+{$res['added_count']} unique questions). New total: {$res['total_questions']} questions, {$res['duration_minutes']} min.")
                                 ->success()
                                 ->send();
                             $this->redirect(TestResource::getUrl('questions', ['record' => $this->getRecord()]));
