@@ -141,7 +141,7 @@ class ManageQuestions extends Page
                     ->icon('heroicon-o-scissors')
                     ->color('gray')
                     ->modalHeading("Divide “{$test->title}” into Parts")
-                    ->modalDescription('Split questions into parts with zero duplicate questions.')
+                    ->modalDescription('Split questions and test time proportionally into parts with zero duplicate questions.')
                     ->modalSubmitActionLabel('Divide')
                     ->modalWidth('lg')
                     ->schema([
@@ -151,14 +151,14 @@ class ManageQuestions extends Page
                             ->minValue(1)
                             ->default(50)
                             ->required()
-                            ->helperText(fn () => "Total {$this->getRecord()->questions()->count()} questions currently in this test."),
+                            ->helperText(fn () => "Total {$this->getRecord()->questions()->count()} questions, {$this->getRecord()->duration_minutes} min. Time will be split proportionally across each part."),
                     ])
                     ->action(function (array $data) {
                         try {
                             $res = app(TestBatchService::class)->splitIntoParts($this->getRecord(), (int) $data['batch_size']);
                             Notification::make()
                                 ->title("Divided into {$res['parts_created']} parts")
-                                ->body("Part 1 now has {$res['parts'][0]['questions_count']} questions. New parts have been created.")
+                                ->body("Part 1 now has {$res['parts'][0]['questions_count']} questions ({$res['parts'][0]['duration_minutes']} min). Total time {$res['original_duration']} min split proportionally.")
                                 ->success()
                                 ->send();
                             $this->redirect(TestResource::getUrl('questions', ['record' => $this->getRecord()]));
@@ -172,7 +172,7 @@ class ManageQuestions extends Page
                     ->icon('heroicon-o-arrows-pointing-in')
                     ->color('gray')
                     ->modalHeading("Merge Another Test into “{$test->title}”")
-                    ->modalDescription('All questions from the selected test will be appended in order. Any duplicates are filtered out.')
+                    ->modalDescription('All questions from the selected test will be appended in order and test durations will be combined. Any duplicates are filtered out.')
                     ->modalSubmitActionLabel('Merge into this test')
                     ->modalWidth('lg')
                     ->schema([
@@ -189,7 +189,7 @@ class ManageQuestions extends Page
                             $res = app(TestBatchService::class)->mergeTests($this->getRecord(), $source);
                             Notification::make()
                                 ->title('Merged successfully')
-                                ->body("Added {$res['added_count']} unique questions. Total now: {$res['total_questions']} questions.")
+                                ->body("Added {$res['added_count']} unique questions. Total now: {$res['total_questions']} questions, {$res['duration_minutes']} min.")
                                 ->success()
                                 ->send();
                             $this->redirect(TestResource::getUrl('questions', ['record' => $this->getRecord()]));

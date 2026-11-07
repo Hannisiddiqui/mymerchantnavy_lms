@@ -148,19 +148,21 @@ class ContentForm
                         ->helperText(function (Get $get) use ($testResolver) {
                             $test = $testResolver($get);
                             $qCount = $test ? $test->questions()->count() : 0;
+                            $origDuration = $test ? $test->duration_minutes : 90;
                             $size = (int) $get('batch_size');
                             if ($qCount > 0 && $size > 0) {
                                 $parts = (int) ceil($qCount / $size);
+                                $estDuration = (int) max(1, round(($origDuration / max($qCount, 1)) * $size));
 
-                                return "Will divide {$qCount} questions into {$parts} parts (e.g. '{$test->title} 1', '{$test->title} 2').";
+                                return "Will divide {$qCount} questions and {$origDuration} min into {$parts} parts (approx. {$size} questions, {$estDuration} min each, e.g. '{$test->title} 1', '{$test->title} 2').";
                             }
 
-                            return 'e.g. 50 will divide 100 questions into two 50-question tests.';
+                            return 'e.g. 50 will divide a 100-question (90 min) test into two 50-question (45 min) tests.';
                         }),
                 ]),
 
             Section::make('Merge with Another Practice Test')
-                ->description('Merge all questions from another practice test into this one. Duplicates are strictly avoided.')
+                ->description('Merge all questions from another practice test into this one. Duplicates are strictly avoided and durations are combined.')
                 ->collapsible()
                 ->collapsed(true)
                 ->schema([
@@ -180,7 +182,7 @@ class ContentForm
                                 ->withCount('questions')
                                 ->orderBy('title')
                                 ->get()
-                                ->mapWithKeys(fn (Test $t) => [$t->id => "{$t->title} ({$t->questions_count} questions)"])
+                                ->mapWithKeys(fn (Test $t) => [$t->id => "{$t->title} ({$t->questions_count} questions · {$t->duration_minutes} min)"])
                                 ->toArray();
                         })
                         ->searchable()

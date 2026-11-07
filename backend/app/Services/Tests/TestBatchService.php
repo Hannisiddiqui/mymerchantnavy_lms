@@ -24,6 +24,12 @@ class TestBatchService
      */
     public function splitIntoParts(Test $test, int $questionsPerPart, ?Chapter $chapter = null): array
     {
+        if ($test->kind !== TestKind::Practice) {
+            throw ValidationException::withMessages([
+                'test' => 'Dividing into batches is only available for practice tests.',
+            ]);
+        }
+
         if ($questionsPerPart < 1) {
             throw ValidationException::withMessages([
                 'batch_size' => 'Questions per batch must be at least 1.',
@@ -62,19 +68,25 @@ class TestBatchService
             $chapter = $content->chapter;
         }
 
+        $originalDuration = (int) max(1, $test->duration_minutes);
         $partsInfo = [];
 
-        DB::transaction(function () use ($test, $chunks, $numParts, $baseTitle, $total, $content, $chapter, &$partsInfo) {
-            // 1. Configure Part 1 (existing test)
+        DB::transaction(function () use ($test, $chunks, $numParts, $baseTitle, $total, $originalDuration, $content, $chapter, &$partsInfo) {
+            // 1. Configure Part 1 (existing test) with proportional duration
             $part1Title = "{$baseTitle} 1";
-            $test->update(['title' => $part1Title]);
+            $chunk0 = $chunks[0];
+            $part1Duration = (int) max(1, round(($originalDuration / max($total, 1)) * count($chunk0)));
+
+            $test->update([
+                'title'            => $part1Title,
+                'duration_minutes' => $part1Duration,
+            ]);
 
             if ($content) {
                 $content->update(['title' => $part1Title]);
             }
 
             // Detach questions not in chunk 0
-            $chunk0 = $chunks[0];
             $chunk0Map = array_fill_keys($chunk0, true);
             $toDetach = array_filter($test->questions()->pluck('questions.id')->all(), fn ($qId) => ! isset($chunk0Map[$qId]));
 
@@ -91,12 +103,13 @@ class TestBatchService
             }
 
             $partsInfo[] = [
-                'id'              => $test->id,
-                'title'           => $part1Title,
-                'questions_count' => count($chunk0),
+                'id'               => $test->id,
+                'title'            => $part1Title,
+                'questions_count'  => count($chunk0),
+                'duration_minutes' => $part1Duration,
             ];
 
-            // 2. Create and attach Parts 2..N
+            // 2. Create and attach Parts 2..N with proportional duration
             $currentPos = $content ? $content->position : 0;
 
             for ($i = 1; $i < $numParts; $i++) {
@@ -104,7 +117,7 @@ class TestBatchService
                 $partTitle = "{$baseTitle} {$partNumber}";
                 $chunk = $chunks[$i];
 
-                $duration = (int) max(15, round(($test->duration_minutes / max($total, 1)) * count($chunk)));
+                $duration = (int) max(1, round(($originalDuration / max($total, 1)) * count($chunk)));
 
                 $newTest = Test::create([
                     'course_id'        => $test->course_id,
@@ -137,9 +150,10 @@ class TestBatchService
                 }
 
                 $partsInfo[] = [
-                    'id'              => $newTest->id,
-                    'title'           => $partTitle,
-                    'questions_count' => count($chunk),
+                    'id'               => $newTest->id,
+                    'title'            => $partTitle,
+                    'questions_count'  => count($chunk),
+                    'duration_minutes' => $duration,
                 ];
             }
 
@@ -159,25 +173,32 @@ class TestBatchService
         });
 
         return [
-            'success'         => true,
-            'total_questions' => $total,
-            'parts_created'   => $numParts,
-            'base_title'      => $baseTitle,
-            'parts'           => $partsInfo,
+            'success'           => true,
+            'total_questions'   => $total,
+            'original_duration' => $originalDuration,
+            'parts_created'     => $numParts,
+            'base_title'        => $baseTitle,
+            'parts'             => $partsInfo,
         ];
     }
 
     /**
      * Merge all questions from a source Practice Test into a target Practice Test.
      * Prevents duplicate questions: only unique questions not already in target are added.
-     * The source test's chapter content is removed, and the source test record is cleaned up.
+     * Combines test duration and removes source test cleanly.
      *
-     * @return array{success: bool, target_title: string, added_count: int, total_questions: int, skipped_duplicates: int}
+     * @return array{success: bool, target_title: string, added_count: int, total_questions: int, duration_minutes: int, skipped_duplicates: int}
      *
      * @throws ValidationException
      */
     public function mergeTests(Test $targetTest, Test $sourceTest, ?Chapter $chapter = null): array
     {
+        if ($targetTest->kind !== TestKind::Practice || $sourceTest->kind !== TestKind::Practice) {
+            throw ValidationException::withMessages([
+                'merge_source_test_id' => 'Merging is only available for practice tests.',
+            ]);
+        }
+
         if ($targetTest->id === $sourceTest->id) {
             throw ValidationException::withMessages([
                 'merge_source_test_id' => 'Cannot merge a practice test into itself.',
@@ -189,10 +210,11 @@ class TestBatchService
 
         $toAdd = array_values(array_diff($sourceQuestionIds, $targetQuestionIds));
         $skipped = count($sourceQuestionIds) - count($toAdd);
-
         $addedCount = count($toAdd);
 
-        DB::transaction(function () use ($targetTest, $sourceTest, $toAdd) {
+        $mergedDuration = (int) max(1, ($targetTest->duration_minutes ?: 0) + ($sourceTest->duration_minutes ?: 0));
+
+        DB::transaction(function () use ($targetTest, $sourceTest, $toAdd, $mergedDuration) {
             // 1. Append non-duplicate questions from source to target
             if (! empty($toAdd)) {
                 $startPos = (DB::table('test_questions')->where('test_id', $targetTest->id)->max('position') ?? -1) + 1;
@@ -208,15 +230,18 @@ class TestBatchService
                 ->where('contentable_id', $sourceTest->id)
                 ->delete();
 
-            // 3. Clean up the target test title if it had "Part 1" or " 1"
+            // 3. Clean up the target test title if it had "Part 1" or " 1", and combine duration
             $cleanTitle = preg_replace('/\s*[-–(]?\s*part\s*1\s*(?:of\s*\d+)?\)?$/i', '', $targetTest->title);
             $cleanTitle = preg_replace('/\s+1$/', '', $cleanTitle);
             $cleanTitle = trim($cleanTitle);
 
+            $updateData = ['duration_minutes' => $mergedDuration];
             if (! empty($cleanTitle)) {
-                $targetTest->update(['title' => $cleanTitle]);
+                $updateData['title'] = $cleanTitle;
+            }
+            $targetTest->update($updateData);
 
-                // Update ChapterContent title
+            if (! empty($cleanTitle)) {
                 ChapterContent::where('contentable_type', $targetTest->getMorphClass())
                     ->where('contentable_id', $targetTest->id)
                     ->update(['title' => $cleanTitle]);
@@ -231,6 +256,7 @@ class TestBatchService
             'target_title'       => $targetTest->fresh()->title,
             'added_count'        => $addedCount,
             'total_questions'    => $targetTest->fresh()->questions()->count(),
+            'duration_minutes'   => $mergedDuration,
             'skipped_duplicates' => $skipped,
         ];
     }
@@ -238,17 +264,22 @@ class TestBatchService
     /**
      * Get other practice tests in the same course eligible for merging into the given test.
      *
-     * @return array<int, string> [test_id => "Test Title (X questions)"]
+     * @return array<int, string> [test_id => "Test Title (X questions · Y min)"]
      */
     public function getMergeableTests(Test $currentTest): array
     {
+        if ($currentTest->kind !== TestKind::Practice) {
+            return [];
+        }
+
         return Test::where('course_id', $currentTest->course_id)
             ->where('kind', TestKind::Practice)
             ->where('id', '!=', $currentTest->id)
             ->withCount('questions')
             ->orderBy('title')
             ->get()
-            ->mapWithKeys(fn (Test $t) => [$t->id => "{$t->title} ({$t->questions_count} questions)"])
+            ->mapWithKeys(fn (Test $t) => [$t->id => "{$t->title} ({$t->questions_count} questions · {$t->duration_minutes} min)"])
             ->toArray();
     }
 }
+

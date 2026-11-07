@@ -150,12 +150,12 @@ class ManageCurriculum extends Page
                 // Handle dividing questions into parts if selected
                 if ($arguments['type'] === ContentType::PracticeTest->value && ! empty($data['divide_into_batches']) && ! empty($data['batch_size'])) {
                     $test = Test::find($data['test_id']);
-                    if ($test) {
+                    if ($test && $test->kind === TestKind::Practice) {
                         try {
                             $res = app(TestBatchService::class)->splitIntoParts($test, (int) $data['batch_size'], $chapter);
                             Notification::make()
                                 ->title("Divided test into {$res['parts_created']} parts")
-                                ->body("{$res['total_questions']} questions partitioned into {$res['parts_created']} parts of up to {$data['batch_size']} questions with zero duplicates.")
+                                ->body("{$res['total_questions']} questions & {$res['original_duration']} min partitioned proportionally into {$res['parts_created']} parts with zero duplicate questions.")
                                 ->success()
                                 ->send();
 
@@ -170,12 +170,12 @@ class ManageCurriculum extends Page
                 if ($arguments['type'] === ContentType::PracticeTest->value && ! empty($data['merge_with_test']) && ! empty($data['merge_source_test_id'])) {
                     $test = Test::find($data['test_id']);
                     $source = Test::find($data['merge_source_test_id']);
-                    if ($test && $source) {
+                    if ($test && $source && $test->kind === TestKind::Practice && $source->kind === TestKind::Practice) {
                         try {
                             $res = app(TestBatchService::class)->mergeTests($test, $source, $chapter);
                             Notification::make()
-                                ->title("Merged tests successfully")
-                                ->body("Added {$res['added_count']} questions into '{$res['target_title']}' (skipped {$res['skipped_duplicates']} duplicates). Total: {$res['total_questions']} questions.")
+                                ->title('Merged tests successfully')
+                                ->body("Added {$res['added_count']} questions into '{$res['target_title']}' (skipped {$res['skipped_duplicates']} duplicates). Total: {$res['total_questions']} questions, {$res['duration_minutes']} min.")
                                 ->success()
                                 ->send();
 
@@ -199,7 +199,7 @@ class ManageCurriculum extends Page
 
                 return $content ? "Divide “{$content->title}” into Parts" : 'Divide Practice Test into Parts';
             })
-            ->modalDescription('Split questions into consecutive parts (e.g. 50 questions per part = Part 1 & Part 2). Questions are cleanly partitioned with 0 duplicates.')
+            ->modalDescription('Split questions into consecutive parts (e.g. 50 questions per part = Part 1 & Part 2). Questions and duration are split proportionally with zero duplicate questions.')
             ->modalSubmitActionLabel('Divide into Parts')
             ->modalWidth('lg')
             ->schema([
@@ -212,10 +212,11 @@ class ManageCurriculum extends Page
                     ->helperText(function (array $arguments) {
                         $content = isset($arguments['id']) ? $this->findContent($arguments['id']) : null;
                         $test = $content?->contentable;
-                        if ($test instanceof Test) {
+                        if ($test instanceof Test && $test->kind === TestKind::Practice) {
                             $count = $test->questions()->count();
+                            $dur = $test->duration_minutes;
 
-                            return "This test currently has {$count} questions. For example, entering 50 will create ".(int) ceil($count / 50).' parts.';
+                            return "Current test: {$count} questions, {$dur} min. Time and questions will be split proportionally across each part without duplicates.";
                         }
 
                         return 'e.g. 50';
@@ -224,15 +225,15 @@ class ManageCurriculum extends Page
             ->action(function (array $data, array $arguments) {
                 $content = $this->findContent($arguments['id']);
                 $test = $content->contentable;
-                if (! $test instanceof Test) {
-                    throw new \Exception('Content is not a practice test.');
+                if (! $test instanceof Test || $test->kind !== TestKind::Practice) {
+                    throw new \Exception('Dividing into parts can only be applied to practice tests.');
                 }
 
                 try {
                     $res = app(TestBatchService::class)->splitIntoParts($test, (int) $data['batch_size'], $content->chapter);
                     Notification::make()
                         ->title("Successfully divided into {$res['parts_created']} parts")
-                        ->body("Total {$res['total_questions']} questions distributed into {$res['parts_created']} parts without duplicates.")
+                        ->body("{$res['total_questions']} questions & {$res['original_duration']} min distributed proportionally into {$res['parts_created']} parts without duplicates.")
                         ->success()
                         ->send();
                 } catch (\Throwable $e) {
@@ -250,7 +251,7 @@ class ManageCurriculum extends Page
 
                 return $content ? "Merge another Practice Test into “{$content->title}”" : 'Merge Practice Tests';
             })
-            ->modalDescription('All unique questions from the selected practice test will be appended to this test in order. The other test is safely removed from the chapter.')
+            ->modalDescription('All unique questions from the selected practice test will be appended to this test in order, and test durations will be combined. The other test is safely removed from the chapter.')
             ->modalSubmitActionLabel('Merge Tests')
             ->modalWidth('lg')
             ->schema([
@@ -267,7 +268,7 @@ class ManageCurriculum extends Page
                             ->withCount('questions')
                             ->orderBy('title')
                             ->get()
-                            ->mapWithKeys(fn (Test $t) => [$t->id => "{$t->title} ({$t->questions_count} questions)"])
+                            ->mapWithKeys(fn (Test $t) => [$t->id => "{$t->title} ({$t->questions_count} questions · {$t->duration_minutes} min)"])
                             ->toArray();
                     })
                     ->searchable()
@@ -279,15 +280,15 @@ class ManageCurriculum extends Page
                 $targetTest = $content->contentable;
                 $sourceTest = Test::findOrFail($data['source_test_id']);
 
-                if (! $targetTest instanceof Test) {
-                    throw new \Exception('Target content is not a practice test.');
+                if (! $targetTest instanceof Test || $targetTest->kind !== TestKind::Practice || $sourceTest->kind !== TestKind::Practice) {
+                    throw new \Exception('Merging can only be applied to practice tests.');
                 }
 
                 try {
                     $res = app(TestBatchService::class)->mergeTests($targetTest, $sourceTest, $content->chapter);
                     Notification::make()
                         ->title('Successfully merged tests')
-                        ->body("Added {$res['added_count']} questions into '{$res['target_title']}' (skipped {$res['skipped_duplicates']} duplicates). Total questions: {$res['total_questions']}.")
+                        ->body("Added {$res['added_count']} questions into '{$res['target_title']}' (skipped {$res['skipped_duplicates']} duplicates). New total: {$res['total_questions']} questions, {$res['duration_minutes']} min.")
                         ->success()
                         ->send();
                 } catch (\Throwable $e) {
