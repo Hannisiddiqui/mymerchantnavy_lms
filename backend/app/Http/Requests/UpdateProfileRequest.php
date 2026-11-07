@@ -9,6 +9,19 @@ class UpdateProfileRequest extends FormRequest
 {
     public function rules(): array
     {
+        $isPreview = (bool) ($this->user()?->is_preview || str_contains($this->user()?->email ?? '', '@preview.'));
+
+        if ($isPreview) {
+            return [
+                'name' => ['sometimes', 'string', 'min:2', 'max:100'],
+                'nickname' => ['sometimes', 'string', 'max:50'],
+                'targetExam' => ['sometimes', 'string', 'max:100'],
+                'attemptYear' => ['sometimes', 'integer'],
+                'phone' => ['sometimes', 'nullable', 'string'],
+                'email' => ['sometimes', 'nullable', 'email'],
+            ];
+        }
+
         $common = [
             'name' => ['required', 'string', 'min:2', 'max:100'],
             'nickname' => ['required', 'string', 'max:50'],

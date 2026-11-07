@@ -27,3 +27,4 @@ return new class extends Migration
         // No-op to avoid clearing legitimate user names
     }
 };
+

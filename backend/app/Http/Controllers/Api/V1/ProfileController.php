@@ -25,17 +25,35 @@ class ProfileController extends Controller
         $user = $request->user();
         $data = $request->validated();
 
-        $user->update([
-            'name' => $data['name'],
-            'nickname' => $data['nickname'],
-            'target_exam' => $data['targetExam'],
-            'attempt_year' => $data['attemptYear'],
-            'profile_completed_at' => $user->profile_completed_at ?? now(),
-        ] + (config('lms.login_method') === 'phone'
-            ? ['email' => $data['email']]
-            : ['phone' => filled($data['phone'] ?? null) ? $data['phone'] : null]));
+        $update = [];
+        if (isset($data['name'])) {
+            $update['name'] = $data['name'];
+        }
+        if (isset($data['nickname'])) {
+            $update['nickname'] = $data['nickname'];
+        }
+        if (isset($data['targetExam'])) {
+            $update['target_exam'] = $data['targetExam'];
+        }
+        if (isset($data['attemptYear'])) {
+            $update['attempt_year'] = $data['attemptYear'];
+        }
 
-        return new StudentResource($user);
+        if (config('lms.login_method') === 'phone') {
+            if (isset($data['email'])) {
+                $update['email'] = $data['email'];
+            }
+        } else {
+            if (array_key_exists('phone', $data)) {
+                $update['phone'] = filled($data['phone']) ? $data['phone'] : null;
+            }
+        }
+
+        $update['profile_completed_at'] = $user->profile_completed_at ?? now();
+
+        $user->update($update);
+
+        return new StudentResource($user->fresh());
     }
 
     /** GET /api/v1/me/devices */

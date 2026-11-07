@@ -4,18 +4,17 @@ import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
-  Award,
-  BookOpen,
+  ArrowLeft,
   Check,
   ChevronDown,
-  FileText,
-  Headphones,
+  ExternalLink,
   Laptop,
-  Layers,
+  Loader2,
   LogOut,
   Moon,
   Settings,
   Shield,
+  Sparkles,
   Sun,
   User,
 } from "lucide-react";
@@ -31,14 +30,44 @@ interface ProfileDropdownProps {
     phone?: string;
     targetExam?: string;
     attemptYear?: number;
+    isPreview?: boolean;
+    is_preview?: boolean;
   } | null;
 }
 
+const TARGET_EXAM_OPTIONS = [
+  { id: "GP Rating", label: "GP Rating", subtitle: "10th Level Entrance" },
+  { id: "IMU-CET", label: "IMU-CET", subtitle: "National CET Entrance" },
+  { id: "DNS", label: "DNS", subtitle: "Sponsorship & Interview" },
+];
+
 export function ProfileDropdown({ user }: ProfileDropdownProps) {
   const [isOpen, setIsOpen] = useState(false);
+  const [switchingExam, setSwitchingExam] = useState<string | null>(null);
   const dropdownRef = useRef<HTMLDivElement>(null);
   const router = useRouter();
   const { theme, setTheme } = useTheme();
+
+  const isPreview = Boolean(
+    user?.isPreview ||
+    user?.is_preview ||
+    user?.email?.includes("@preview.") ||
+    user?.name?.startsWith("Preview:")
+  );
+
+  async function handleSwitchTargetExam(exam: string) {
+    if (switchingExam || user?.targetExam === exam) return;
+    try {
+      setSwitchingExam(exam);
+      await api.profile.updateMe({ targetExam: exam });
+      router.refresh();
+      window.location.reload();
+    } catch (e) {
+      console.error("Failed to switch exam role", e);
+    } finally {
+      setSwitchingExam(null);
+    }
+  }
 
   // Close dropdown on click outside
   useEffect(() => {
@@ -100,7 +129,7 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
             {displayName}
           </span>
           <span className="block text-xs text-slate-500 dark:text-slate-400">
-            {user?.targetExam || "Student Portal"}
+            {isPreview ? "👑 Student Preview" : (user?.targetExam || "Student Portal")}
           </span>
         </div>
 
@@ -114,7 +143,7 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
       {/* Modern Popover Dropdown */}
       {isOpen && (
         <div
-          className="absolute right-0 top-full mt-2.5 w-76 sm:w-80 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-2xl shadow-slate-900/15 backdrop-blur-xl transition-all dark:border-slate-800 dark:bg-slate-900/95 dark:shadow-black/50 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
+          className="absolute right-0 top-full mt-2.5 w-80 rounded-2xl border border-slate-200/90 bg-white p-2 shadow-2xl shadow-slate-900/15 backdrop-blur-xl transition-all dark:border-slate-800 dark:bg-slate-900/95 dark:shadow-black/50 z-50 animate-in fade-in slide-in-from-top-2 duration-150"
           role="menu"
         >
           {/* Student Profile Summary Header */}
@@ -133,6 +162,11 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
                   </p>
                 )}
                 <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+                  {isPreview && (
+                    <span className="inline-flex items-center gap-1 rounded-md bg-amber-100 px-2 py-0.5 text-[10px] font-bold text-amber-800 dark:bg-amber-950/70 dark:text-amber-300">
+                      <Sparkles className="size-3" /> Preview Student
+                    </span>
+                  )}
                   {user?.targetExam ? (
                     <span className="inline-flex items-center rounded-md bg-brand-50 px-2 py-0.5 text-[10px] font-bold text-brand-700 dark:bg-brand-950/60 dark:text-brand-300">
                       🎯 {user.targetExam}
@@ -148,7 +182,59 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
             </div>
           </div>
 
-          {/* Navigation Links */}
+          {/* Admin Preview Switcher Section */}
+          {isPreview && (
+            <div className="mb-2 rounded-xl border border-amber-200/80 bg-amber-50/50 p-2.5 dark:border-amber-900/60 dark:bg-amber-950/30">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-1.5 text-xs font-bold text-amber-900 dark:text-amber-200">
+                  <Sparkles className="size-3.5 text-amber-600 dark:text-amber-400" />
+                  <span>Preview Target Role</span>
+                </div>
+                <a
+                  href="https://api.mymerchantnavy.com/admin/courses"
+                  className="inline-flex items-center gap-1 text-[11px] font-semibold text-brand-600 hover:text-brand-700 dark:text-brand-400 dark:hover:text-brand-300"
+                >
+                  <ArrowLeft className="size-3" />
+                  <span>Admin Panel</span>
+                </a>
+              </div>
+
+              <div className="space-y-1">
+                {TARGET_EXAM_OPTIONS.map((opt) => {
+                  const isSelected = user?.targetExam === opt.id;
+                  const isLoading = switchingExam === opt.id;
+
+                  return (
+                    <button
+                      key={opt.id}
+                      type="button"
+                      disabled={Boolean(switchingExam)}
+                      onClick={() => handleSwitchTargetExam(opt.id)}
+                      className={`flex w-full items-center justify-between rounded-lg px-2.5 py-1.5 text-left transition-all ${
+                        isSelected
+                          ? "bg-amber-600 text-white font-semibold shadow-xs"
+                          : "bg-white/80 text-slate-700 hover:bg-white hover:text-navy-950 dark:bg-slate-800/80 dark:text-slate-200 dark:hover:bg-slate-800"
+                      }`}
+                    >
+                      <div>
+                        <span className="text-xs font-medium">{opt.label}</span>
+                        <span className={`block text-[10px] ${isSelected ? "text-amber-100" : "text-slate-400 dark:text-slate-500"}`}>
+                          {opt.subtitle}
+                        </span>
+                      </div>
+                      {isLoading ? (
+                        <Loader2 className="size-3.5 animate-spin text-white" />
+                      ) : isSelected ? (
+                        <Check className="size-3.5 text-white" />
+                      ) : null}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
+          {/* Navigation Links (Only unique essential account links - removed duplicates that are already in the sidebar) */}
           <div className="space-y-0.5">
             <Link
               href="/profile"
@@ -179,69 +265,9 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
                 <p className="text-[11px] text-slate-400 dark:text-slate-500">Logged-in devices & sessions</p>
               </div>
             </Link>
-
-            <Link
-              href="/my-courses"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-navy-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-              role="menuitem"
-            >
-              <span className="grid size-7 place-items-center rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-950/50 dark:text-indigo-400">
-                <BookOpen className="size-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold">My Courses</p>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">Active enrollments & lectures</p>
-              </div>
-            </Link>
-
-            <Link
-              href="/batches"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-navy-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-              role="menuitem"
-            >
-              <span className="grid size-7 place-items-center rounded-lg bg-emerald-50 text-emerald-600 dark:bg-emerald-950/50 dark:text-emerald-400">
-                <Layers className="size-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold">Batches & Programs</p>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">Explore new target batches</p>
-              </div>
-            </Link>
-
-            <Link
-              href="/results"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-navy-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-              role="menuitem"
-            >
-              <span className="grid size-7 place-items-center rounded-lg bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-400">
-                <Award className="size-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold">Test Results & Analytics</p>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">Scores, rank & solutions</p>
-              </div>
-            </Link>
-
-            <Link
-              href="/notes"
-              onClick={() => setIsOpen(false)}
-              className="flex items-center gap-3 rounded-xl px-3 py-2 text-xs font-semibold text-slate-700 transition hover:bg-slate-100 hover:text-navy-900 dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white"
-              role="menuitem"
-            >
-              <span className="grid size-7 place-items-center rounded-lg bg-teal-50 text-teal-600 dark:bg-teal-950/50 dark:text-teal-400">
-                <FileText className="size-4" />
-              </span>
-              <div className="min-w-0 flex-1">
-                <p className="text-xs font-semibold">My Notes & Bookmarks</p>
-                <p className="text-[11px] text-slate-400 dark:text-slate-500">Saved formulas & doubts</p>
-              </div>
-            </Link>
           </div>
 
-          {/* Theme Mode Switcher (Modern Segmented Bar) */}
+          {/* Theme Mode Switcher */}
           <div className="mt-2.5 rounded-xl border border-slate-200/80 bg-slate-50/70 p-2.5 dark:border-slate-800 dark:bg-slate-800/40">
             <div className="mb-2 flex items-center justify-between px-1">
               <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 dark:text-slate-400">
@@ -262,7 +288,7 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
                     onClick={() => setTheme(value)}
                     role="radio"
                     aria-checked={isActive}
-                    title={`${label} Mode${value === "system" ? " (Automatically matches your device/OS theme)" : ""}`}
+                    title={`${label} Mode${value === "system" ? " (Matches device theme)" : ""}`}
                     className={`flex items-center justify-center gap-1.5 rounded-md py-1.5 text-xs font-semibold transition-all ${
                       isActive
                         ? "bg-white text-navy-950 shadow-xs dark:bg-slate-700 dark:text-white"
@@ -300,4 +326,3 @@ export function ProfileDropdown({ user }: ProfileDropdownProps) {
     </div>
   );
 }
-

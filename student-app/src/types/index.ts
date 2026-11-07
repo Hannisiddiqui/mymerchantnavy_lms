@@ -17,6 +17,7 @@ export interface Student {
   targetExam: string;
   attemptYear: number;
   profileCompleted?: boolean;
+  isPreview?: boolean;
 }
 
 export interface Device {

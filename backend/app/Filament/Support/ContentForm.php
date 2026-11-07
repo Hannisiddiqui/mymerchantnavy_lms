@@ -5,6 +5,7 @@ namespace App\Filament\Support;
 use App\Enums\ContentType;
 use App\Enums\TestKind;
 use App\Enums\VideoProvider;
+use App\Models\ChapterContent;
 use App\Models\Course;
 use App\Models\Test;
 use App\Services\Courses\CourseOutline;
@@ -13,8 +14,10 @@ use Filament\Forms\Components\FileUpload;
 use Filament\Forms\Components\RichEditor;
 use Filament\Forms\Components\Select;
 use Filament\Forms\Components\TextInput;
+use Filament\Forms\Components\Toggle;
 use Filament\Forms\Components\ToggleButtons;
 use Filament\Schemas\Components\Group;
+use Filament\Schemas\Components\Section;
 use Filament\Schemas\Components\Utilities\Get;
 
 /**
@@ -34,7 +37,7 @@ class ContentForm
         'practice_test' => 'heroicon-o-bolt',
     ];
 
-    public static function schema(ContentType $type, int $courseId): array
+    public static function schema(ContentType $type, int $courseId, ?int $contentId = null): array
     {
         $title = TextInput::make('title')->label('Title shown to students')->required()->maxLength(150)->autofocus();
 
@@ -92,8 +95,100 @@ class ContentForm
                 RichEditor::make('instructions')->required(),
                 DateTimePicker::make('due_at')->label('Due date (optional)'),
             ],
-            ContentType::PracticeTest => self::testPicker($courseId, TestKind::Practice, askTitle: false),
+            ContentType::PracticeTest => [
+                ...self::testPicker($courseId, TestKind::Practice, askTitle: false),
+                ...self::testBatchSections($courseId, $contentId),
+            ],
         }];
+    }
+
+    /**
+     * Batch management for Practice Tests: Divide questions into multiple parts or merge with another test.
+     */
+    public static function testBatchSections(int $courseId, ?int $contentId = null): array
+    {
+        $testResolver = function (Get $get) use ($contentId) {
+            if ($testId = $get('test_id')) {
+                return Test::find($testId);
+            }
+            if ($contentId) {
+                $content = ChapterContent::find($contentId);
+                if ($content && $content->contentable instanceof Test) {
+                    return $content->contentable;
+                }
+            }
+
+            return null;
+        };
+
+        return [
+            Section::make('Divide into Parts / Batches')
+                ->description('Split the questions of this practice test into smaller batches (e.g. Part 1, Part 2) with zero duplicate questions.')
+                ->collapsible()
+                ->collapsed(true)
+                ->schema([
+                    Toggle::make('divide_into_batches')
+                        ->label('Divide questions into multiple parts')
+                        ->helperText(function (Get $get) use ($testResolver) {
+                            $test = $testResolver($get);
+                            $qCount = $test ? $test->questions()->count() : 0;
+
+                            return $qCount > 0
+                                ? "Current test has {$qCount} questions. Choose how many questions to put in each part."
+                                : 'Choose how many questions to put in each part.';
+                        })
+                        ->live(),
+
+                    TextInput::make('batch_size')
+                        ->label('Questions per part / batch')
+                        ->numeric()
+                        ->minValue(1)
+                        ->default(50)
+                        ->visible(fn (Get $get) => (bool) $get('divide_into_batches'))
+                        ->helperText(function (Get $get) use ($testResolver) {
+                            $test = $testResolver($get);
+                            $qCount = $test ? $test->questions()->count() : 0;
+                            $size = (int) $get('batch_size');
+                            if ($qCount > 0 && $size > 0) {
+                                $parts = (int) ceil($qCount / $size);
+
+                                return "Will divide {$qCount} questions into {$parts} parts (e.g. '{$test->title} 1', '{$test->title} 2').";
+                            }
+
+                            return 'e.g. 50 will divide 100 questions into two 50-question tests.';
+                        }),
+                ]),
+
+            Section::make('Merge with Another Practice Test')
+                ->description('Merge all questions from another practice test into this one. Duplicates are strictly avoided.')
+                ->collapsible()
+                ->collapsed(true)
+                ->schema([
+                    Toggle::make('merge_with_test')
+                        ->label('Merge another practice test into this test')
+                        ->live(),
+
+                    Select::make('merge_source_test_id')
+                        ->label('Practice test to merge into this one')
+                        ->placeholder('Select test to merge')
+                        ->options(function (Get $get) use ($courseId, $testResolver) {
+                            $test = $testResolver($get);
+
+                            return Test::where('course_id', $courseId)
+                                ->where('kind', TestKind::Practice)
+                                ->when($test, fn ($q) => $q->where('id', '!=', $test->id))
+                                ->withCount('questions')
+                                ->orderBy('title')
+                                ->get()
+                                ->mapWithKeys(fn (Test $t) => [$t->id => "{$t->title} ({$t->questions_count} questions)"])
+                                ->toArray();
+                        })
+                        ->searchable()
+                        ->preload()
+                        ->visible(fn (Get $get) => (bool) $get('merge_with_test'))
+                        ->helperText('All unique questions from the selected test will be appended to this test in order. The other test is removed from the chapter.'),
+                ]),
+        ];
     }
 
     /**

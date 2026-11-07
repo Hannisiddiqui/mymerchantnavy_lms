@@ -183,6 +183,12 @@
                                                     <x-filament::dropdown placement="bottom-end">
                                                         <x-slot name="trigger"><x-filament::icon-button icon="heroicon-m-ellipsis-vertical" color="gray" size="sm" label="More" /></x-slot>
                                                         <x-filament::dropdown.list>
+                                                            @if ($content->type === \App\Enums\ContentType::PracticeTest && $content->contentable)
+                                                                <x-filament::dropdown.list.item icon="heroicon-m-scissors"
+                                                                    wire:click="mountAction('divideTest', { id: {{ $content->id }} })">Divide into parts / batches</x-filament::dropdown.list.item>
+                                                                <x-filament::dropdown.list.item icon="heroicon-m-arrows-pointing-in"
+                                                                    wire:click="mountAction('mergeTest', { id: {{ $content->id }} })">Merge with another test</x-filament::dropdown.list.item>
+                                                            @endif
                                                             <x-filament::dropdown.list.item icon="heroicon-m-arrow-right-circle"
                                                                 wire:click="mountAction('moveContent', { id: {{ $content->id }} })">Move to another chapter</x-filament::dropdown.list.item>
                                                             <x-filament::dropdown.list.item icon="heroicon-m-trash" color="danger"

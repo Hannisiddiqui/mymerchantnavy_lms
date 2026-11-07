@@ -18,6 +18,14 @@
                 <div class="cb-row" style="margin-bottom:.75rem">
                     <h3 class="cb-title" style="font-size:1rem">Questions in this test</h3>
                     <span class="cb-muted">Drag ⋮⋮ to reorder</span>
+                    @if ($test->kind === \App\Enums\TestKind::Practice && $total > 1)
+                        <span style="margin-left:auto" class="cb-row">
+                            <x-filament::button size="xs" color="gray" icon="heroicon-m-scissors"
+                                wire:click="mountAction('divideTest')">Divide into parts</x-filament::button>
+                            <x-filament::button size="xs" color="gray" icon="heroicon-m-arrows-pointing-in"
+                                wire:click="mountAction('mergeTest')">Merge tests</x-filament::button>
+                        </span>
+                    @endif
                 </div>
 
                 @if ($total === 0)

@@ -27,6 +27,18 @@ export function Topbar({ onMenu }: { onMenu: () => void }) {
         👋
       </p>
 
+      {Boolean(me?.isPreview || (me as any)?.is_preview || me?.email?.includes("@preview.") || me?.name?.startsWith("Preview:")) && (
+        <a
+          href="https://api.mymerchantnavy.com/admin/courses"
+          className="inline-flex items-center gap-1.5 rounded-full border border-amber-300 bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800 transition hover:bg-amber-100 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-300 dark:hover:bg-amber-950/70"
+          title="Click to return to the admin dashboard"
+        >
+          <span className="size-2 rounded-full bg-amber-500 animate-pulse" />
+          <span>Student Preview</span>
+          <span className="hidden text-[10px] text-amber-600 dark:text-amber-400 sm:inline">· Return to Admin ↗</span>
+        </a>
+      )}
+
       <div className="ml-auto flex items-center gap-2 sm:gap-3">
         <NotificationBell />
         <ProfileDropdown user={me ?? null} />

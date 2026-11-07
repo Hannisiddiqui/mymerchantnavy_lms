@@ -3,15 +3,19 @@
 namespace App\Filament\Resources\TestResource\Pages;
 
 use App\Enums\ImportMethod;
+use App\Filament\Pages\StudentPreview;
 use App\Filament\Resources\CourseResource;
 use App\Filament\Resources\TestResource;
 use App\Filament\Support\ImportActions;
 use App\Filament\Support\QuestionForm;
 use App\Models\Question;
 use App\Models\Subject;
+use App\Models\Test;
 use App\Services\Tests\QuestionService;
+use App\Services\Tests\TestBatchService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\Select;
+use Filament\Forms\Components\TextInput;
 use Filament\Notifications\Notification;
 use Filament\Resources\Pages\Concerns\InteractsWithRecord;
 use Filament\Resources\Pages\Page;
@@ -108,7 +112,16 @@ class ManageQuestions extends Page
 
     protected function getHeaderActions(): array
     {
+        $test = $this->getRecord();
+        $isPractice = $test->kind === \App\Enums\TestKind::Practice;
+
         return [
+            Action::make('previewCourse')
+                ->label('Preview in course (as student)')
+                ->icon('heroicon-o-eye')
+                ->color('info')
+                ->action(fn () => app(StudentPreview::class)->open($this->getRecord()->course_id)),
+
             Action::make('newQuestion')->label('Write a new question')->icon('heroicon-m-plus')
                 ->slideOver()->modalWidth('4xl')->modalHeading('New question')->modalSubmitActionLabel('Save and add to test')
                 ->schema(QuestionForm::schema())
@@ -116,10 +129,76 @@ class ManageQuestions extends Page
                     $question = app(QuestionService::class)->save($data);
                     $this->attach([$question->id]);
                 }),
+
             // PDF / Excel → a review list first; the approved questions come back to THIS test
             ImportActions::import($this->getRecord()),
             ImportActions::import($this->getRecord(), ImportMethod::PdfAi),
             ImportActions::template(),
+
+            ...($isPractice ? [
+                Action::make('divideTest')
+                    ->label('Divide into parts')
+                    ->icon('heroicon-o-scissors')
+                    ->color('gray')
+                    ->modalHeading("Divide “{$test->title}” into Parts")
+                    ->modalDescription('Split questions into parts with zero duplicate questions.')
+                    ->modalSubmitActionLabel('Divide')
+                    ->modalWidth('lg')
+                    ->schema([
+                        TextInput::make('batch_size')
+                            ->label('Questions per part / batch')
+                            ->numeric()
+                            ->minValue(1)
+                            ->default(50)
+                            ->required()
+                            ->helperText(fn () => "Total {$this->getRecord()->questions()->count()} questions currently in this test."),
+                    ])
+                    ->action(function (array $data) {
+                        try {
+                            $res = app(TestBatchService::class)->splitIntoParts($this->getRecord(), (int) $data['batch_size']);
+                            Notification::make()
+                                ->title("Divided into {$res['parts_created']} parts")
+                                ->body("Part 1 now has {$res['parts'][0]['questions_count']} questions. New parts have been created.")
+                                ->success()
+                                ->send();
+                            $this->redirect(TestResource::getUrl('questions', ['record' => $this->getRecord()]));
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('Could not divide test')->body($e->getMessage())->danger()->send();
+                        }
+                    }),
+
+                Action::make('mergeTest')
+                    ->label('Merge tests')
+                    ->icon('heroicon-o-arrows-pointing-in')
+                    ->color('gray')
+                    ->modalHeading("Merge Another Test into “{$test->title}”")
+                    ->modalDescription('All questions from the selected test will be appended in order. Any duplicates are filtered out.')
+                    ->modalSubmitActionLabel('Merge into this test')
+                    ->modalWidth('lg')
+                    ->schema([
+                        Select::make('source_test_id')
+                            ->label('Practice test to merge into this one')
+                            ->options(fn () => app(TestBatchService::class)->getMergeableTests($this->getRecord()))
+                            ->searchable()
+                            ->preload()
+                            ->required(),
+                    ])
+                    ->action(function (array $data) {
+                        $source = Test::findOrFail($data['source_test_id']);
+                        try {
+                            $res = app(TestBatchService::class)->mergeTests($this->getRecord(), $source);
+                            Notification::make()
+                                ->title('Merged successfully')
+                                ->body("Added {$res['added_count']} unique questions. Total now: {$res['total_questions']} questions.")
+                                ->success()
+                                ->send();
+                            $this->redirect(TestResource::getUrl('questions', ['record' => $this->getRecord()]));
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('Could not merge tests')->body($e->getMessage())->danger()->send();
+                        }
+                    }),
+            ] : []),
+
             Action::make('settings')->label('Test settings')->icon('heroicon-m-cog-6-tooth')->color('gray')
                 ->url(fn () => TestResource::getUrl('edit', ['record' => $this->getRecord()])),
             // When the questions are done the admin goes straight back to the course outline.

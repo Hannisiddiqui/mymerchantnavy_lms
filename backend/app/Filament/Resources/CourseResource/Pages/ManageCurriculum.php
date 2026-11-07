@@ -4,6 +4,7 @@ namespace App\Filament\Resources\CourseResource\Pages;
 
 use App\Enums\ContentType;
 use App\Enums\TestKind;
+use App\Filament\Pages\StudentPreview;
 use App\Filament\Resources\CourseResource;
 use App\Filament\Support\ContentForm;
 use App\Models\Chapter;
@@ -14,6 +15,7 @@ use App\Models\Test;
 use App\Services\Courses\CourseOutline;
 use App\Services\Courses\GoogleDriveFolderScanner;
 use App\Services\Courses\RemotePdfDownloader;
+use App\Services\Tests\TestBatchService;
 use Filament\Actions\Action;
 use Filament\Forms\Components\CheckboxList;
 use Filament\Forms\Components\Select;
@@ -87,6 +89,11 @@ class ManageCurriculum extends Page
     protected function getHeaderActions(): array
     {
         return [
+            Action::make('preview')
+                ->label('View as student')
+                ->icon('heroicon-o-eye')
+                ->color('primary')
+                ->action(fn () => app(StudentPreview::class)->open($this->getRecord()->id)),
             Action::make('details')->label('Course details')->icon('heroicon-o-pencil-square')->color('gray')
                 ->url(fn () => CourseResource::getUrl('edit', ['record' => $this->getRecord()])),
             Action::make('students')->label('Students')->icon('heroicon-o-user-group')->color('gray')
@@ -98,6 +105,8 @@ class ManageCurriculum extends Page
     {
         return [
             $this->contentAction(),
+            $this->divideTestAction(),
+            $this->mergeTestAction(),
             $this->bulkDriveImportAction(),
             $this->importChapterFolderAction(),
             $this->importSubjectFolderAction(),
@@ -123,7 +132,7 @@ class ManageCurriculum extends Page
             ->slideOver()->modalWidth('3xl')
             ->modalHeading(fn (array $arguments) => (isset($arguments['id']) ? 'Edit ' : 'Add ').(isset($arguments['type']) ? strtolower(ContentType::tryFrom($arguments['type'])?->label() ?? 'content') : 'content'))
             ->modalSubmitActionLabel(fn (array $arguments) => isset($arguments['id']) ? 'Save changes' : 'Add to chapter')
-            ->schema(fn (array $arguments) => isset($arguments['type']) && ContentType::tryFrom($arguments['type']) ? ContentForm::schema(ContentType::from($arguments['type']), $this->getRecord()->id) : [])
+            ->schema(fn (array $arguments) => isset($arguments['type']) && ContentType::tryFrom($arguments['type']) ? ContentForm::schema(ContentType::from($arguments['type']), $this->getRecord()->id, $arguments['id'] ?? null) : [])
             // Editing: fill with the saved values. Adding: fill() with no data so field defaults apply.
             ->mountUsing(fn (Schema $schema, array $arguments) => $schema->fill(
                 isset($arguments['id']) ? $this->outline()->contentData($this->findContent($arguments['id'])) : null,
@@ -138,7 +147,152 @@ class ManageCurriculum extends Page
                 }
                 $this->outline()->saveContent($chapter, ContentType::from($arguments['type']), $data, $existing);
 
+                // Handle dividing questions into parts if selected
+                if ($arguments['type'] === ContentType::PracticeTest->value && ! empty($data['divide_into_batches']) && ! empty($data['batch_size'])) {
+                    $test = Test::find($data['test_id']);
+                    if ($test) {
+                        try {
+                            $res = app(TestBatchService::class)->splitIntoParts($test, (int) $data['batch_size'], $chapter);
+                            Notification::make()
+                                ->title("Divided test into {$res['parts_created']} parts")
+                                ->body("{$res['total_questions']} questions partitioned into {$res['parts_created']} parts of up to {$data['batch_size']} questions with zero duplicates.")
+                                ->success()
+                                ->send();
+
+                            return;
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('Could not divide test into parts')->body($e->getMessage())->danger()->send();
+                        }
+                    }
+                }
+
+                // Handle merging with another test if selected
+                if ($arguments['type'] === ContentType::PracticeTest->value && ! empty($data['merge_with_test']) && ! empty($data['merge_source_test_id'])) {
+                    $test = Test::find($data['test_id']);
+                    $source = Test::find($data['merge_source_test_id']);
+                    if ($test && $source) {
+                        try {
+                            $res = app(TestBatchService::class)->mergeTests($test, $source, $chapter);
+                            Notification::make()
+                                ->title("Merged tests successfully")
+                                ->body("Added {$res['added_count']} questions into '{$res['target_title']}' (skipped {$res['skipped_duplicates']} duplicates). Total: {$res['total_questions']} questions.")
+                                ->success()
+                                ->send();
+
+                            return;
+                        } catch (\Throwable $e) {
+                            Notification::make()->title('Could not merge tests')->body($e->getMessage())->danger()->send();
+                        }
+                    }
+                }
+
                 Notification::make()->title($existing ? 'Saved' : 'Added to “'.$chapter->title.'”')->success()->send();
+            });
+    }
+
+    /** Divide a practice test into parts/batches (e.g. 100 questions into 50 + 50). arguments: id (ChapterContent id) */
+    public function divideTestAction(): Action
+    {
+        return Action::make('divideTest')
+            ->modalHeading(function (array $arguments) {
+                $content = isset($arguments['id']) ? $this->findContent($arguments['id']) : null;
+
+                return $content ? "Divide “{$content->title}” into Parts" : 'Divide Practice Test into Parts';
+            })
+            ->modalDescription('Split questions into consecutive parts (e.g. 50 questions per part = Part 1 & Part 2). Questions are cleanly partitioned with 0 duplicates.')
+            ->modalSubmitActionLabel('Divide into Parts')
+            ->modalWidth('lg')
+            ->schema([
+                TextInput::make('batch_size')
+                    ->label('Number of questions per part')
+                    ->numeric()
+                    ->minValue(1)
+                    ->default(50)
+                    ->required()
+                    ->helperText(function (array $arguments) {
+                        $content = isset($arguments['id']) ? $this->findContent($arguments['id']) : null;
+                        $test = $content?->contentable;
+                        if ($test instanceof Test) {
+                            $count = $test->questions()->count();
+
+                            return "This test currently has {$count} questions. For example, entering 50 will create ".(int) ceil($count / 50).' parts.';
+                        }
+
+                        return 'e.g. 50';
+                    }),
+            ])
+            ->action(function (array $data, array $arguments) {
+                $content = $this->findContent($arguments['id']);
+                $test = $content->contentable;
+                if (! $test instanceof Test) {
+                    throw new \Exception('Content is not a practice test.');
+                }
+
+                try {
+                    $res = app(TestBatchService::class)->splitIntoParts($test, (int) $data['batch_size'], $content->chapter);
+                    Notification::make()
+                        ->title("Successfully divided into {$res['parts_created']} parts")
+                        ->body("Total {$res['total_questions']} questions distributed into {$res['parts_created']} parts without duplicates.")
+                        ->success()
+                        ->send();
+                } catch (\Throwable $e) {
+                    Notification::make()->title('Error dividing test')->body($e->getMessage())->danger()->send();
+                }
+            });
+    }
+
+    /** Merge another practice test into this one. arguments: id (ChapterContent id) */
+    public function mergeTestAction(): Action
+    {
+        return Action::make('mergeTest')
+            ->modalHeading(function (array $arguments) {
+                $content = isset($arguments['id']) ? $this->findContent($arguments['id']) : null;
+
+                return $content ? "Merge another Practice Test into “{$content->title}”" : 'Merge Practice Tests';
+            })
+            ->modalDescription('All unique questions from the selected practice test will be appended to this test in order. The other test is safely removed from the chapter.')
+            ->modalSubmitActionLabel('Merge Tests')
+            ->modalWidth('lg')
+            ->schema([
+                Select::make('source_test_id')
+                    ->label('Select practice test to merge into this one')
+                    ->placeholder('Choose practice test')
+                    ->options(function (array $arguments) {
+                        $content = isset($arguments['id']) ? $this->findContent($arguments['id']) : null;
+                        $currentTestId = $content?->contentable_id;
+
+                        return Test::where('course_id', $this->getRecord()->id)
+                            ->where('kind', TestKind::Practice)
+                            ->when($currentTestId, fn ($q) => $q->where('id', '!=', $currentTestId))
+                            ->withCount('questions')
+                            ->orderBy('title')
+                            ->get()
+                            ->mapWithKeys(fn (Test $t) => [$t->id => "{$t->title} ({$t->questions_count} questions)"])
+                            ->toArray();
+                    })
+                    ->searchable()
+                    ->preload()
+                    ->required(),
+            ])
+            ->action(function (array $data, array $arguments) {
+                $content = $this->findContent($arguments['id']);
+                $targetTest = $content->contentable;
+                $sourceTest = Test::findOrFail($data['source_test_id']);
+
+                if (! $targetTest instanceof Test) {
+                    throw new \Exception('Target content is not a practice test.');
+                }
+
+                try {
+                    $res = app(TestBatchService::class)->mergeTests($targetTest, $sourceTest, $content->chapter);
+                    Notification::make()
+                        ->title('Successfully merged tests')
+                        ->body("Added {$res['added_count']} questions into '{$res['target_title']}' (skipped {$res['skipped_duplicates']} duplicates). Total questions: {$res['total_questions']}.")
+                        ->success()
+                        ->send();
+                } catch (\Throwable $e) {
+                    Notification::make()->title('Error merging tests')->body($e->getMessage())->danger()->send();
+                }
             });
     }
 

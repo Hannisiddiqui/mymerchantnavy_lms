@@ -20,6 +20,7 @@ class StudentResource extends JsonResource
             'targetExam' => $this->target_exam ?? '',
             'attemptYear' => $this->attempt_year ?? 0,
             'profileCompleted' => $this->profile_completed_at !== null && filled($this->name),
+            'isPreview' => (bool) ($this->is_preview || str_contains($this->email ?? '', '@preview.')),
         ];
     }
 }
