@@ -124,9 +124,9 @@ class TestBatchService
                     'kind'             => TestKind::Practice,
                     'title'            => $partTitle,
                     'duration_minutes' => $duration,
-                    'marks_correct'    => $test->marks_correct,
-                    'marks_wrong'      => $test->marks_wrong,
-                    'is_published'     => $test->is_published,
+                    'marks_correct'    => $test->marks_correct ?? 2.00,
+                    'marks_wrong'      => $test->marks_wrong ?? 0.25,
+                    'is_published'     => (bool) $test->is_published,
                 ]);
 
                 // Attach questions to new test in order
