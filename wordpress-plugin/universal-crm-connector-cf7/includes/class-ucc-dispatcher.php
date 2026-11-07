@@ -570,6 +570,8 @@ class UCC_Dispatcher
             'x_pcm_percentage'  => $pcm,
             'x_course'          => $course,
             'x_submission_date' => $submission_date_val,
+            'x_status'          => 'new',
+            'x_sub_status'      => 'fresh',
             'description'       => $description,
         ];
         if (! empty($payload['created-date'])) {
