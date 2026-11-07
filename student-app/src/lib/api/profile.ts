@@ -24,9 +24,9 @@ export async function getMe(): Promise<Student> {
 }
 
 /** With email login the server ignores `email` (the verified login) and keeps `phone` as an optional extra. */
-export type ProfileInput = Partial<Pick<Student, "name" | "nickname" | "email" | "phone" | "targetExam" | "attemptYear">>;
+export type ProfileInput = Pick<Student, "name" | "nickname" | "email" | "phone" | "targetExam" | "attemptYear">;
 
-export async function updateMe(input: ProfileInput): Promise<Student> {
+export async function updateMe(input: Partial<ProfileInput>): Promise<Student> {
   if (USE_MOCK) {
     await mockDelay(400);
     const next = writeState((s) => ({
