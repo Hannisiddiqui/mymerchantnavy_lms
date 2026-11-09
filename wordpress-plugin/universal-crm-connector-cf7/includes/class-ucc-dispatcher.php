@@ -572,6 +572,7 @@ class UCC_Dispatcher
             'x_submission_date' => $submission_date_val,
             'x_status'          => 'new',
             'x_sub_status'      => 'fresh',
+            'x_status_category_id' => 2,
             'description'       => $description,
         ];
         if (! empty($payload['created-date'])) {
